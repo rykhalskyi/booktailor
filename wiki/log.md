@@ -1,1 +1,13 @@
 ## [2026-10-22] init | Wiki created
+## [2026-10-22] update | BookTailor epic created
+## [2026-10-22] spec | BookTailor MVP specification
+## [2026-10-22] plan | BookTailor MVP delivery plan
+## [2026-10-22] ticket | T0 — Foundation and de-risking
+## [2026-10-22] ticket | T1 — Core domain and storage
+## [2026-10-22] ticket | T2 — Main UI
+## [2026-10-22] ticket | T3 — Structures and numbering
+## [2026-10-22] ticket | T4 — Editing, versions, and tags
+## [2026-10-22] ticket | T5 — Markdown composition
+## [2026-10-22] ticket | T6 — AI assistant
+## [2026-10-22] ticket | T7 — Images, settings, and release
+## [2026-10-22] decision | Recorded D-01 through D-12 for the BookTailor MVP

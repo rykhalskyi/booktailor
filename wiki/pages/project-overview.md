@@ -69,3 +69,9 @@ package.json              Frontend dependencies + build/lint scripts
   injected there, so the Vue app is not a standalone SPA.
 - **App ID is a constant** — `Application::APP_ID` (`booktailor`) is reused for asset
   loading, navigation, and test bootstrap.
+
+## Related documentation
+
+- [BookTailor epic](epics/booktailor.md) — product vision, glossary, and scope.
+- [MVP specification](specs/booktailor-mvp.md) — requirements, domain model, and API.
+- [Delivery plan](plans/booktailor-mvp.md) — phased implementation and tickets.

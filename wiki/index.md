@@ -5,3 +5,22 @@
 ## Overview
 - [project-overview](pages/project-overview.md) — Nextcloud app that turns a set of Markdown files into one organized, AI-assisted document.
 - [build-deploy](pages/build-deploy.md) — Frontend build, PHP/JS linting, unit tests, static analysis, and deployment notes.
+
+## Epics
+- [epics/booktailor](pages/epics/booktailor.md) — BookTailor epic — organize Markdown books, chapters, assets, structures, compositions, and AI-assisted authoring in Nextcloud.
+
+## Specs
+- [specs/booktailor-mvp](pages/specs/booktailor-mvp.md) — Requirements, domain model, storage, API, and non-functional rules for the BookTailor MVP.
+
+## Plans
+- [plans/booktailor-mvp](pages/plans/booktailor-mvp.md) — Eight-phase delivery plan for BookTailor, from architecture spikes to a packaged Nextcloud release.
+
+## Tickets
+- [tickets/phase-0-foundation](pages/tickets/phase-0-foundation.md) — Resolve architecture, schema, storage, versioning, editor, job, and AI unknowns before product code.
+- [tickets/phase-1-core-domain](pages/tickets/phase-1-core-domain.md) — Implement the book, chapter, asset, tag-assignment, storage, and version-metadata backend.
+- [tickets/phase-2-main-ui](pages/tickets/phase-2-main-ui.md) — Build the main chapter-tree and asset-management UI on top of the core API.
+- [tickets/phase-3-structures-numbering](pages/tickets/phase-3-structures-numbering.md) — Add custom structures with independent chapter inclusion, sibling ordering, draft move rules, and numbering.
+- [tickets/phase-4-editing-versions-tags](pages/tickets/phase-4-editing-versions-tags.md) — Integrate the editor, surface version history with check-in messages, and implement tag management.
+- [tickets/phase-5-composition](pages/tickets/phase-5-composition.md) — Build asynchronous Markdown composition driven by tag rules, with output management and a compose-service contract.
+- [tickets/phase-6-ai-assistant](pages/tickets/phase-6-ai-assistant.md) — Add a Langfuse-backed, BYOK AI assistant that reads the book and proposes changes for user confirmation.
+- [tickets/phase-7-images-settings-release](pages/tickets/phase-7-images-settings-release.md) — Finish image management, settings, accessibility, end-to-end tests, and release packaging.
