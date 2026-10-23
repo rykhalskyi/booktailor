@@ -1,6 +1,69 @@
 # Book Tailor
 
-A template to get started with Nextcloud app development.
+AI-driven organizer of Markdown files. Automate learning material creation flow.
+
+## Development setup (nextcloud-docker-dev)
+
+This project is developed against the [nextcloud-docker-dev](https://github.com/nextcloud/nextcloud-docker-dev)
+environment. The following steps assume you have a running instance in `/home/admin/Source/nextcloud-docker-dev`.
+
+### 1. Bind the project folder to the container
+
+The `docker-compose.override.yml` in the nextcloud-docker-dev directory is merged automatically with
+`docker-compose.yml`. Create it (or extend it) to bind the project folder into the container's `apps-extra`
+directory, so the app lives at `/var/www/html/apps-extra/booktailor`:
+
+```yaml
+# /home/admin/Source/nextcloud-docker-dev/docker-compose.override.yml
+services:
+  nextcloud:
+    volumes:
+      - /home/admin/Source/booktailor:/var/www/html/apps-extra/booktailor
+```
+
+Afterwards apply the change and start the container:
+
+```bash
+cd /home/admin/Source/nextcloud-docker-dev
+docker compose up -d nextcloud
+```
+
+### 2. Add and enable the app in Nextcloud
+
+The app is then picked up automatically from the `apps-extra` directory. To enable it either use `occ`:
+
+```bash
+cd /home/admin/Source/nextcloud-docker-dev
+./scripts/occ.sh app:enable booktailor
+# or directly:
+docker compose exec --user www-data nextcloud ./occ app:enable booktailor
+```
+
+The dev server currently runs Nextcloud 35 (beta), while `appinfo/info.xml` declares support for 31–34.
+For local testing enable the app with `--force`:
+
+```bash
+docker exec -u www-data master-nextcloud-1 php occ app:enable --force booktailor
+```
+
+The app is then available at [http://nextcloud.local/index.php/apps/booktailor/](http://nextcloud.local/index.php/apps/booktailor/)
+(user `admin`, password `admin`).
+
+### 3. Build the frontend after changes
+
+The frontend is compiled with Vite into the `js/` and `css/` directories. After modifying `src/`, rebuild the assets:
+
+```bash
+cd /home/admin/Source/booktailor
+npm install        # only needed once / after dependency changes
+npm run build
+```
+
+Because the project folder is bind-mounted, the freshly built assets are instantly available inside the container.
+For development use `npm run watch` to rebuild automatically on every change, then reload the app page (disable
+the HTTP cache in your browser or press `Ctrl+Shift+R`).
+
+PHP changes under `lib/`, `templates/` and `appinfo/` do not need a build step - just reload the page.
 
 ## Usage
 

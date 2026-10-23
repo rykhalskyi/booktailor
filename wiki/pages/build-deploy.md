@@ -61,18 +61,36 @@ environment with the app mounted.
 
 ### Using a Nextcloud Docker dev stack
 
+The local environment is `~/Source/nextcloud-docker-dev`. Bind the app into
+`apps-extra` by adding an entry to its `docker-compose.override.yml` (the file is
+merged automatically):
+
+```yaml
+services:
+  nextcloud:
+    volumes:
+      - /home/admin/Source/booktailor:/var/www/html/apps-extra/booktailor
+```
+
+Recreate the container and enable the app:
+
+```bash
+cd ~/Source/nextcloud-docker-dev
+docker compose up -d nextcloud
+docker exec -u www-data master-nextcloud-1 php occ app:enable --force booktailor
+```
+
+`--force` is only needed because the dev stack tracks Nextcloud 35 beta while
+`appinfo/info.xml` declares 31–34. The app is then served at
+`http://nextcloud.local/index.php/apps/booktailor/` (user `admin`, password `admin`);
+assets are read live from the bind mount.
+
 If PHP is not installed on the host, run the PHP commands inside the Nextcloud app
 container, from the app directory (`/var/www/html/apps-extra/booktailor`), e.g.:
 
 ```bash
 docker exec master-nextcloud-1 bash -c \
   'cd /var/www/html/apps-extra/booktailor && composer run test:unit'
-```
-
-For `occ` commands use the web-server user:
-
-```bash
-docker exec -u www-data master-nextcloud-1 php occ app:enable booktailor
 ```
 
 ## Verify loop

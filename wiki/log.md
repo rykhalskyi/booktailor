@@ -11,3 +11,4 @@
 ## [2026-10-22] ticket | T6 — AI assistant
 ## [2026-10-22] ticket | T7 — Images, settings, and release
 ## [2026-10-22] decision | Recorded D-01 through D-12 for the BookTailor MVP
+## [2026-10-23] update | Local Nextcloud dev setup: bind mount, vite entry fix, NC35 --force note
