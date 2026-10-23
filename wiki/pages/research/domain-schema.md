@@ -24,7 +24,7 @@ in [decisions.md](../../decisions.md).
 | **Effective parent** | The nearest included ancestor of a chapter in a structure; if none, the chapter renders at the top level. Derived at read time (D-17). |
 | **Asset** | A Markdown file inside a chapter; the content source of truth remains the Nextcloud file. |
 | **Tag** | A free-form label owned by a book, used to classify assets and to drive composition rules. Per-book scope (D-15). |
-| **Version ref** | A Nextcloud-native version identifier for an asset file. Sidecar messages are keyed by `(asset, version_ref)`. |
+| **Version ref** | A Nextcloud-native version identifier for an asset file (the revision timestamp). Check-in messages are stored as native version metadata (D-19). |
 | **Composition** | An asynchronous generation of one Markdown document from a structure, using tag rules. |
 | **Composition rule** | An ordered tag-based selection rule belonging to one composition. Exact precedence is frozen in T5. |
 | **AI action** | A proposed or applied AI mutation, recorded for audit and confirmation. |
@@ -45,7 +45,6 @@ erDiagram
     chapters ||--o{ structure_chapters : included_in
     assets ||--o{ asset_tags : tagged
     tags ||--o{ asset_tags : applied_to
-    assets ||--o{ asset_version_metadata : versions
     compositions ||--o{ composition_rules : uses
     tags ||--o{ composition_rules : matched_by
 ```
@@ -143,18 +142,19 @@ Unique `(book_id, slug)`. Renaming changes `name`; rules and assignments referen
 
 `asset_id`, `tag_id` — composite PK, both FKs `ON DELETE CASCADE`; index on `tag_id`.
 
-### `asset_version_metadata`
+### Versions (no app table)
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | BIGINT PK | |
-| `asset_id` | BIGINT FK → assets | `ON DELETE CASCADE` |
-| `version_ref` | VARCHAR(255) | native version identifier; format confirmed by the T0 version spike |
-| `message` | TEXT NULL | optional check-in message |
-| `author_id` | VARCHAR(64) | Nextcloud uid that saved |
-| `created_at` | DATETIME | |
+Versions are owned by the shipped `files_versions` app. The revision identifier is the
+native revision timestamp; `author` and the BookTailor check-in message are stored in
+the native per-version metadata (D-19, supersedes the sidecar part of D-05). The app
+does not create a version table.
 
-Unique `(asset_id, version_ref)`.
+- List: `IVersionManager::getVersionsForFile($user, $file)`; returned order is
+  oldest→newest, so the app sorts descending for history.
+- Message write: `getBackendForStorage()` → `IMetadataVersionBackend::setMetadataValue()`
+  with keys `booktailor_message` (and `booktailor_author` when no session author is
+  set). This path works on Nextcloud 31–35.
+- Restore: `IVersionManager::rollback($version)`.
 
 ### `compositions`
 
@@ -224,6 +224,8 @@ Invariants enforced on write:
   chapter, including newly created ones.
 - Deleting a chapter removes all its structure entries and descendants.
 - Deleting a tag cascades to `asset_tags` and `composition_rules`.
+- Version messages live in native version metadata and expire with the version; the app
+  never keeps a parallel version table.
 
 ## Visible-folder layout
 
@@ -292,9 +294,9 @@ than silently recreated. Reconciliation details are implemented in T1/T4.
 
 The schema and storage rules above resolve the T0 decision items. File
 CRUD/move/delete and visible-folder behavior are verified in the
-[file-operations spike](spike-file-operations.md). Still open:
+[file-operations spike](spike-file-operations.md); native versions and check-in
+messages are verified in the [versions spike](spike-versions.md). Still open:
 
-- Native version identifiers and sidecar reconciliation.
 - Editor launch/save flow (Euro Office vs Markdown editor).
 - Background-job execution for composition.
 - Langfuse and BYOK feasibility.

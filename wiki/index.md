@@ -28,3 +28,4 @@
 ## Research
 - [research/domain-schema](pages/research/domain-schema.md) — Domain glossary, conceptual schema, and visible-folder rules resolved in T0.
 - [research/spike-file-operations](pages/research/spike-file-operations.md) — File API spike — visible folders, stable IDs, collision and trash behavior on Nextcloud 35.
+- [research/spike-versions](pages/research/spike-versions.md) — Native version spike — listing, restoring, per-version metadata, and same-second collisions on Nextcloud 35.

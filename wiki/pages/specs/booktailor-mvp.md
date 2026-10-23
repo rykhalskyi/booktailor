@@ -103,10 +103,12 @@ authoring and Markdown-composition product described here.
 
 - Use Nextcloud native file versions for snapshots.
 - On save, the user may provide an optional check-in message.
-- Store check-in messages in a sidecar table keyed by asset and version identifier.
-- Show a history list with timestamp, author, and check-in message.
-- Restore a previous version; restoration follows Nextcloud's native behavior and
-  creates a new current version.
+- Store check-in messages and author in native Nextcloud version metadata (D-19); no
+  app-side version table.
+- Show a history list sorted newest first, with timestamp, author, and check-in
+  message.
+- Restore a previous version; restoration follows Nextcloud's native behavior and makes
+  the restored content current.
 - Version history is available from the chapter menu and the editor flow.
 
 ### Editing
@@ -215,7 +217,6 @@ structure_chapters(structure_id, chapter_id, included, position)
 assets(id, chapter_id, name, file_name, file_id, created_at, updated_at)
 tags(id, book_id, name, slug)
 asset_tags(asset_id, tag_id)
-asset_version_metadata(id, asset_id, version_ref, message, author_id, created_at)
 compositions(id, book_id, structure_id, structure_name, status, output_file_id, output_path, error, created_at, completed_at)
 composition_rules(id, composition_id, tag_id, priority, fallback)
 ai_action_log(id, user_id, book_id, action, payload, status, created_at)
@@ -301,7 +302,7 @@ The full decision record is in [decisions.md](../../decisions.md). Key decisions
 - `D-02` — Multiple books per user; no sharing in the MVP.
 - `D-03` — Assets live in a visible dedicated Nextcloud folder.
 - `D-04` — **Asset** is the umbrella term for Markdown files inside a chapter.
-- `D-05` — Native Nextcloud versions plus sidecar check-in messages.
+- `D-05` — Native Nextcloud versions (sidecar messages superseded by D-19).
 - `D-06` — Markdown composition first; DOCX later.
 - `D-07` — Only the draft chapter-move rules in the MVP.
 - `D-08` — Structures include chapters independently.
@@ -315,6 +316,7 @@ The full decision record is in [decisions.md](../../decisions.md). Key decisions
 - `D-16` — Images live in a chapter-level `images/` folder with relative references.
 - `D-17` — Effective parents are derived; structure entries store inclusion and order.
 - `D-18` — Deletion uses native Nextcloud trash; app metadata cascades.
+- `D-19` — Check-in messages and author use native version metadata, not a sidecar table.
 
 ## Assumptions and open questions
 
@@ -324,6 +326,7 @@ Resolved in T0 (see [domain-schema](../research/domain-schema.md)):
 - Tags are scoped per book.
 - The visible-folder layout and rename/move behavior follow D-13/D-18.
 - Images use a chapter-level `images/` folder.
+- Versions and check-in messages use native `files_versions` metadata.
 
 Still open:
 

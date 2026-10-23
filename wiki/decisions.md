@@ -19,3 +19,4 @@ Append-only decision record. The "why" lives here; the full change history lives
 - [2026-10-23] D-16 — Images live in a chapter-level images/ subfolder and are referenced by relative paths — because assets in a chapter share images and composition resolves them uniformly
 - [2026-10-23] D-17 — Structure entries store inclusion and per-structure sibling position; effective parents are derived at read time — because storing derived parentage would drift from the canonical tree
 - [2026-10-23] D-18 — Deleting chapters and assets moves files to native Nextcloud trash while app metadata cascades — because native trash is the expected recovery path
+- [2026-10-23] D-19 — Store check-in messages in native files_versions metadata instead of an asset_version_metadata sidecar table — because Nextcloud 31+ exposes per-version metadata including author, removing duplicate state and drift (supersedes the sidecar part of D-05)

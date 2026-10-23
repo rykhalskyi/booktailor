@@ -91,9 +91,13 @@ Done:
   [Spike — Nextcloud file operations](../research/spike-file-operations.md):
   stable file IDs, idempotent create calls, stale-node behavior, native trash, and DAV
   visibility verified.
+- Version spike is complete and documented in
+  [Spike — Native versions and check-in messages](../research/spike-versions.md):
+  listing, rollback, native author, and custom version metadata verified; D-19 drops
+  the sidecar table.
 
 Remaining:
 
-- Version, editor, background-job, and Langfuse/BYOK spikes.
+- Editor, background-job, and Langfuse/BYOK spikes.
 - OpenAPI draft and test-harness verification.
 - Compose-job contract.
