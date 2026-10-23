@@ -13,3 +13,9 @@ Append-only decision record. The "why" lives here; the full change history lives
 - [2026-10-22] D-10 — AI tools propose changes and the user confirms them — because structural writes must remain intentional and auditable
 - [2026-10-22] D-11 — Define the compose contract now and build the separate service later — because the MVP can compose Markdown locally
 - [2026-10-22] D-12 — Build the core domain before structures, composition, and AI — because every later feature depends on books, chapters, and assets
+- [2026-10-23] D-13 — Visible folders mirror the canonical chapter tree and DB stores Nextcloud file IDs — because users browse in Files while stable file IDs survive renames and moves
+- [2026-10-23] D-14 — The draft's default chapter is interpreted as the default structure; there is no separate default chapter — because the draft conflated two concepts
+- [2026-10-23] D-15 — Tags are scoped per book in the MVP — because vocabularies should not leak between independent workspaces
+- [2026-10-23] D-16 — Images live in a chapter-level images/ subfolder and are referenced by relative paths — because assets in a chapter share images and composition resolves them uniformly
+- [2026-10-23] D-17 — Structure entries store inclusion and per-structure sibling position; effective parents are derived at read time — because storing derived parentage would drift from the canonical tree
+- [2026-10-23] D-18 — Deleting chapters and assets moves files to native Nextcloud trash while app metadata cascades — because native trash is the expected recovery path

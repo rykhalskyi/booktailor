@@ -24,3 +24,6 @@
 - [tickets/phase-5-composition](pages/tickets/phase-5-composition.md) — Build asynchronous Markdown composition driven by tag rules, with output management and a compose-service contract.
 - [tickets/phase-6-ai-assistant](pages/tickets/phase-6-ai-assistant.md) — Add a Langfuse-backed, BYOK AI assistant that reads the book and proposes changes for user confirmation.
 - [tickets/phase-7-images-settings-release](pages/tickets/phase-7-images-settings-release.md) — Finish image management, settings, accessibility, end-to-end tests, and release packaging.
+
+## Research
+- [research/domain-schema](pages/research/domain-schema.md) — Domain glossary, conceptual schema, and visible-folder rules resolved in T0.

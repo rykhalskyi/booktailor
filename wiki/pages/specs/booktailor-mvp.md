@@ -204,18 +204,19 @@ Main screen:
 
 ## Domain model (conceptual)
 
-Exact migrations and column names are finalized in T0/T1.
+The reviewed schema, glossary, invariants, and storage rules are in
+[domain-schema](../research/domain-schema.md). Summary:
 
 ```
-books(id, user_id, name, description, created_at, updated_at)
-chapters(id, book_id, parent_id, name, created_at, updated_at)
+books(id, user_id, name, description, root_file_id, created_at, updated_at)
+chapters(id, book_id, parent_id, name, file_id, created_at, updated_at)
 structures(id, book_id, name, is_default, created_at, updated_at)
-structure_chapters(structure_id, chapter_id, included, position, effective_parent_id)
-assets(id, chapter_id, name, file_path, created_at, updated_at)
+structure_chapters(structure_id, chapter_id, included, position)
+assets(id, chapter_id, name, file_name, file_id, created_at, updated_at)
 tags(id, book_id, name, slug)
 asset_tags(asset_id, tag_id)
 asset_version_metadata(id, asset_id, version_ref, message, author_id, created_at)
-compositions(id, book_id, structure_id, status, output_path, error, created_at, completed_at)
+compositions(id, book_id, structure_id, structure_name, status, output_file_id, output_path, error, created_at, completed_at)
 composition_rules(id, composition_id, tag_id, priority, fallback)
 ai_action_log(id, user_id, book_id, action, payload, status, created_at)
 ```
@@ -224,14 +225,15 @@ Notes:
 
 - The chapter hierarchy is global to the book; only ordering and inclusion are
   structure-specific.
-- `effective_parent_id` supports rendering an included child at the top level when its
-  parent is excluded.
-- `file_path` points to the Nextcloud file; the file remains the content source of
-  truth, the database stores metadata.
+- Effective parents are derived from inclusion at read time; they are not stored
+  (D-17).
+- `file_id` points to the Nextcloud file; the file remains the content source of
+  truth, the database stores metadata and stable file IDs.
 
-## Storage layout (proposed)
+## Storage layout
 
-Human-readable layout, subject to the T0 spike:
+The reviewed layout and rename/move rules are in
+[domain-schema](../research/domain-schema.md). Summary:
 
 ```
 /BookTailor/
@@ -239,13 +241,15 @@ Human-readable layout, subject to the T0 spike:
     <Chapter>/
       <asset>.md
       images/<image files>
+    <nested chapter>/
     compositions/
       <composition>.md
 ```
 
-- The folder is visible in the user's Nextcloud Files.
-- Renaming or moving a chapter may move its folder subtree; the T0 spike must confirm
-  whether to use a human-readable mirror or stable identifiers.
+- The folder tree mirrors the canonical chapter hierarchy and is visible in the user's
+  Nextcloud Files (D-13).
+- Structures never affect the on-disk layout.
+- Renaming or moving a chapter renames/moves its folder subtree; file IDs stay stable.
 - The app database is the metadata and ordering source of truth.
 - Composition outputs are written under the book's `compositions/` folder unless T5
   decides otherwise.
@@ -305,17 +309,28 @@ The full decision record is in [decisions.md](../../decisions.md). Key decisions
 - `D-10` — AI proposes changes; the user confirms them.
 - `D-11` — Compose contract now; separate service later.
 - `D-12` — Core domain first, then structures, composition, and AI.
+- `D-13` — Visible folders mirror the canonical chapter tree; file IDs are stable.
+- `D-14` — The default chapter is the default structure; no separate concept.
+- `D-15` — Tags are scoped per book in the MVP.
+- `D-16` — Images live in a chapter-level `images/` folder with relative references.
+- `D-17` — Effective parents are derived; structure entries store inclusion and order.
+- `D-18` — Deletion uses native Nextcloud trash; app metadata cascades.
 
 ## Assumptions and open questions
 
-- The draft's “default chapter” means the default structure; confirm in T0.
-- Tags are scoped per book; confirm whether they should be global per user.
-- The visible-folder layout and rename/move behavior are decided in T0.
+Resolved in T0 (see [domain-schema](../research/domain-schema.md)):
+
+- The default structure replaces the draft's “default chapter”.
+- Tags are scoped per book.
+- The visible-folder layout and rename/move behavior follow D-13/D-18.
+- Images use a chapter-level `images/` folder.
+
+Still open:
+
 - Composition rule precedence, fallback, and per-chapter overrides are decided in T5.
 - Euro Office integration details are confirmed in T0/T4.
 - Langfuse hosting, provider list, and key storage are decided in T6.
 - Composition output naming/location is decided in T5.
-- Image storage layout is decided in T1/T7.
 - Sharing and permissions are post-MVP.
 - AI-generated assets may need provenance metadata; decide in T6.
 

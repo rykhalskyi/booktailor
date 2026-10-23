@@ -1,7 +1,7 @@
 ---
 created: 2026-10-22
 type: ticket
-status: proposed
+status: in-progress
 summary: Resolve architecture, schema, storage, versioning, editor, job, and AI unknowns before product code.
 ---
 
@@ -78,4 +78,18 @@ Risks:
 
 ## Outcome
 
-Pending. Fill in spike results, decisions, and files created when the phase is done.
+In progress.
+
+Done:
+
+- Local Nextcloud dev setup is wired (app bind-mounted into `apps-extra`, Vite entry
+  fixed, build documented in [Build & Deploy](../build-deploy.md)).
+- Domain glossary, conceptual schema, invariants, and visible-folder rules are in
+  [Domain schema and storage layout](../research/domain-schema.md).
+- Decisions D-13 through D-18 recorded in [decisions.md](../../decisions.md).
+
+Remaining:
+
+- File, version, editor, background-job, and Langfuse/BYOK spikes.
+- OpenAPI draft and test-harness verification.
+- Compose-job contract.
