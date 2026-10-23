@@ -274,16 +274,26 @@ when the visible path changes.
 | Rename tag | none | update `name`/`slug` |
 | Delete tag | none | cascade assignments and composition rules |
 
+Create operations must check `nodeExists` first and de-duplicate names explicitly
+(` (2)`, ` (3)`, …). The Nextcloud `newFile()`/`newFolder()` APIs return the existing
+node when the path already exists instead of throwing, so a "create" can silently
+reuse an existing file or folder (spike result). For uploads, `putContent()` would then
+overwrite the existing file.
+
+After any rename or move of a folder, re-fetch child nodes by path or file ID before
+mutating them. A `Node` object captured before an ancestor move keeps its old path, and
+`delete()` on such a stale node silently does nothing without throwing (spike result).
+
 External changes made in Files are reconciled by file ID: if a file was moved, its path
 is refreshed on next access; if it is gone, the asset is reported as unavailable rather
 than silently recreated. Reconciliation details are implemented in T1/T4.
 
 ## Remaining T0 items
 
-The schema and storage rules above resolve the T0 decision items. Still open are the
-technical spikes and contracts:
+The schema and storage rules above resolve the T0 decision items. File
+CRUD/move/delete and visible-folder behavior are verified in the
+[file-operations spike](spike-file-operations.md). Still open:
 
-- Nextcloud file CRUD/move/delete and visible-folder behavior.
 - Native version identifiers and sidecar reconciliation.
 - Editor launch/save flow (Euro Office vs Markdown editor).
 - Background-job execution for composition.

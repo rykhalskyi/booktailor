@@ -87,9 +87,13 @@ Done:
 - Domain glossary, conceptual schema, invariants, and visible-folder rules are in
   [Domain schema and storage layout](../research/domain-schema.md).
 - Decisions D-13 through D-18 recorded in [decisions.md](../../decisions.md).
+- File-operations spike is complete and documented in
+  [Spike — Nextcloud file operations](../research/spike-file-operations.md):
+  stable file IDs, idempotent create calls, stale-node behavior, native trash, and DAV
+  visibility verified.
 
 Remaining:
 
-- File, version, editor, background-job, and Langfuse/BYOK spikes.
+- Version, editor, background-job, and Langfuse/BYOK spikes.
 - OpenAPI draft and test-harness verification.
 - Compose-job contract.
