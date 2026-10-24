@@ -10,8 +10,8 @@ import NcContent from '@nextcloud/vue/components/NcContent'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
-import AssetList from './components/AssetList.vue'
 import ChapterTree from './components/ChapterTree.vue'
+
 import DialogHost from './components/DialogHost.vue'
 import LibraryToolbar from './components/LibraryToolbar.vue'
 import { useLibrary } from './stores/useLibrary'
@@ -79,17 +79,20 @@ onMounted(() => {
 
 				<template v-else-if="selectedBook">
 					<LibraryToolbar />
-					<div class="library-layout">
-						<section class="library-pane library-pane--tree" aria-label="Chapters">
+					<section class="library-pane library-pane--tree" aria-label="Chapters">
+						<div class="pane-header">
 							<h2 class="pane-title">
 								Chapters
 							</h2>
-							<ChapterTree />
-						</section>
-						<section class="library-pane library-pane--assets" aria-label="Assets">
-							<AssetList />
-						</section>
-					</div>
+							<NcButton
+								variant="primary"
+								:disabled="loading.mutation"
+								@click="openDialog({ type: 'chapter-create', parentId: null })">
+								Add chapter
+							</NcButton>
+						</div>
+						<ChapterTree />
+					</section>
 				</template>
 			</div>
 		</NcAppContent>
@@ -122,17 +125,10 @@ onMounted(() => {
 	min-height: 240px;
 }
 
-.library-layout {
-	display: grid;
-	grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
-	gap: 16px;
-	flex: 1;
-	min-height: 0;
-}
-
 .library-pane {
 	display: flex;
 	flex-direction: column;
+	flex: 1;
 	min-height: 0;
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
@@ -140,10 +136,17 @@ onMounted(() => {
 	overflow: hidden;
 }
 
+.pane-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 8px 16px;
+	border-bottom: 1px solid var(--color-border);
+}
+
 .pane-title {
 	margin: 0;
-	padding: 14px 16px;
-	border-bottom: 1px solid var(--color-border);
 	font-size: 1rem;
 }
 
@@ -151,18 +154,9 @@ onMounted(() => {
 	flex: 1;
 }
 
-.library-pane--assets :deep(.asset-list) {
-	flex: 1;
-}
-
 @media (max-width: 900px) {
 	.library-app {
 		padding: 12px;
-	}
-
-	.library-layout {
-		grid-template-columns: minmax(0, 1fr);
-		grid-template-rows: minmax(180px, 40vh) minmax(240px, 1fr);
 	}
 }
 </style>

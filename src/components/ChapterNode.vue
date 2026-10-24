@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, inject, ref } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import NcActionButton from '@nextcloud/vue/components/NcActionButton'
 import NcActionSeparator from '@nextcloud/vue/components/NcActionSeparator'
 import NcActions from '@nextcloud/vue/components/NcActions'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
+import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import { mdiChevronDown, mdiChevronRight } from '../icons'
 import { useLibrary } from '../stores/useLibrary'
-import type { Chapter } from '../types'
+import type { Asset, Chapter } from '../types'
+import { assetFileUrl } from '../utils/files'
 import { treeFocusKey } from '../utils/treeFocus'
 
 defineOptions({ name: 'ChapterNode' })
@@ -17,8 +19,11 @@ const props = defineProps<{
 }>()
 
 const {
+	assetsByChapter,
 	expandedChapterIds,
 	loading,
+	loadingAssets,
+	loadAssets,
 	openDialog,
 	selectChapter,
 	selectedChapterId,
@@ -33,6 +38,19 @@ const hasChildren = computed(() => props.chapter.children.length > 0)
 const isExpanded = computed(() => expandedChapterIds.value[props.chapter.id] ?? props.depth === 0)
 const isSelected = computed(() => selectedChapterId.value === props.chapter.id)
 const tabIndex = computed(() => treeFocus === null || treeFocus.focusedChapterId.value === props.chapter.id ? 0 : -1)
+
+const chapterAssets = computed<Asset[]>(() => assetsByChapter.value[props.chapter.id] ?? [])
+const chapterAssetsLoading = computed<boolean>(() => loadingAssets.value[props.chapter.id] ?? false)
+
+watch(
+	() => props.chapter.id,
+	(chapterId) => {
+		if (assetsByChapter.value[chapterId] === undefined && !loadingAssets.value[chapterId]) {
+			void loadAssets(chapterId)
+		}
+	},
+	{ immediate: true }
+)
 
 function onNameFocus(): void {
 	treeFocus?.setFocusedChapter(props.chapter.id)
@@ -52,6 +70,17 @@ async function onFileChange(event: Event): Promise<void> {
 	input.value = ''
 	if (file) {
 		await uploadAsset(props.chapter.id, file)
+	}
+}
+
+function fileUrl(asset: Asset): string | null {
+	return assetFileUrl(asset.fileId)
+}
+
+function openAsset(asset: Asset): void {
+	const url = fileUrl(asset)
+	if (url !== null) {
+		window.open(url, '_blank', 'noopener')
 	}
 }
 </script>
@@ -91,6 +120,28 @@ async function onFileChange(event: Event): Promise<void> {
 				@click="selectChapter(chapter)">
 				{{ chapter.name }}
 			</button>
+			<div v-if="chapterAssets.length > 0" class="chapter-asset-chips" @click.stop>
+				<div
+					v-for="asset in chapterAssets"
+					:key="asset.id"
+					class="asset-chip"
+					:class="{ 'asset-chip--missing': !fileUrl(asset) }">
+					<button
+						type="button"
+						class="asset-chip-name"
+						:title="asset.fileName"
+						:disabled="!fileUrl(asset)"
+						@click="openAsset(asset)">
+						📄 {{ asset.fileName }}
+					</button>
+
+				</div>
+			</div>
+			<NcLoadingIcon
+				v-else-if="chapterAssetsLoading"
+				class="chapter-asset-chips-loading"
+				name="Loading assets"
+				:size="16" />
 			<div class="chapter-actions" @click.stop>
 				<NcActions :aria-label="`Actions for ${chapter.name}`" :force-menu="true">
 					<NcActionButton
@@ -206,5 +257,93 @@ async function onFileChange(event: Event): Promise<void> {
 
 .hidden-file-input {
 	display: none;
+}
+
+.chapter-asset-chips {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex-shrink: 0;
+	overflow: hidden;
+	max-width: 50%;
+}
+
+.chapter-asset-chips-loading {
+	flex-shrink: 0;
+}
+
+.asset-chip {
+	display: inline-flex;
+	align-items: center;
+	max-width: 180px;
+	border-radius: 12px;
+	background: var(--color-background-dark);
+	color: var(--color-main-text);
+	font-size: 0.75rem;
+	line-height: 1.6;
+	overflow: hidden;
+}
+
+.asset-chip:hover {
+	background: var(--color-primary-element-light);
+}
+
+.asset-chip-name {
+	display: inline-flex;
+	align-items: center;
+	padding: 1px 4px 1px 8px;
+	border: none;
+	background: transparent;
+	color: var(--color-main-text);
+	font-size: inherit;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	cursor: pointer;
+}
+
+.asset-chip-name:hover:not(:disabled) {
+	text-decoration: underline;
+}
+
+.asset-chip-name:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: 1px;
+}
+
+.asset-chip-delete {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	margin-inline-end: 2px;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9rem;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.asset-chip-delete:hover:not(:disabled) {
+	background: var(--color-error);
+	color: var(--color-main-background);
+}
+
+.asset-chip-delete:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: 1px;
+}
+
+.asset-chip--missing {
+	color: var(--color-text-maxcontrast);
+}
+
+.asset-chip--missing .asset-chip-name {
+	cursor: default;
+	color: var(--color-text-maxcontrast);
 }
 </style>
