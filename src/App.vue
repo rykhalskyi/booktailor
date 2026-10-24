@@ -38,6 +38,7 @@ onMounted(() => {
 		<NcAppNavigation aria-label="BookTailor books">
 			<NcAppNavigationNew
 				text="New book"
+				:disabled="loading.mutation"
 				@click="openDialog({ type: 'book-create' })" />
 			<NcAppNavigationList>
 				<NcAppNavigationItem

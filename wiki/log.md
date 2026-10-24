@@ -35,3 +35,5 @@
 ## [2026-10-24] update | T2 verification: lint, stylelint, tests, build, and headless Chromium smoke
 ## [2026-10-24] decision | Recorded D-31 through D-34 for T2 layout, state, dialogs, and the API client
 ## [2026-10-24] update | T2 smoke: subchapter, asset upload, confirmation deletes, and cascade verified headlessly
+## [2026-10-24] update | T2 review fixes: stale-response guards, per-chapter loading, router-based file links, single-submit dialogs, and mutation-time action blocking
+## [2026-10-24] update | T2 review fixes: ARIA tree semantics and arrow-key navigation; added vue-tsc typecheck and review tests

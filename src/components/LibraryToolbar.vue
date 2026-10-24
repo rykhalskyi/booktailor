@@ -4,7 +4,7 @@ import NcSelect from '@nextcloud/vue/components/NcSelect'
 import { useLibrary } from '../stores/useLibrary'
 import type { Structure } from '../types'
 
-const { openDialog, selectedStructure, selectStructure, structures } = useLibrary()
+const { loading, openDialog, selectedStructure, selectStructure, structures } = useLibrary()
 
 function onStructureChange(structure: Structure | null): void {
 	selectStructure(structure?.id ?? null)
@@ -26,6 +26,7 @@ function onStructureChange(structure: Structure | null): void {
 		</div>
 		<NcButton
 			variant="primary"
+			:disabled="loading.mutation"
 			@click="openDialog({ type: 'chapter-create', parentId: null })">
 			Add chapter
 		</NcButton>

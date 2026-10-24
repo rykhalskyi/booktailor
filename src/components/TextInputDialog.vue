@@ -55,8 +55,7 @@ function submit(): void {
 			<NcTextField
 				v-model="value"
 				:label="label"
-				autofocus
-				@keyup.enter="submit" />
+				autofocus />
 		</form>
 		<template #actions>
 			<NcButton variant="tertiary" :disabled="busy" @click="close">

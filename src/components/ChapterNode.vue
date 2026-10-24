@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import NcActionButton from '@nextcloud/vue/components/NcActionButton'
 import NcActionSeparator from '@nextcloud/vue/components/NcActionSeparator'
 import NcActions from '@nextcloud/vue/components/NcActions'
@@ -7,6 +7,7 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { mdiChevronDown, mdiChevronRight } from '../icons'
 import { useLibrary } from '../stores/useLibrary'
 import type { Chapter } from '../types'
+import { treeFocusKey } from '../utils/treeFocus'
 
 defineOptions({ name: 'ChapterNode' })
 
@@ -26,10 +27,16 @@ const {
 } = useLibrary()
 
 const fileInput = ref<HTMLInputElement | null>(null)
+const treeFocus = inject(treeFocusKey, null)
 
 const hasChildren = computed(() => props.chapter.children.length > 0)
 const isExpanded = computed(() => expandedChapterIds.value[props.chapter.id] ?? props.depth === 0)
 const isSelected = computed(() => selectedChapterId.value === props.chapter.id)
+const tabIndex = computed(() => treeFocus === null || treeFocus.focusedChapterId.value === props.chapter.id ? 0 : -1)
+
+function onNameFocus(): void {
+	treeFocus?.setFocusedChapter(props.chapter.id)
+}
 
 function toggle(): void {
 	toggleChapter(props.chapter.id, isExpanded.value)
@@ -50,7 +57,12 @@ async function onFileChange(event: Event): Promise<void> {
 </script>
 
 <template>
-	<li class="chapter-node">
+	<li
+		class="chapter-node"
+		role="treeitem"
+		:aria-level="depth + 1"
+		:aria-expanded="hasChildren ? isExpanded : undefined"
+		:aria-selected="isSelected">
 		<div
 			class="chapter-row"
 			:class="{ 'chapter-row--selected': isSelected }"
@@ -59,6 +71,7 @@ async function onFileChange(event: Event): Promise<void> {
 				v-if="hasChildren"
 				type="button"
 				class="chapter-chevron"
+				tabindex="-1"
 				:aria-label="isExpanded ? `Collapse ${chapter.name}` : `Expand ${chapter.name}`"
 				:aria-expanded="isExpanded"
 				@click.stop="toggle">
@@ -71,6 +84,10 @@ async function onFileChange(event: Event): Promise<void> {
 				type="button"
 				class="chapter-name"
 				:title="chapter.name"
+				:tabindex="tabIndex"
+				:data-chapter-id="chapter.id"
+				:data-depth="depth"
+				@focus="onNameFocus"
 				@click="selectChapter(chapter)">
 				{{ chapter.name }}
 			</button>
@@ -103,7 +120,7 @@ async function onFileChange(event: Event): Promise<void> {
 				</NcActions>
 			</div>
 		</div>
-		<ul v-if="hasChildren && isExpanded" class="chapter-children">
+		<ul v-if="hasChildren && isExpanded" class="chapter-children" role="group">
 			<ChapterNode
 				v-for="child in chapter.children"
 				:key="child.id"

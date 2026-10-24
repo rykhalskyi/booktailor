@@ -87,29 +87,31 @@ Delivered:
 - Module-level `useLibrary` composable for books, structures, the chapter tree, selection, per-chapter assets, expanded nodes, loading/error state, and a typed dialog state.
 - Book navigation with create-book flow and active book selection.
 - Structure selector using the default structure, with the T1 structure read endpoint.
-- Recursive chapter tree with chevrons, expand/collapse, selection, keyboard-focus styles, and empty/loading states.
+- Recursive chapter tree with chevrons, expand/collapse, selection, ARIA tree semantics, arrow-key navigation, and empty/loading states.
 - Chapter actions: add subchapter, new asset, upload file, rename, and delete with confirmation.
-- Asset panel for the selected chapter: filename, tag chips, open in editor via `/index.php/f/{fileId}`, new asset, upload, and delete with confirmation.
+- Asset panel for the selected chapter: filename, tag chips, open in editor via the webroot-aware `/f/{fileId}` route, new asset, upload, and delete with confirmation.
 - Central `DialogHost` for create/rename prompts and destructive confirmations; all deletes require a confirmation dialog.
 - Responsive two-pane layout that stacks on narrower screens.
-- Frontend tests for tree helpers, destructive confirmation guards, OCS envelope/error handling, and the App empty state: 4 files / 8 tests.
+- Frontend tests for tree helpers and keyboard behavior, destructive confirmation guards, OCS envelope/error handling, stale-response protection, per-chapter asset loading, dialog submit behavior, and file URL generation: 9 files / 20 tests.
 
 Deviations:
 
 - Assets render in a right-hand pane for the selected chapter rather than nested under every tree node. This keeps the tree compact and loads only the selected chapter's assets; the per-chapter list and refresh behavior still meet the acceptance criteria (D-31).
 - The structure selector is read-only in T2; custom structure writes are T3.
 - Chapter movement is not exposed in the UI; it remains deferred to T3.
-- Opening an asset uses Nextcloud's direct file route (`/index.php/f/{fileId}`); full editor integration and history are T4.
+- Opening an asset uses Nextcloud's direct file route (`/f/{fileId}`) generated through `@nextcloud/router`; full editor integration and history are T4.
 
 Verification:
 
 - `npm run lint`
 - `npm run stylelint`
-- `npm test` (4 files / 8 tests)
+- `npm run typecheck`
+- `npm test` (9 files / 20 tests)
 - `npm run build`
 - Headless Chromium smoke: create book → add root chapter → add subchapter → create asset → upload asset → delete both with confirmation → delete chapter with confirmation; no console or API errors.
 
 Main files: `src/App.vue`, `src/api/client.ts`, `src/stores/useLibrary.ts`,
 `src/components/ChapterTree.vue`, `ChapterNode.vue`, `AssetList.vue`,
 `LibraryToolbar.vue`, `DialogHost.vue`, `TextInputDialog.vue`, `ConfirmDialog.vue`,
-`src/utils/tree.ts`, `.eslintrc.cjs`, `tests/js/`.
+`src/utils/tree.ts`, `src/utils/files.ts`, `src/utils/treeFocus.ts`, `.eslintrc.cjs`,
+`tests/js/`.

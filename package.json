@@ -10,6 +10,8 @@
     "stylelint": "stylelint src/**/*.vue src/**/*.scss src/**/*.css",
     "test": "vitest run",
     "test:watch": "vitest",
+    "typecheck": "vue-tsc --noEmit",
+    "check": "npm run lint && npm run stylelint && npm run typecheck && npm test",
     "watch": "vite --mode development build --watch",
     "wiki": "node scripts/wiki.mjs"
   },
@@ -32,7 +34,8 @@
     "jsdom": "^30.1.3",
     "typescript": "^5.9.3",
     "vite": "^7.3.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "vue-tsc": "^3.3.13"
   },
   "engines": {
     "node": "^24.0.0",

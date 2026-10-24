@@ -7,8 +7,9 @@ import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import { useLibrary } from '../stores/useLibrary'
 import type { Asset } from '../types'
+import { assetFileUrl } from '../utils/files'
 
-const { loading, openDialog, selectedAssets, selectedChapter, uploadAsset } = useLibrary()
+const { loading, openDialog, selectedAssets, selectedAssetsLoading, selectedChapter, uploadAsset } = useLibrary()
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
@@ -29,7 +30,7 @@ async function onFileChange(event: Event): Promise<void> {
 }
 
 function fileUrl(asset: Asset): string | null {
-	return asset.fileId === null ? null : `/index.php/f/${asset.fileId}`
+	return assetFileUrl(asset.fileId)
 }
 
 function openAsset(asset: Asset): void {
@@ -63,7 +64,7 @@ function openAsset(asset: Asset): void {
 				name="Select a chapter"
 				description="Choose a chapter in the tree to see its Markdown assets." />
 		</div>
-		<div v-else-if="loading.assets" class="asset-state">
+		<div v-else-if="selectedAssetsLoading" class="asset-state">
 			<NcLoadingIcon name="Loading assets" />
 		</div>
 		<NcEmptyContent

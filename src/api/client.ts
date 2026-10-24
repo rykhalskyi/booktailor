@@ -25,12 +25,12 @@ interface OcsResponse<T> {
 }
 
 export class ApiError extends Error {
-	public constructor(
-		message: string,
-		public readonly status: number,
-	) {
+	public readonly status: number
+
+	public constructor(message: string, status: number) {
 		super(message)
 		this.name = 'ApiError'
+		this.status = status
 	}
 }
 
