@@ -21,7 +21,7 @@ const { chapters, loading, openDialog } = useLibrary()
 				<NcButton
 					variant="primary"
 					@click="openDialog({ type: 'chapter-create', parentId: null })">
-					Add root chapter
+					Add chapter
 				</NcButton>
 			</template>
 		</NcEmptyContent>

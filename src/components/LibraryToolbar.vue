@@ -27,7 +27,7 @@ function onStructureChange(structure: Structure | null): void {
 		<NcButton
 			variant="primary"
 			@click="openDialog({ type: 'chapter-create', parentId: null })">
-			Add root chapter
+			Add chapter
 		</NcButton>
 	</div>
 </template>
@@ -36,7 +36,7 @@ function onStructureChange(structure: Structure | null): void {
 .library-toolbar {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
+	justify-content: flex-end;
 	gap: 12px;
 	flex-wrap: wrap;
 }
