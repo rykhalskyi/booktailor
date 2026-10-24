@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { provide, ref, watch } from 'vue'
-import NcButton from '@nextcloud/vue/components/NcButton'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import { useLibrary } from '../stores/useLibrary'
@@ -8,7 +7,7 @@ import { findChapter } from '../utils/tree'
 import { treeFocusKey } from '../utils/treeFocus'
 import ChapterNode from './ChapterNode.vue'
 
-const { chapters, expandedChapterIds, loading, openDialog, toggleChapter } = useLibrary()
+const { chapters, expandedChapterIds, loading, toggleChapter } = useLibrary()
 
 const treeRoot = ref<HTMLElement | null>(null)
 const focusedChapterId = ref<number | null>(null)
@@ -107,16 +106,7 @@ function onKeydown(event: KeyboardEvent): void {
 		<NcEmptyContent
 			v-else-if="chapters.length === 0"
 			name="No chapters"
-			description="Add a root chapter to start building the book.">
-			<template #action>
-				<NcButton
-					variant="primary"
-					:disabled="loading.mutation"
-					@click="openDialog({ type: 'chapter-create', parentId: null })">
-					Add chapter
-				</NcButton>
-			</template>
-		</NcEmptyContent>
+			description="Add a root chapter to start building the book." />
 		<ul
 			v-else
 			class="chapter-tree-list"

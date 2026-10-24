@@ -399,9 +399,7 @@ export function createLibraryStore() {
 		error.value = null
 		try {
 			await api.assets.remove(asset.id)
-			if (selectedChapterId.value === asset.chapterId) {
-				await loadAssets(asset.chapterId)
-			}
+			await loadAssets(asset.chapterId)
 			return true
 		} catch (errorValue) {
 			error.value = messageFor(errorValue)
@@ -455,6 +453,7 @@ export function createLibraryStore() {
 		deleteAsset,
 		deleteChapter,
 		initialize,
+		loadAssets,
 		loadBooks,
 		loadTree,
 		openDialog,
