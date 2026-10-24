@@ -106,18 +106,21 @@ authoring and Markdown-composition product described here.
 - Store check-in messages and author in native Nextcloud version metadata (D-19); no
   app-side version table.
 - Show a history list sorted newest first, with timestamp, author, and check-in
-  message.
+  message; the current revision is shown as the current row, older revisions are
+  restorable.
 - Restore a previous version; restoration follows Nextcloud's native behavior and makes
   the restored content current.
 - Version history is available from the chapter menu and the editor flow.
 
 ### Editing
 
-- Open an asset in Euro Office or the Nextcloud Markdown editor, depending on
-  configuration.
-- Saving from the editor updates the file and creates a native version.
-- BookTailor records the optional check-in message at save time.
-- Image insertion is handled by the Nextcloud Markdown editor.
+- Open an asset in the Nextcloud Text app through the Files URL (`openfile=<fileId>`);
+  Euro Office/Collabora are not required for Markdown (D-20).
+- Saving from Text updates the file through the native file API; BookTailor observes it
+  via `NodeWrittenEvent` and does not create versions per write.
+- BookTailor labels the current native revision with the optional check-in message
+  after editing; the message becomes a historical version on the next save (D-21).
+- Images are inserted with the Text editor's attachment flow.
 - Users return to the chapter tree without losing their place.
 
 ### Composition
@@ -317,6 +320,10 @@ The full decision record is in [decisions.md](../../decisions.md). Key decisions
 - `D-17` — Effective parents are derived; structure entries store inclusion and order.
 - `D-18` — Deletion uses native Nextcloud trash; app metadata cascades.
 - `D-19` — Check-in messages and author use native version metadata, not a sidecar table.
+- `D-20` — Markdown editing opens the Nextcloud Text app via the Files URL; saves are
+  observed through node write events.
+- `D-21` — Check-in labels the current native revision and moves into history on the
+  next save.
 
 ## Assumptions and open questions
 
@@ -327,11 +334,12 @@ Resolved in T0 (see [domain-schema](../research/domain-schema.md)):
 - The visible-folder layout and rename/move behavior follow D-13/D-18.
 - Images use a chapter-level `images/` folder.
 - Versions and check-in messages use native `files_versions` metadata.
+- Markdown editing uses the Nextcloud Text app, not Euro Office/Collabora.
+- Editor launch, save observation, and check-in semantics are fixed by D-20/D-21.
 
 Still open:
 
 - Composition rule precedence, fallback, and per-chapter overrides are decided in T5.
-- Euro Office integration details are confirmed in T0/T4.
 - Langfuse hosting, provider list, and key storage are decided in T6.
 - Composition output naming/location is decided in T5.
 - Sharing and permissions are post-MVP.

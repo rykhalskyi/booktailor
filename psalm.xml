@@ -18,4 +18,12 @@
 	<extraFiles>
 		<directory name="vendor"/>
 	</extraFiles>
+	<stubs>
+		<file name="build/stubs/files_versions.php"/>
+	</stubs>
+	<issueHandlers>
+		<ClassMustBeFinal errorLevel="suppress"/>
+		<MissingOverrideAttribute errorLevel="suppress"/>
+		<MissingDependency errorLevel="suppress"/>
+	</issueHandlers>
 </psalm>

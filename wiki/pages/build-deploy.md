@@ -22,7 +22,20 @@ npm ci
 ```
 
 `composer install` also installs the tools in `vendor-bin/` via the
-`bamarni/composer-bin-plugin` hooks.
+`bamarni/composer-bin-plugin` hooks. Commit `composer.lock` and the
+`vendor-bin/*/composer.lock` files so CI resolves the same versions.
+
+`roave/security-advisories` was removed from `require-dev`: its `dev-latest`
+constraint conflicts with the pinned PHP 8.1 platform. Run Composer's audit or a
+separate advisory check in CI instead.
+
+Apply schema changes in the dev instance after pulling a migration:
+
+```bash
+docker exec -u www-data master-nextcloud-1 php occ upgrade
+# or, for a single app:
+docker exec -u www-data master-nextcloud-1 php occ migrations:migrate booktailor
+```
 
 ## Frontend
 
@@ -32,6 +45,8 @@ npm run dev        # development build
 npm run watch      # rebuild on change
 npm run lint       # ESLint over src/
 npm run stylelint  # Stylelint over Vue/SCSS/CSS
+npm test           # Vitest (tests/js/**/*.spec.ts)
+npm run test:watch # Vitest in watch mode
 ```
 
 Build output goes to `js/` and `css/` (git-ignored) and is loaded by
@@ -49,6 +64,11 @@ composer run rector     # Rector + cs:fix
 composer run openapi    # regenerate openapi.json from route docblocks
 ```
 
+The reviewed API contract is [openapi.draft.yaml](../../openapi.draft.yaml). The T1
+routes are live under `/ocs/v2.php/apps/booktailor/api/v1`. `openapi.json` is still the
+generated skeleton because the extractor requires full per-route docblocks; until those
+are added, treat the draft as the source of truth and keep it in sync with route changes.
+
 Run a single test:
 
 ```bash
@@ -56,8 +76,17 @@ phpunit tests/unit/Controller/ApiTest.php -c tests/phpunit.xml
 ```
 
 The PHPUnit bootstrap expects the app to be loadable by a Nextcloud instance (see
-`tests/bootstrap.php`), so unit tests normally run inside a Nextcloud dev
-environment with the app mounted.
+`tests/bootstrap.php`), so tests run inside a Nextcloud dev environment with the app
+mounted. It sets `TEST_DONT_LOAD_APPS=1` and loads only BookTailor and `files_versions`
+so unrelated apps with incomplete schemas do not break the suite.
+
+`composer run test:unit` includes integration tests that create temporary Nextcloud users,
+exercise the real DB and file tree, and delete the users afterwards. The app tables must
+be migrated first (`occ upgrade` or `occ migrations:migrate booktailor`). The version
+tests skip themselves if `files_versions` is unavailable.
+
+Psalm runs as Psalm 6 and uses `build/stubs/files_versions.php` plus `doctrine/dbal` for
+classes that are not part of the `nextcloud/ocp` stubs.
 
 ### Using a Nextcloud Docker dev stack
 
@@ -85,6 +114,15 @@ docker exec -u www-data master-nextcloud-1 php occ app:enable --force booktailor
 `http://nextcloud.local/index.php/apps/booktailor/` (user `admin`, password `admin`);
 assets are read live from the bind mount.
 
+Markdown editing needs the Nextcloud Text app, which the server master tree does not
+bundle. Install the stable35 branch into the dev instance once:
+
+```bash
+cd ~/Source/nextcloud-docker-dev/workspace/server/apps-extra
+git clone --depth 1 --branch stable35 https://github.com/nextcloud/text.git text
+docker exec -u www-data master-nextcloud-1 php occ app:enable text
+```
+
 If PHP is not installed on the host, run the PHP commands inside the Nextcloud app
 container, from the app directory (`/var/www/html/apps-extra/booktailor`), e.g.:
 
@@ -96,10 +134,11 @@ docker exec master-nextcloud-1 bash -c \
 ## Verify loop
 
 1. `npm run lint` (and `npm run stylelint` if styles changed).
-2. `composer run lint` and `composer run cs:check`.
-3. `composer run test:unit`.
-4. `composer run psalm` when types/docblocks changed.
-5. `composer run openapi` when routes or API docblocks changed, then review the
+2. `npm test` for frontend unit tests.
+3. `composer run lint` and `composer run cs:check`.
+4. `composer run test:unit`.
+5. `composer run psalm` when types/docblocks changed.
+6. `composer run openapi` when routes or API docblocks changed, then review the
    `openapi.json` diff.
 
 ## Deploy / release
