@@ -40,7 +40,9 @@ actual Markdown assembly logic is not implemented yet.
   `openapi.draft.yaml` is the reviewed contract; `openapi.json` is still the generated
   skeleton until full route docblocks are added.
 - **Frontend shell** — `src/main.ts` mounts `src/App.vue` into `#booktailor`.
-  `App.vue` renders a Nextcloud `NcContent` / `NcAppContent` layout.
+  `App.vue` renders the book navigation, structure selector, recursive chapter tree,
+  asset panel, and dialogs. State lives in `src/stores/useLibrary.ts`; API calls go
+  through `src/api/client.ts`.
 - **Asset wiring** — `templates/index.php` loads the Vite-built `main` script and style
   through `Util::addScript` / `Util::addStyle`, and provides the `#booktailor` mount
   point.
@@ -60,7 +62,11 @@ lib/Migration/            Database schema migrations
 lib/Service/              Storage, domain, tag, and version services
 templates/index.php       Server-rendered page shell / asset loading
 src/main.ts               Vue entry point
-src/App.vue               Root Vue component
+src/App.vue               App shell, book navigation, and main layout
+src/api/                  OCS API client
+src/components/           Chapter tree, asset list, toolbar, and dialogs
+src/stores/               Module-level library state composable
+src/utils/                Tree helpers
 tests/unit/               PHPUnit tests (controller-level)
 tests/integration/        Real DB/file lifecycle tests with temporary users
 tests/js/                 Vitest frontend tests

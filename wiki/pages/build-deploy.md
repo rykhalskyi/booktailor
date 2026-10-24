@@ -45,8 +45,10 @@ npm run dev        # development build
 npm run watch      # rebuild on change
 npm run lint       # ESLint over src/
 npm run stylelint  # Stylelint over Vue/SCSS/CSS
+npm run typecheck  # vue-tsc, no emit
 npm test           # Vitest (tests/js/**/*.spec.ts)
 npm run test:watch # Vitest in watch mode
+npm run check      # lint + stylelint + typecheck + tests
 ```
 
 Build output goes to `js/` and `css/` (git-ignored) and is loaded by
@@ -133,12 +135,13 @@ docker exec master-nextcloud-1 bash -c \
 
 ## Verify loop
 
-1. `npm run lint` (and `npm run stylelint` if styles changed).
-2. `npm test` for frontend unit tests.
-3. `composer run lint` and `composer run cs:check`.
-4. `composer run test:unit`.
-5. `composer run psalm` when types/docblocks changed.
-6. `composer run openapi` when routes or API docblocks changed, then review the
+1. `npm run lint` and `npm run stylelint` when Vue/CSS changed.
+2. `npm run typecheck` when TypeScript or Vue SFCs changed.
+3. `npm test` for frontend unit tests.
+4. `composer run lint` and `composer run cs:check`.
+5. `composer run test:unit`.
+6. `composer run psalm` when types/docblocks changed.
+7. `composer run openapi` when routes or API docblocks changed, then review the
    `openapi.json` diff.
 
 ## Deploy / release
