@@ -85,6 +85,15 @@ docker exec -u www-data master-nextcloud-1 php occ app:enable --force booktailor
 `http://nextcloud.local/index.php/apps/booktailor/` (user `admin`, password `admin`);
 assets are read live from the bind mount.
 
+Markdown editing needs the Nextcloud Text app, which the server master tree does not
+bundle. Install the stable35 branch into the dev instance once:
+
+```bash
+cd ~/Source/nextcloud-docker-dev/workspace/server/apps-extra
+git clone --depth 1 --branch stable35 https://github.com/nextcloud/text.git text
+docker exec -u www-data master-nextcloud-1 php occ app:enable text
+```
+
 If PHP is not installed on the host, run the PHP commands inside the Nextcloud app
 container, from the app directory (`/var/www/html/apps-extra/booktailor`), e.g.:
 

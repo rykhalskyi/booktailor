@@ -151,10 +151,15 @@ does not create a version table.
 
 - List: `IVersionManager::getVersionsForFile($user, $file)`; returned order is
   oldest→newest, so the app sorts descending for history.
+- The list includes the current revision (file mtime). It has no backing version file,
+  so it is shown as the **Current** row only and never downloaded or restored.
 - Message write: `getBackendForStorage()` → `IMetadataVersionBackend::setMetadataValue()`
   with keys `booktailor_message` (and `booktailor_author` when no session author is
   set). This path works on Nextcloud 31–35.
-- Restore: `IVersionManager::rollback($version)`.
+- Check-in labels the current revision after editing. On the next save, native
+  versioning snapshots that revision and the message moves into history with it
+  (D-21).
+- Restore: `IVersionManager::rollback($version)` on a historical version only.
 
 ### `compositions`
 
@@ -295,9 +300,9 @@ than silently recreated. Reconciliation details are implemented in T1/T4.
 The schema and storage rules above resolve the T0 decision items. File
 CRUD/move/delete and visible-folder behavior are verified in the
 [file-operations spike](spike-file-operations.md); native versions and check-in
-messages are verified in the [versions spike](spike-versions.md). Still open:
+messages are verified in the [versions spike](spike-versions.md); the Text editor and
+save/check-in flow are verified in the [editor spike](spike-editor.md). Still open:
 
-- Editor launch/save flow (Euro Office vs Markdown editor).
 - Background-job execution for composition.
 - Langfuse and BYOK feasibility.
 - OpenAPI draft and test harness verification.

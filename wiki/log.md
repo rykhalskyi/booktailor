@@ -15,3 +15,4 @@
 ## [2026-10-23] update | T0 schema, glossary, and storage layout; decisions D-13..D-18
 ## [2026-10-23] update | T0 file-operations spike: stable IDs, idempotent create, stale nodes, native trash
 ## [2026-10-23] update | T0 versions spike: native metadata for check-in messages, D-19
+## [2026-10-23] update | T0 editor spike: Text app launch, NodeWrittenEvent saves, current-revision check-in (D-20/D-21)

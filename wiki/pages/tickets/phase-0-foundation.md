@@ -95,9 +95,14 @@ Done:
   [Spike — Native versions and check-in messages](../research/spike-versions.md):
   listing, rollback, native author, and custom version metadata verified; D-19 drops
   the sidecar table.
+- Editor spike is complete and documented in
+  [Spike — Markdown editor integration](../research/spike-editor.md): the Text app is
+  the Markdown editor, saves are observed via node events, and check-in labels the
+  current revision (D-20/D-21). Text was installed in the dev stack from stable35.
 
 Remaining:
 
-- Editor, background-job, and Langfuse/BYOK spikes.
+- Background-job spike.
+- Langfuse/BYOK spike (waiting for instance details).
 - OpenAPI draft and test-harness verification.
 - Compose-job contract.
