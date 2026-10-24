@@ -67,6 +67,10 @@ The schema is in [domain-schema](domain-schema.md).
 7. **Dependency is on a shipped app.** `files_versions` is enabled by default but can
    be disabled. The app should detect that and disable version history/check-in
    messages rather than fail.
+8. **Materialize the current revision before writing metadata.** T1 integration found
+   that `setMetadataValue()` looks up the native `files_versions` row; call
+   `getVersionsForFile()` first so the current revision row exists, then write the
+   check-in metadata.
 
 ## Reproduction
 

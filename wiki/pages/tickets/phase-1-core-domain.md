@@ -1,7 +1,7 @@
 ---
 created: 2026-10-22
 type: ticket
-status: proposed
+status: implemented
 summary: Implement the book, chapter, asset, tag-assignment, storage, and version-metadata backend.
 ---
 
@@ -85,4 +85,51 @@ Dependencies:
 
 ## Outcome
 
-Pending. Fill in migrations, services, endpoints, tests, and deviations when done.
+Implemented. The core domain and visible-folder lifecycle work through the OCS API and are covered by integration tests.
+
+Delivered:
+
+- Migration `Version1000Date20261024` creates the T0 schema: books, chapters,
+  structures, structure entries, assets, tags, asset tags, compositions, composition
+  rules, and AI action log, with foreign keys and cascades. `compositions.started_at` is
+  present for stale detection.
+- Entities and query-builder mappers for the core records; join-table mappers for
+  structure entries and asset tags.
+- `StorageService` owns visible folders, filename sanitization, de-duplication
+  (` (2)`, ` (3)`, …), file-id lookup, renames, trash deletes, and relative paths.
+- `BookService`, `ChapterService`, `AssetService`, `TagService`, `StructureService`, and
+  `VersionService` implement the lifecycle with owner scoping and 404 for non-owned
+  resources.
+- OCS routes under `/ocs/v2.php/apps/booktailor/api/v1`: books CRUD, chapter tree
+  (canonical and structure view with lazy-load parameters), chapter create/rename/delete,
+  structure list/show/entries, asset list/create/upload/get/rename/delete, tag
+  CRUD/assignment, and version list/check-in/restore.
+- Version check-in attaches the message to the current native revision (D-21); history
+  is sorted newest first and marks the current row. The current revision is materialized
+  via `getVersionsForFile()` before writing metadata. Restore uses the native backend.
+- Integration tests create temporary users and exercise the lifecycle, ownership
+  isolation, collisions, cascade deletion, tags, and version check-in/restore. The full
+  suite runs 8 tests / 50 assertions, including 7 integration lifecycle tests. The test
+  bootstrap loads only BookTailor and `files_versions`.
+- `composer run lint`, `composer run cs:check`, `composer run psalm`, and
+  `composer run test:unit` pass. Psalm was upgraded to 6.20.1 with `files_versions`
+  stubs and `doctrine/dbal` so static analysis runs on PHP 8.5.
+- The T0 draft was updated for implementation: `Book.description`/`Book.path`,
+  `Asset.tags`, no canonical `Chapter.position`, and check-in as a 200 on the current
+  revision. `openapi.json` remains the generated skeleton because the extractor requires
+  full per-route docblocks; the reviewed contract is `openapi.draft.yaml`.
+- App version bumped to 1.1.1 and the dev database migrated.
+
+Deferred:
+
+- Chapter movement (promote/demote/attach) is T3; `PATCH` with a different parent returns
+  409.
+- Custom structure writes and entry reordering are T3.
+- Raw asset/version content endpoints are T4; the Text app and Files API are the editing
+  path.
+- Compositions, AI, and settings endpoints are T5/T6/T7; their tables exist but are not
+  wired.
+
+Main files: `lib/Migration/`, `lib/Entity/`, `lib/Db/`, `lib/Service/`,
+`lib/Controller/`, `tests/integration/CoreDomainTest.php`, `psalm.xml`,
+`build/stubs/files_versions.php`.

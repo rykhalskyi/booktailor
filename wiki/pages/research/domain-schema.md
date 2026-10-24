@@ -174,6 +174,7 @@ does not create a version table.
 | `output_path` | VARCHAR(4000) NULL | path snapshot for display |
 | `error` | TEXT NULL | actionable failure message |
 | `created_at` | DATETIME | |
+| `started_at` | DATETIME NULL | set when a worker claims the composition; used for stale detection |
 | `completed_at` | DATETIME NULL | |
 
 Indexes: `(book_id, created_at)`, `(status)`.
@@ -301,8 +302,13 @@ The schema and storage rules above resolve the T0 decision items. File
 CRUD/move/delete and visible-folder behavior are verified in the
 [file-operations spike](spike-file-operations.md); native versions and check-in
 messages are verified in the [versions spike](spike-versions.md); the Text editor and
-save/check-in flow are verified in the [editor spike](spike-editor.md). Still open:
+save/check-in flow are verified in the [editor spike](spike-editor.md). Background jobs
+and the composition boundary are in the [background-job spike](spike-background-jobs.md)
+and [compose-job contract](compose-job-contract.md); Langfuse and key storage are in the
+[Langfuse/BYOK spike](spike-langfuse-byok.md). The API surface is in the
+[OpenAPI draft](api-contract.md).
 
-- Background-job execution for composition.
-- Langfuse and BYOK feasibility.
-- OpenAPI draft and test harness verification.
+`compositions.started_at` was added for stale detection in the compose contract.
+
+The T1 migration implements these tables. Composition and AI tables exist but remain
+unwired until T5/T6.

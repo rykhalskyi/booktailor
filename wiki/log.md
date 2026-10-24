@@ -16,3 +16,17 @@
 ## [2026-10-23] update | T0 file-operations spike: stable IDs, idempotent create, stale nodes, native trash
 ## [2026-10-23] update | T0 versions spike: native metadata for check-in messages, D-19
 ## [2026-10-23] update | T0 editor spike: Text app launch, NodeWrittenEvent saves, current-revision check-in (D-20/D-21)
+## [2026-10-24] research | T0 background-job spike: queued execution, cron drain, and status persistence
+## [2026-10-24] research | T0 Langfuse/BYOK spike: OTLP tracing, prompt links, and encrypted per-user keys
+## [2026-10-24] research | T0 compose-job contract and compositions.started_at schema amendment
+## [2026-10-24] research | T0 OpenAPI draft covering the MVP route surface
+## [2026-10-24] update | T0 test harness: PHPUnit and Vitest verified; Composer install fixed
+## [2026-10-24] decision | Recorded D-22 through D-26 for Langfuse/BYOK, composition jobs, and API versioning
+## [2026-10-24] update | Project overview: Vitest, Langfuse, and the T0 API draft
+## [2026-10-24] update | T0 complete: OpenAPI draft reviewed and accepted as the T1 baseline
+## [2026-10-24] ticket | T1 — Core domain and storage implemented
+## [2026-10-24] update | T1 API: owner-scoped OCS v1 books, chapters, structures, assets, tags, and versions
+## [2026-10-24] update | T1 tests: integration lifecycle, ownership, collisions, cascades, and version restore
+## [2026-10-24] update | Build/deploy: T1 migrations, isolated test bootstrap, Psalm 6 stubs, and API route prefix
+## [2026-10-24] decision | Recorded D-27 through D-30 for T1 ordering, test isolation, deferred endpoints, and the API draft
+## [2026-10-24] update | Versions spike: T1 found getVersionsForFile must materialize the current revision before setMetadataValue

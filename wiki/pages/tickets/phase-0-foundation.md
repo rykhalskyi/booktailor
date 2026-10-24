@@ -1,7 +1,7 @@
 ---
 created: 2026-10-22
 type: ticket
-status: in-progress
+status: implemented
 summary: Resolve architecture, schema, storage, versioning, editor, job, and AI unknowns before product code.
 ---
 
@@ -78,7 +78,7 @@ Risks:
 
 ## Outcome
 
-In progress.
+Complete. All spikes, contracts, and reviews are done.
 
 Done:
 
@@ -99,10 +99,31 @@ Done:
   [Spike — Markdown editor integration](../research/spike-editor.md): the Text app is
   the Markdown editor, saves are observed via node events, and check-in labels the
   current revision (D-20/D-21). Text was installed in the dev stack from stable35.
+- Background-job spike is complete and documented in
+  [Spike — Background jobs](../research/spike-background-jobs.md): queue, manual execution, cron
+  drain, file access without a session, and status persistence verified. D-24/D-25
+  record the queued-job and argument rules.
+- Langfuse/BYOK spike is complete and documented in
+  [Spike — Langfuse and BYOK](../research/spike-langfuse-byok.md): OTLP ingestion, v2 prompt and
+  observation APIs, and `ICrypto`-backed per-user key storage verified. D-22/D-23
+  record the choices.
+- Compose-job contract is written in
+  [Compose job contract](../research/compose-job-contract.md), including the queue payload, state
+  machine, idempotency, stale detection, output rules, and failure behavior. The schema
+  gained `compositions.started_at` for stale detection.
+- OpenAPI draft is in [openapi.draft.yaml](../../../openapi.draft.yaml) (52 operations,
+  validated with Redocly), with review notes and the outcome in
+  [API contract](../research/api-contract.md). The review added `Book.path`,
+  `Settings.defaultEditor`, `GET /ai-actions/{actionId}`, canonical lazy-load
+  parameters, and a `409` for deleting a running composition; the draft is accepted as
+  the T1 baseline.
+- Test harnesses are verified: PHPUnit passes in the Nextcloud container and a Vitest
+  smoke test runs with `npm test`. `composer install` now resolves without
+  `--ignore-platform-reqs`; `roave/security-advisories` was removed because its
+  `dev-latest` constraint conflicts with the pinned PHP 8.1 platform. Lock files were
+  generated.
 
 Remaining:
 
-- Background-job spike.
-- Langfuse/BYOK spike (waiting for instance details).
-- OpenAPI draft and test-harness verification.
-- Compose-job contract.
+- None. T5/T6/T7 details are explicitly deferred in the
+  [API contract](../research/api-contract.md).

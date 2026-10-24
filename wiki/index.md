@@ -26,7 +26,11 @@
 - [tickets/phase-7-images-settings-release](pages/tickets/phase-7-images-settings-release.md) — Finish image management, settings, accessibility, end-to-end tests, and release packaging.
 
 ## Research
+- [research/api-contract](pages/research/api-contract.md) — T0 OpenAPI draft — OCS base path, resource shapes, async composition, BYOK settings, and review notes.
+- [research/compose-job-contract](pages/research/compose-job-contract.md) — Compose-job contract — queue payload, state machine, idempotency, output, retry, and failure rules.
 - [research/domain-schema](pages/research/domain-schema.md) — Domain glossary, conceptual schema, and visible-folder rules resolved in T0.
+- [research/spike-background-jobs](pages/research/spike-background-jobs.md) — Background-job spike — queued execution, cron drain, status persistence, and the failure gap on Nextcloud 35.
 - [research/spike-editor](pages/research/spike-editor.md) — Editor spike — Nextcloud Text launch path, save observation, and check-in message flow on Nextcloud 35.
 - [research/spike-file-operations](pages/research/spike-file-operations.md) — File API spike — visible folders, stable IDs, collision and trash behavior on Nextcloud 35.
+- [research/spike-langfuse-byok](pages/research/spike-langfuse-byok.md) — Langfuse and BYOK spike — OTLP tracing, prompt management, and encrypted per-user keys on Nextcloud 35.
 - [research/spike-versions](pages/research/spike-versions.md) — Native version spike — listing, restoring, per-version metadata, and same-second collisions on Nextcloud 35.

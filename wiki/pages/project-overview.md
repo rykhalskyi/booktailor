@@ -24,7 +24,8 @@ actual Markdown assembly logic is not implemented yet.
 | Frontend | Vue 3 (`<script setup lang="ts">`), TypeScript, `@nextcloud/vue` |
 | Build | Vite via `@nextcloud/vite-config` |
 | PHP tooling | PHPUnit, Psalm, php-cs-fixer, Rector, `nextcloud/ocp` stubs |
-| Frontend tooling | ESLint (`@nextcloud/eslint-config`), Stylelint, TypeScript |
+| Frontend tooling | ESLint (`@nextcloud/eslint-config`), Stylelint, TypeScript, Vitest + `@vue/test-utils` |
+| AI observability | Langfuse 4 via OTLP (planned, D-22) |
 
 ## Architecture
 
@@ -32,9 +33,12 @@ actual Markdown assembly logic is not implemented yet.
   `booktailor` and implements `IBootstrap` (currently empty hooks).
 - **Page controller** — `lib/Controller/PageController.php` serves the frontend at
   route `/` (`booktailor.page.index`) and renders `templates/index.php`.
-- **API controller** — `lib/Controller/ApiController.php` is an `OCSController`
-  exposing `GET /api` (`NoAdminRequired`), currently returning a hello-world payload.
-  The API is described by `openapi.json`.
+- **API controllers** — `lib/Controller/ApiController.php` is the legacy hello-world
+  route. The domain controllers (`BookController`, `ChapterController`,
+  `StructureController`, `AssetController`, `TagController`, `VersionController`) expose
+  the owner-scoped OCS API under `/ocs/v2.php/apps/booktailor/api/v1` (D-26).
+  `openapi.draft.yaml` is the reviewed contract; `openapi.json` is still the generated
+  skeleton until full route docblocks are added.
 - **Frontend shell** — `src/main.ts` mounts `src/App.vue` into `#booktailor`.
   `App.vue` renders a Nextcloud `NcContent` / `NcAppContent` layout.
 - **Asset wiring** — `templates/index.php` loads the Vite-built `main` script and style
@@ -48,14 +52,24 @@ actual Markdown assembly logic is not implemented yet.
 ```
 appinfo/info.xml          App metadata, version, Nextcloud compatibility, navigation
 lib/AppInfo/Application.php  App registration and bootstrap
-lib/Controller/           Page + OCS API controllers
+lib/Controller/           Page + owner-scoped OCS v1 controllers
+lib/Db/                   Query-builder mappers
+lib/Entity/               Book, chapter, structure, asset, and tag entities
+lib/Exception/            API exceptions mapped to OCS status codes
+lib/Migration/            Database schema migrations
+lib/Service/              Storage, domain, tag, and version services
 templates/index.php       Server-rendered page shell / asset loading
 src/main.ts               Vue entry point
 src/App.vue               Root Vue component
 tests/unit/               PHPUnit tests (controller-level)
-tests/bootstrap.php       PHPUnit bootstrap, loads the Nextcloud app
-openapi.json              Generated OpenAPI description of the OCS API
+tests/integration/        Real DB/file lifecycle tests with temporary users
+tests/js/                 Vitest frontend tests
+tests/bootstrap.php       PHPUnit bootstrap, loads only needed apps
+build/stubs/              Psalm stubs for files_versions classes
+openapi.json              Generated skeleton for the legacy OCS route
+openapi.draft.yaml        Reviewed MVP API contract
 vite.config.ts            Vite/Nextcloud build configuration
+vitest.config.ts          Vitest configuration
 composer.json             PHP dependencies + lint/test/static-analysis scripts
 package.json              Frontend dependencies + build/lint scripts
 ```

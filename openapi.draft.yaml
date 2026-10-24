@@ -1,0 +1,2065 @@
+openapi: 3.0.3
+info:
+  title: BookTailor API (T0 draft)
+  version: 0.0.1
+  description: |
+    Draft OCS API surface for the BookTailor MVP. This file is a T0 contract, not
+    generated output. Implemented routes are documented by controller docblocks and
+    exported to `openapi.json` with `composer run openapi`.
+
+    All paths are relative to the Nextcloud OCS base. Every request requires an
+    authenticated user and ownership of the target book. Non-owned resources return
+    404, not 403, to avoid disclosing their existence.
+  license:
+    name: AGPL-3.0-or-later
+    url: https://www.gnu.org/licenses/agpl-3.0.html
+servers:
+  - url: /ocs/v2.php/apps/booktailor/api/v1
+    description: Nextcloud OCS API
+security:
+  - bearer_auth: []
+  - basic_auth: []
+tags:
+  - name: books
+    description: Workspaces that own chapters, assets, tags, and compositions.
+  - name: chapters
+    description: Canonical chapter tree and visible folders.
+  - name: structures
+    description: Ordered, partially inclusive views of the chapter tree.
+  - name: assets
+    description: Markdown files inside chapters.
+  - name: versions
+    description: Native Nextcloud versions and check-in messages.
+  - name: tags
+    description: Per-book labels used for classification and composition rules.
+  - name: compositions
+    description: Asynchronous Markdown generation.
+  - name: ai
+    description: Chat, prompt management, and proposed action audit.
+  - name: settings
+    description: AI provider and BYOK configuration.
+paths:
+  /books:
+    get:
+      tags: [books]
+      operationId: listBooks
+      summary: List the current user's books
+      parameters:
+        - $ref: '#/components/parameters/OCS-APIRequest'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Books returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsBookListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [books]
+      operationId: createBook
+      summary: Create a book, its visible folder, and its default structure
+      parameters:
+        - $ref: '#/components/parameters/OCS-APIRequest'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookCreate'
+      responses:
+        '201':
+          description: Book created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsBookResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /books/{bookId}:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/BookId'
+    get:
+      tags: [books]
+      operationId: getBook
+      summary: Get a book
+      responses:
+        '200':
+          description: Book returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsBookResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [books]
+      operationId: updateBook
+      summary: Rename a book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookUpdate'
+      responses:
+        '200':
+          description: Book updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsBookResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [books]
+      operationId: deleteBook
+      summary: Delete a book and move its folder to the Nextcloud trash
+      responses:
+        '204':
+          description: Book deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /books/{bookId}/chapters:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/BookId'
+    get:
+      tags: [chapters]
+      operationId: listChapters
+      summary: Get the canonical chapter tree, optionally restricted to a structure
+      description: |
+        Without `structureId`, returns the canonical tree. Omit `parentId` and `depth`
+        for the full tree, or use them to lazy-load canonical levels. With
+        `structureId`, returns the full tree of included chapters in structure order
+        using effective parents; `parentId` and `depth` do not apply.
+      parameters:
+        - name: structureId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: parentId
+          in: query
+          required: false
+          description: Canonical parent id; only applies when structureId is omitted
+          schema:
+            type: integer
+            format: int64
+        - name: depth
+          in: query
+          required: false
+          description: Levels below the selected canonical root; only applies when structureId is omitted
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+      responses:
+        '200':
+          description: Chapter tree returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsChapterListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [chapters]
+      operationId: createChapter
+      summary: Create a chapter and add it to every structure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapterCreate'
+      responses:
+        '201':
+          description: Chapter created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsChapterResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /chapters/{chapterId}:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/ChapterId'
+    get:
+      tags: [chapters]
+      operationId: getChapter
+      summary: Get a chapter
+      responses:
+        '200':
+          description: Chapter returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsChapterResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [chapters]
+      operationId: updateChapter
+      summary: Rename or move a chapter within the allowed movement rules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapterUpdate'
+      responses:
+        '200':
+          description: Chapter updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsChapterResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [chapters]
+      operationId: deleteChapter
+      summary: Move a chapter subtree to the Nextcloud trash and cascade metadata
+      responses:
+        '204':
+          description: Chapter deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /books/{bookId}/structures:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/BookId'
+    get:
+      tags: [structures]
+      operationId: listStructures
+      summary: List a book's structures, including the default structure
+      responses:
+        '200':
+          description: Structures returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsStructureListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [structures]
+      operationId: createStructure
+      summary: Create a structure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StructureCreate'
+      responses:
+        '201':
+          description: Structure created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsStructureResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /structures/{structureId}:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/StructureId'
+    patch:
+      tags: [structures]
+      operationId: updateStructure
+      summary: Rename a structure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StructureUpdate'
+      responses:
+        '200':
+          description: Structure updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsStructureResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [structures]
+      operationId: deleteStructure
+      summary: Delete a structure; the default structure cannot be deleted
+      responses:
+        '204':
+          description: Structure deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /structures/{structureId}/entries:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/StructureId'
+    get:
+      tags: [structures]
+      operationId: listStructureEntries
+      summary: List a structure's ordered chapter entries
+      responses:
+        '200':
+          description: Structure entries returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsStructureEntryListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [structures]
+      operationId: replaceStructureEntries
+      summary: Replace inclusion and sibling order for a structure
+      description: |
+        The list must contain every chapter in the book exactly once. Omitted or
+        duplicate chapters are rejected with 422. Effective parents are derived from
+        the canonical tree at read time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StructureEntriesUpdate'
+      responses:
+        '200':
+          description: Structure entries replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsStructureEntryListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /chapters/{chapterId}/assets:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/ChapterId'
+    get:
+      tags: [assets]
+      operationId: listAssets
+      summary: List a chapter's Markdown assets
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Assets returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAssetListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [assets]
+      operationId: createAsset
+      summary: Create an empty Markdown asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetCreate'
+      responses:
+        '201':
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAssetResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /chapters/{chapterId}/assets/upload:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/ChapterId'
+    post:
+      tags: [assets]
+      operationId: uploadAsset
+      summary: Upload a Markdown file as an asset
+      description: |
+        Only Markdown files are accepted. Unsupported types, path traversal, and
+        invalid file names are rejected with 422.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Asset uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAssetResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /assets/{assetId}:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/AssetId'
+    get:
+      tags: [assets]
+      operationId: getAsset
+      summary: Get asset metadata
+      responses:
+        '200':
+          description: Asset returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAssetResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [assets]
+      operationId: updateAsset
+      summary: Rename an asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetUpdate'
+      responses:
+        '200':
+          description: Asset updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAssetResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [assets]
+      operationId: deleteAsset
+      summary: Move an asset to the Nextcloud trash and cascade metadata
+      responses:
+        '204':
+          description: Asset deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /assets/{assetId}/content:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/AssetId'
+    get:
+      tags: [assets]
+      operationId: getAssetContent
+      summary: Download the Markdown content
+      responses:
+        '200':
+          description: Markdown content
+          content:
+            text/markdown:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [assets]
+      operationId: updateAssetContent
+      summary: Replace Markdown content through the native file API
+      description: |
+        The primary editing path is the Nextcloud Text app. This endpoint exists for
+        API clients and tests and must write through the Node API so native versioning
+        and save events behave the same as an editor save.
+      requestBody:
+        required: true
+        content:
+          text/markdown:
+            schema:
+              type: string
+      responses:
+        '204':
+          description: Content updated
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /assets/{assetId}/versions:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/AssetId'
+    get:
+      tags: [versions]
+      operationId: listVersions
+      summary: List native versions, newest first
+      responses:
+        '200':
+          description: Versions returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsVersionListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [versions]
+      operationId: checkInVersion
+      summary: Attach a check-in message to the current native revision
+      description: |
+        The current revision is the content already in the file. The message is stored
+        in native version metadata and becomes visible in history when the next save
+        snapshots that revision (D-21). No new version file is created here.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionCreate'
+      responses:
+        '200':
+          description: Check-in recorded on the current revision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsVersionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /assets/{assetId}/versions/{revisionId}/restore:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/AssetId'
+      - $ref: '#/components/parameters/RevisionId'
+    post:
+      tags: [versions]
+      operationId: restoreVersion
+      summary: Restore a native version
+      responses:
+        '200':
+          description: Version restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsVersionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /assets/{assetId}/versions/{revisionId}/content:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/AssetId'
+      - $ref: '#/components/parameters/RevisionId'
+    get:
+      tags: [versions]
+      operationId: getVersionContent
+      summary: Download the Markdown content of a native version
+      responses:
+        '200':
+          description: Markdown content
+          content:
+            text/markdown:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /books/{bookId}/tags:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/BookId'
+    get:
+      tags: [tags]
+      operationId: listTags
+      summary: List a book's tags
+      responses:
+        '200':
+          description: Tags returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsTagListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [tags]
+      operationId: createTag
+      summary: Create a tag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagCreate'
+      responses:
+        '201':
+          description: Tag created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsTagResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /tags/{tagId}:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/TagId'
+    patch:
+      tags: [tags]
+      operationId: updateTag
+      summary: Rename a tag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagUpdate'
+      responses:
+        '200':
+          description: Tag updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsTagResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [tags]
+      operationId: deleteTag
+      summary: Delete a tag and detach it from assets and composition rules
+      responses:
+        '204':
+          description: Tag deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /assets/{assetId}/tags:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/AssetId'
+    get:
+      tags: [tags]
+      operationId: listAssetTags
+      summary: List an asset's tags
+      responses:
+        '200':
+          description: Tags returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsTagListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [tags]
+      operationId: replaceAssetTags
+      summary: Replace an asset's tag assignments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetTagsUpdate'
+      responses:
+        '200':
+          description: Tags replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsTagListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /books/{bookId}/compositions:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/BookId'
+    get:
+      tags: [compositions]
+      operationId: listCompositions
+      summary: List a book's compositions
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/CompositionStatus'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Compositions returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsCompositionListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [compositions]
+      operationId: createComposition
+      summary: Create a composition and enqueue its worker
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompositionCreate'
+      responses:
+        '202':
+          description: Composition queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsCompositionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /compositions/{compositionId}:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/CompositionId'
+    get:
+      tags: [compositions]
+      operationId: getComposition
+      summary: Get composition status and output metadata
+      responses:
+        '200':
+          description: Composition returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsCompositionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [compositions]
+      operationId: deleteComposition
+      summary: Delete a composition and its output file
+      responses:
+        '204':
+          description: Composition deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /compositions/{compositionId}/retry:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/CompositionId'
+    post:
+      tags: [compositions]
+      operationId: retryComposition
+      summary: Re-enqueue a failed or stale composition
+      responses:
+        '202':
+          description: Composition re-queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsCompositionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /compositions/{compositionId}/download:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/CompositionId'
+    get:
+      tags: [compositions]
+      operationId: downloadComposition
+      summary: Download the generated Markdown
+      responses:
+        '200':
+          description: Markdown output
+          content:
+            text/markdown:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /ai/chat:
+    post:
+      tags: [ai]
+      operationId: chat
+      summary: Send a chat message and receive a response and proposed actions
+      parameters:
+        - $ref: '#/components/parameters/OCS-APIRequest'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Assistant response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsChatResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /books/{bookId}/ai-actions:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/BookId'
+    get:
+      tags: [ai]
+      operationId: listAiActions
+      summary: List the AI action audit log
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AiActionStatus'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: AI actions returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAiActionListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /ai-actions/{actionId}:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/ActionId'
+    get:
+      tags: [ai]
+      operationId: getAiAction
+      summary: Get one AI action audit row
+      responses:
+        '200':
+          description: AI action returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAiActionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /ai-actions/{actionId}/confirm:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/ActionId'
+    post:
+      tags: [ai]
+      operationId: confirmAiAction
+      summary: Apply a proposed AI action after user confirmation
+      responses:
+        '200':
+          description: Action applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAiActionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /ai-actions/{actionId}/reject:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/ActionId'
+    post:
+      tags: [ai]
+      operationId: rejectAiAction
+      summary: Reject a proposed AI action
+      responses:
+        '200':
+          description: Action rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAiActionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /books/{bookId}/prompts:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/BookId'
+    get:
+      tags: [ai]
+      operationId: listPrompts
+      summary: List predefined and user-defined prompts for a book
+      responses:
+        '200':
+          description: Prompts returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsPromptListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [ai]
+      operationId: createPrompt
+      summary: Create a user-defined prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromptCreate'
+      responses:
+        '201':
+          description: Prompt created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsPromptResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /prompts/{promptId}:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/PromptId'
+    patch:
+      tags: [ai]
+      operationId: updatePrompt
+      summary: Update a user-defined prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromptUpdate'
+      responses:
+        '200':
+          description: Prompt updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsPromptResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [ai]
+      operationId: deletePrompt
+      summary: Delete a user-defined prompt
+      responses:
+        '204':
+          description: Prompt deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /settings:
+    get:
+      tags: [settings]
+      operationId: getSettings
+      summary: Read AI provider settings; the key is returned only as a mask
+      parameters:
+        - $ref: '#/components/parameters/OCS-APIRequest'
+      responses:
+        '200':
+          description: Settings returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags: [settings]
+      operationId: updateSettings
+      summary: Update AI provider settings or replace the BYOK key
+      description: |
+        The API key is write-only. Omitting `apiKey` keeps the stored key. The key is
+        encrypted at rest with Nextcloud's crypto service and is never returned in
+        responses or logs.
+      parameters:
+        - $ref: '#/components/parameters/OCS-APIRequest'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettingsUpdate'
+      responses:
+        '200':
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /settings/api-key:
+    delete:
+      tags: [settings]
+      operationId: deleteApiKey
+      summary: Remove the stored BYOK key
+      parameters:
+        - $ref: '#/components/parameters/OCS-APIRequest'
+      responses:
+        '204':
+          description: Key removed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    basic_auth:
+      type: http
+      scheme: basic
+    bearer_auth:
+      type: http
+      scheme: bearer
+  parameters:
+    OCS-APIRequest:
+      name: OCS-APIRequest
+      in: header
+      description: Required to be true for OCS requests
+      required: true
+      schema:
+        type: boolean
+        default: true
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Offset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    BookId:
+      name: bookId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    ChapterId:
+      name: chapterId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    StructureId:
+      name: structureId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    AssetId:
+      name: assetId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    TagId:
+      name: tagId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    CompositionId:
+      name: compositionId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    ActionId:
+      name: actionId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    PromptId:
+      name: promptId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    RevisionId:
+      name: revisionId
+      in: path
+      required: true
+      description: Native version revision id (a timestamp string)
+      schema:
+        type: string
+  responses:
+    Unauthorized:
+      description: Current user is not logged in
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OcsErrorResponse'
+    NotFound:
+      description: Resource does not exist or is not owned by the current user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OcsErrorResponse'
+    Conflict:
+      description: The request conflicts with the current state
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OcsErrorResponse'
+    UnprocessableEntity:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OcsErrorResponse'
+  schemas:
+    OcsMeta:
+      type: object
+      required: [status, statuscode]
+      properties:
+        status:
+          type: string
+        statuscode:
+          type: integer
+        message:
+          type: string
+        totalitems:
+          type: integer
+        itemsperpage:
+          type: integer
+    OcsDataError:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+    OcsErrorResponse:
+      type: object
+      required: [ocs]
+      properties:
+        ocs:
+          type: object
+          required: [meta, data]
+          properties:
+            meta:
+              $ref: '#/components/schemas/OcsMeta'
+            data:
+              $ref: '#/components/schemas/OcsDataError'
+    OcsEnvelope:
+      type: object
+      required: [ocs]
+      properties:
+        ocs:
+          type: object
+          required: [meta, data]
+          properties:
+            meta:
+              $ref: '#/components/schemas/OcsMeta'
+            data: {}
+    Book:
+      type: object
+      required: [id, name, description, rootFileId, path, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        rootFileId:
+          type: integer
+          format: int64
+          description: Nextcloud file id of the book folder
+        path:
+          type: string
+          readOnly: true
+          description: Visible folder path relative to the user's Files root
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    BookCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+    BookUpdate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+          description: Omit to keep the current description; send an empty string to clear it
+    Chapter:
+      type: object
+      required: [id, bookId, name, fileId, children, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        bookId:
+          type: integer
+          format: int64
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+        name:
+          type: string
+          maxLength: 255
+        fileId:
+          type: integer
+          format: int64
+          description: Nextcloud file id of the chapter folder
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Chapter'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ChapterCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+    ChapterUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Move the chapter; only the movement rules in D-07 are allowed
+    Structure:
+      type: object
+      required: [id, bookId, name, isDefault, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        bookId:
+          type: integer
+          format: int64
+        name:
+          type: string
+          maxLength: 255
+        isDefault:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    StructureCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+    StructureUpdate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+    StructureEntry:
+      type: object
+      required: [chapterId, included, position]
+      properties:
+        chapterId:
+          type: integer
+          format: int64
+        included:
+          type: boolean
+        position:
+          type: integer
+        effectiveParentId:
+          type: integer
+          format: int64
+          nullable: true
+          readOnly: true
+          description: Derived from the canonical tree and the included ancestors
+    StructureEntriesUpdate:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/StructureEntry'
+    Asset:
+      type: object
+      required: [id, bookId, chapterId, name, fileName, fileId, tags, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        bookId:
+          type: integer
+          format: int64
+        chapterId:
+          type: integer
+          format: int64
+        name:
+          type: string
+          maxLength: 255
+          description: Display name
+        fileName:
+          type: string
+          maxLength: 255
+          description: Sanitized visible file name
+        fileId:
+          type: integer
+          format: int64
+          description: Nextcloud file id of the Markdown file
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AssetCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+    AssetUpdate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+    Version:
+      type: object
+      required: [revisionId, size, createdAt]
+      properties:
+        revisionId:
+          type: string
+          description: Native revision id, currently a unix timestamp string
+        author:
+          type: string
+          nullable: true
+        message:
+          type: string
+          nullable: true
+          description: Check-in message stored in native version metadata
+        size:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        isCurrent:
+          type: boolean
+          readOnly: true
+    VersionCreate:
+      type: object
+      properties:
+        message:
+          type: string
+          maxLength: 4000
+    Tag:
+      type: object
+      required: [id, bookId, name, slug]
+      properties:
+        id:
+          type: integer
+          format: int64
+        bookId:
+          type: integer
+          format: int64
+        name:
+          type: string
+          maxLength: 255
+        slug:
+          type: string
+          maxLength: 255
+    TagCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+    TagUpdate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+    AssetTagsUpdate:
+      type: object
+      required: [tagIds]
+      properties:
+        tagIds:
+          type: array
+          uniqueItems: true
+          items:
+            type: integer
+            format: int64
+    CompositionStatus:
+      type: string
+      enum: [queued, running, succeeded, failed]
+    CompositionRule:
+      type: object
+      required: [tagId, priority, fallback]
+      properties:
+        tagId:
+          type: integer
+          format: int64
+        priority:
+          type: integer
+          description: Lower values are evaluated first
+        fallback:
+          type: boolean
+    Composition:
+      type: object
+      required: [id, bookId, structureName, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        bookId:
+          type: integer
+          format: int64
+        structureId:
+          type: integer
+          format: int64
+          nullable: true
+        structureName:
+          type: string
+        status:
+          $ref: '#/components/schemas/CompositionStatus'
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompositionRule'
+        outputFileId:
+          type: integer
+          format: int64
+          nullable: true
+        outputPath:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        stale:
+          type: boolean
+          readOnly: true
+          description: True when status is running and startedAt is older than the stale threshold
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+    CompositionCreate:
+      type: object
+      required: [structureId, rules]
+      properties:
+        structureId:
+          type: integer
+          format: int64
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompositionRule'
+        name:
+          type: string
+          maxLength: 255
+          description: Optional output name hint; T5 finalizes naming
+    AiActionStatus:
+      type: string
+      enum: [proposed, applied, rejected, failed]
+    AiAction:
+      type: object
+      required: [id, userId, action, payload, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: string
+        bookId:
+          type: integer
+          format: int64
+          nullable: true
+        action:
+          type: string
+          description: Proposed mutation type
+          example: create_asset
+        payload:
+          type: object
+          additionalProperties: true
+        status:
+          $ref: '#/components/schemas/AiActionStatus'
+        createdAt:
+          type: string
+          format: date-time
+    ChatRequest:
+      type: object
+      required: [bookId, message]
+      properties:
+        bookId:
+          type: integer
+          format: int64
+        message:
+          type: string
+          minLength: 1
+        promptName:
+          type: string
+        promptVersion:
+          type: integer
+        contextAssetIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+    ChatResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        proposedActions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AiAction'
+        traceId:
+          type: string
+          description: Langfuse trace id for this call
+    Prompt:
+      type: object
+      required: [id, bookId, name, text, source, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        bookId:
+          type: integer
+          format: int64
+        name:
+          type: string
+          maxLength: 255
+        text:
+          type: string
+        source:
+          type: string
+          enum: [predefined, user]
+        langfuseName:
+          type: string
+          nullable: true
+        langfuseVersion:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PromptCreate:
+      type: object
+      required: [name, text]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        text:
+          type: string
+          minLength: 1
+    PromptUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        text:
+          type: string
+          minLength: 1
+    Settings:
+      type: object
+      required: [hasApiKey]
+      properties:
+        provider:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        baseUrl:
+          type: string
+          nullable: true
+        apiKeyMasked:
+          type: string
+          nullable: true
+          readOnly: true
+        hasApiKey:
+          type: boolean
+          readOnly: true
+        defaultEditor:
+          type: string
+          nullable: true
+          enum: [text]
+          description: Default editor preference; Text is the only MVP editor
+    SettingsUpdate:
+      type: object
+      properties:
+        provider:
+          type: string
+        model:
+          type: string
+        baseUrl:
+          type: string
+        apiKey:
+          type: string
+          writeOnly: true
+          description: Plain key accepted only on write; stored encrypted and never returned
+        defaultEditor:
+          type: string
+          nullable: true
+          enum: [text]
+    OcsBookResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/Book'
+    OcsBookListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Book'
+    OcsChapterResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/Chapter'
+    OcsChapterListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Chapter'
+    OcsStructureResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/Structure'
+    OcsStructureListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Structure'
+    OcsStructureEntryListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/StructureEntry'
+    OcsAssetResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/Asset'
+    OcsAssetListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Asset'
+    OcsVersionResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/Version'
+    OcsVersionListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Version'
+    OcsTagResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/Tag'
+    OcsTagListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Tag'
+    OcsCompositionResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/Composition'
+    OcsCompositionListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Composition'
+    OcsAiActionResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/AiAction'
+    OcsAiActionListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AiAction'
+    OcsChatResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/ChatResponse'
+    OcsPromptResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/Prompt'
+    OcsPromptListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Prompt'
+    OcsSettingsResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/Settings'
