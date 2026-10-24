@@ -30,3 +30,8 @@
 ## [2026-10-24] update | Build/deploy: T1 migrations, isolated test bootstrap, Psalm 6 stubs, and API route prefix
 ## [2026-10-24] decision | Recorded D-27 through D-30 for T1 ordering, test isolation, deferred endpoints, and the API draft
 ## [2026-10-24] update | Versions spike: T1 found getVersionsForFile must materialize the current revision before setMetadataValue
+## [2026-10-24] ticket | T2 — Main UI implemented
+## [2026-10-24] update | T2 frontend: book navigation, chapter tree, structure selector, asset panel, and dialogs
+## [2026-10-24] update | T2 verification: lint, stylelint, tests, build, and headless Chromium smoke
+## [2026-10-24] decision | Recorded D-31 through D-34 for T2 layout, state, dialogs, and the API client
+## [2026-10-24] update | T2 smoke: subchapter, asset upload, confirmation deletes, and cascade verified headlessly

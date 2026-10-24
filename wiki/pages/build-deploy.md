@@ -133,7 +133,7 @@ docker exec master-nextcloud-1 bash -c \
 
 ## Verify loop
 
-1. `npm run lint` (and `npm run stylelint` if styles changed).
+1. `npm run lint` and `npm run stylelint` when Vue/CSS changed.
 2. `npm test` for frontend unit tests.
 3. `composer run lint` and `composer run cs:check`.
 4. `composer run test:unit`.
