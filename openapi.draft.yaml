@@ -1420,6 +1420,7 @@ components:
           nullable: true
     ChapterUpdate:
       type: object
+      description: Send exactly one of name or parentId per request.
       properties:
         name:
           type: string
@@ -1429,7 +1430,10 @@ components:
           type: integer
           format: int64
           nullable: true
-          description: Move the chapter; only the movement rules in D-07 are allowed
+          description: |
+            Move the chapter using the D-07 rules: promote to the grandparent,
+            demote under the previous sibling, or attach under a sibling of the
+            current parent. An explicit null promotes to the book root.
     Structure:
       type: object
       required: [id, bookId, name, isDefault, createdAt, updatedAt]

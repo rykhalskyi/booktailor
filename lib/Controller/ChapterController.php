@@ -73,18 +73,33 @@ class ChapterController extends AbstractApiController {
 
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'PATCH', url: '/api/v1/chapters/{chapterId}')]
-	public function update(int $chapterId, ?string $name = null, ?int $parentId = null): DataResponse {
-		return $this->handle(function () use ($chapterId, $name, $parentId): DataResponse {
-			if ($name === null) {
-				throw new ValidationException('Chapter name is required');
+	public function update(int $chapterId, ?string $name = null): DataResponse {
+		return $this->handle(function () use ($chapterId, $name): DataResponse {
+			$params = $this->request->getParams();
+			$hasParent = array_key_exists('parentId', $params);
+			if ($name !== null && $hasParent) {
+				throw new ValidationException('Rename and move must be separate requests');
 			}
 
-			$chapter = $this->chapterService->rename(
-				$this->currentUserId(),
-				$chapterId,
-				$name,
-				$parentId,
-			);
+			if ($hasParent) {
+				/** @psalm-suppress MixedAssignment */
+				$rawParentId = $params['parentId'];
+				$parentId = null;
+				if ($rawParentId !== null && $rawParentId !== '') {
+					$parentId = filter_var($rawParentId, FILTER_VALIDATE_INT);
+					if ($parentId === false || $parentId <= 0) {
+						throw new ValidationException('A valid parent id is required');
+					}
+				}
+
+				$chapter = $this->chapterService->move($this->currentUserId(), $chapterId, $parentId);
+			} else {
+				if ($name === null) {
+					throw new ValidationException('Chapter name is required');
+				}
+
+				$chapter = $this->chapterService->rename($this->currentUserId(), $chapterId, $name);
+			}
 
 			return new DataResponse($this->serializer->chapter($chapter));
 		});

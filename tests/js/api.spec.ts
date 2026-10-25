@@ -115,4 +115,30 @@ describe('API client', () => {
 		expect(options.method).toBe('PUT')
 		expect(options.body).toBe(JSON.stringify({ entries }))
 	})
+
+	it('moves a chapter with an explicit root parent', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(response({
+			ocs: {
+				meta: { statuscode: 200 },
+				data: {
+					id: 3,
+					bookId: 1,
+					parentId: null,
+					name: 'Chapter',
+					fileId: 9,
+					children: [],
+					createdAt: '2026-01-01T00:00:00+00:00',
+					updatedAt: '2026-01-01T00:00:00+00:00',
+				},
+			},
+		}))
+		vi.stubGlobal('fetch', fetchMock)
+
+		await api.chapters.move(3, null)
+
+		const [url, options] = fetchMock.mock.calls[0]
+		expect(url).toContain('/chapters/3')
+		expect(options.method).toBe('PATCH')
+		expect(options.body).toBe(JSON.stringify({ parentId: null }))
+	})
 })

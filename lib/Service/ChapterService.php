@@ -113,12 +113,8 @@ class ChapterService {
 		}
 	}
 
-	public function rename(string $userId, int $chapterId, string $name, ?int $parentId = null): Chapter {
+	public function rename(string $userId, int $chapterId, string $name): Chapter {
 		$chapter = $this->get($userId, $chapterId);
-		if ($parentId !== null && $parentId !== $chapter->getParentId()) {
-			throw new ConflictException('Chapter movement is not available yet');
-		}
-
 		$name = $this->validateName($name);
 		$oldName = $chapter->getName();
 		$folder = $this->storage->getChapterFolderForUser($userId, $chapter);
@@ -134,6 +130,114 @@ class ChapterService {
 				$this->storage->renameNode($folder, $oldName);
 			} catch (\Throwable) {
 				// Best-effort rollback of the visible name.
+			}
+			throw $e;
+		}
+	}
+
+	public function move(string $userId, int $chapterId, ?int $parentId): Chapter {
+		$chapter = $this->get($userId, $chapterId);
+		$currentParentId = $chapter->getParentId();
+		if ($parentId === $currentParentId) {
+			return $chapter;
+		}
+
+		$book = $this->bookService->get($userId, $chapter->getBookId());
+		$chapters = $this->chapterMapper->findByBook($book->getId());
+		/** @var array<int, Chapter> $chapterById */
+		$chapterById = [];
+		/** @var array<int, list<Chapter>> $siblingsByParent */
+		$siblingsByParent = [];
+		foreach ($chapters as $candidate) {
+			$chapterById[$candidate->getId()] = $candidate;
+			$siblingsByParent[$candidate->getParentId() ?? 0][] = $candidate;
+		}
+		foreach ($siblingsByParent as &$siblings) {
+			usort($siblings, static fn (Chapter $a, Chapter $b): int => $a->getId() <=> $b->getId());
+		}
+		unset($siblings);
+
+		$targetParent = null;
+		if ($parentId !== null) {
+			$targetParent = $chapterById[$parentId] ?? null;
+			if ($targetParent === null) {
+				throw new NotFoundException('Parent chapter not found');
+			}
+
+			for ($cursor = $targetParent; $cursor !== null;) {
+				if ($cursor->getId() === $chapterId) {
+					throw new ConflictException('A chapter cannot be moved under itself or its descendant');
+				}
+				$cursorId = $cursor->getParentId();
+				$cursor = $cursorId === null ? null : ($chapterById[$cursorId] ?? null);
+			}
+		}
+
+		$currentParent = $currentParentId === null ? null : ($chapterById[$currentParentId] ?? null);
+		$grandParentId = $currentParent?->getParentId();
+		$previousSiblingId = null;
+		foreach ($siblingsByParent[$currentParentId ?? 0] ?? [] as $sibling) {
+			if ($sibling->getId() === $chapterId) {
+				break;
+			}
+			$previousSiblingId = $sibling->getId();
+		}
+
+		$parentSiblingIds = [];
+		if ($currentParentId !== null) {
+			foreach ($siblingsByParent[$grandParentId ?? 0] ?? [] as $siblingOfParent) {
+				if ($siblingOfParent->getId() !== $currentParentId) {
+					$parentSiblingIds[] = $siblingOfParent->getId();
+				}
+			}
+		}
+
+		$allowed = $parentId === $grandParentId
+			|| ($previousSiblingId !== null && $parentId === $previousSiblingId)
+			|| in_array($parentId, $parentSiblingIds, true);
+		if (!$allowed) {
+			throw new ConflictException('Chapter movement is not allowed');
+		}
+
+		$folder = $this->storage->getChapterFolderForUser($userId, $chapter);
+		$oldParent = $folder->getParent();
+		if (!$oldParent instanceof Folder) {
+			throw new NotFoundException('Chapter folder parent not found');
+		}
+		$targetFolder = $this->storage->getBookFolder($book);
+		if ($parentId !== null) {
+			if ($targetParent === null) {
+				throw new NotFoundException('Parent chapter not found');
+			}
+			$targetFolder = $this->storage->getChapterFolderForUser($userId, $targetParent);
+		}
+
+		$moved = false;
+		$this->db->beginTransaction();
+		try {
+			$this->storage->moveNode($folder, $targetFolder);
+			$moved = true;
+			$this->structureService->moveChapterEntries($book->getId(), $chapterId, $parentId);
+			$chapter->setParentId($parentId);
+			$chapter->setUpdatedAt(new DateTime());
+			$chapter = $this->chapterMapper->update($chapter);
+			$this->db->commit();
+
+			return $chapter;
+		} catch (\Throwable $e) {
+			$this->db->rollBack();
+			if ($moved) {
+				try {
+					$fileId = $chapter->getFileId();
+					$currentFolder = $fileId === null
+						? null
+						: $this->storage->findNodeById($userId, $fileId, Folder::class);
+					if ($currentFolder instanceof Folder) {
+						$this->storage->moveNode($currentFolder, $oldParent);
+					}
+				} catch (\Throwable) {
+					// Best-effort rollback of the folder move.
+				}
 			}
 			throw $e;
 		}

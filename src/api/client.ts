@@ -142,6 +142,10 @@ export const api = {
 			method: 'PATCH',
 			body: { name },
 		}),
+		move: (chapterId: number, parentId: number | null): Promise<Chapter> => request<Chapter>(`/chapters/${chapterId}`, {
+			method: 'PATCH',
+			body: { parentId },
+		}),
 		remove: (chapterId: number): Promise<void> => request<void>(`/chapters/${chapterId}`, {
 			method: 'DELETE',
 		}),

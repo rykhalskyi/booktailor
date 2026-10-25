@@ -191,6 +191,13 @@ class StructureService {
 		}
 	}
 
+	public function moveChapterEntries(int $bookId, int $chapterId, ?int $newParentId): void {
+		foreach ($this->structureMapper->findByBook($bookId) as $structure) {
+			$position = $this->structureChapterMapper->nextPosition($structure->getId(), $bookId, $newParentId);
+			$this->structureChapterMapper->updatePosition($structure->getId(), $chapterId, $position);
+		}
+	}
+
 	/**
 	 * @param array<array-key, mixed> $entries
 	 * @return list<array{chapterId: int, included: bool, position: int, effectiveParentId: ?int}>
