@@ -1,5 +1,5 @@
 import { generateOcsUrl } from '@nextcloud/router'
-import type { Asset, Book, Chapter, Structure } from '../types'
+import type { Asset, Book, Chapter, Structure, StructureEntry } from '../types'
 
 declare global {
 	interface Window {
@@ -113,6 +113,22 @@ export const api = {
 	},
 	structures: {
 		list: (bookId: number): Promise<Structure[]> => request<Structure[]>(`/books/${bookId}/structures`),
+		create: (bookId: number, name: string): Promise<Structure> => request<Structure>(`/books/${bookId}/structures`, {
+			method: 'POST',
+			body: { name },
+		}),
+		update: (structureId: number, name: string): Promise<Structure> => request<Structure>(`/structures/${structureId}`, {
+			method: 'PATCH',
+			body: { name },
+		}),
+		remove: (structureId: number): Promise<void> => request<void>(`/structures/${structureId}`, {
+			method: 'DELETE',
+		}),
+		entries: (structureId: number): Promise<StructureEntry[]> => request<StructureEntry[]>(`/structures/${structureId}/entries`),
+		replaceEntries: (structureId: number, entries: StructureEntry[]): Promise<StructureEntry[]> => request<StructureEntry[]>(`/structures/${structureId}/entries`, {
+			method: 'PUT',
+			body: { entries },
+		}),
 	},
 	chapters: {
 		tree: (bookId: number, structureId?: number): Promise<Chapter[]> => request<Chapter[]>(`/books/${bookId}/chapters`, {
@@ -125,6 +141,10 @@ export const api = {
 		rename: (chapterId: number, name: string): Promise<Chapter> => request<Chapter>(`/chapters/${chapterId}`, {
 			method: 'PATCH',
 			body: { name },
+		}),
+		move: (chapterId: number, parentId: number | null): Promise<Chapter> => request<Chapter>(`/chapters/${chapterId}`, {
+			method: 'PATCH',
+			body: { parentId },
 		}),
 		remove: (chapterId: number): Promise<void> => request<void>(`/chapters/${chapterId}`, {
 			method: 'DELETE',

@@ -46,10 +46,10 @@ watch(
 	() => props.chapter.id,
 	(chapterId) => {
 		if (assetsByChapter.value[chapterId] === undefined && !loadingAssets.value[chapterId]) {
-			void loadAssets(chapterId)
+			loadAssets(chapterId)
 		}
 	},
-	{ immediate: true }
+	{ immediate: true },
 )
 
 function onNameFocus(): void {
@@ -118,7 +118,8 @@ function openAsset(asset: Asset): void {
 				:data-depth="depth"
 				@focus="onNameFocus"
 				@click="selectChapter(chapter)">
-				{{ chapter.name }}
+				<span v-if="chapter.number" class="chapter-number">{{ chapter.number }}</span>
+				<span class="chapter-name-text">{{ chapter.name }}</span>
 			</button>
 			<div v-if="chapterAssets.length > 0" class="chapter-asset-chips" @click.stop>
 				<div
@@ -134,7 +135,6 @@ function openAsset(asset: Asset): void {
 						@click="openAsset(asset)">
 						📄 {{ asset.fileName }}
 					</button>
-
 				</div>
 			</div>
 			<NcLoadingIcon
@@ -230,6 +230,9 @@ function openAsset(asset: Asset): void {
 }
 
 .chapter-name {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
 	flex: 1;
 	min-width: 0;
 	padding: 4px 2px;
@@ -238,10 +241,22 @@ function openAsset(asset: Asset): void {
 	color: var(--color-main-text);
 	font-weight: 600;
 	text-align: start;
-	text-overflow: ellipsis;
 	overflow: hidden;
 	white-space: nowrap;
 	cursor: pointer;
+}
+
+.chapter-number {
+	flex-shrink: 0;
+	color: var(--color-text-maxcontrast);
+	font-variant-numeric: tabular-nums;
+}
+
+.chapter-name-text {
+	min-width: 0;
+	text-overflow: ellipsis;
+	overflow: hidden;
+	white-space: nowrap;
 }
 
 .chapter-actions {

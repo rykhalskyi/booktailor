@@ -142,6 +142,14 @@ class StorageService {
 		return $name;
 	}
 
+	/** @psalm-suppress PossiblyUnusedReturnValue */
+	public function moveNode(Node $node, Folder $targetParent): string {
+		$name = $this->uniqueChildName($targetParent, $node->getName());
+		$node->move($targetParent->getPath() . '/' . $name);
+
+		return $name;
+	}
+
 	public function deleteNodeIfExists(?Node $node): void {
 		if ($node === null) {
 			return;

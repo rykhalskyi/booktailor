@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import LibraryToolbar from '../../src/components/LibraryToolbar.vue'
 import { useLibrary } from '../../src/stores/useLibrary'
 
@@ -21,7 +21,10 @@ function mountToolbar() {
 }
 
 afterEach(() => {
-	useLibrary().loading.mutation = false
+	const store = useLibrary()
+	store.loading.mutation = false
+	store.structureManagerOpen.value = false
+	vi.restoreAllMocks()
 })
 
 describe('LibraryToolbar', () => {
@@ -32,5 +35,15 @@ describe('LibraryToolbar', () => {
 		const button = wrapper.get('button')
 
 		expect(button.attributes('disabled')).toBeDefined()
+	})
+
+	it('opens the structure manager', async () => {
+		const store = useLibrary()
+		const open = vi.spyOn(store, 'openStructureManager').mockImplementation(() => {})
+
+		const wrapper = mountToolbar()
+		await wrapper.get('button').trigger('click')
+
+		expect(open).toHaveBeenCalledOnce()
 	})
 })

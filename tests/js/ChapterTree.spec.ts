@@ -42,10 +42,24 @@ afterEach(() => {
 	store.chapters.value = []
 	store.expandedChapterIds.value = {}
 	store.selectedChapterId.value = null
+	store.loading.mutation = false
 	document.body.innerHTML = ''
 })
 
 describe('ChapterTree', () => {
+	it('renders structure numbers when present', () => {
+		const store = useLibrary()
+		const child = { ...chapter(2, 1), number: '1.1' }
+		const parent = { ...chapter(1, null, [child]), number: '1.' }
+		store.chapters.value = [parent]
+
+		const wrapper = mountTree()
+
+		expect(wrapper.text()).toContain('1.')
+		expect(wrapper.text()).toContain('1.1')
+		wrapper.unmount()
+	})
+
 	it('renders ARIA tree semantics', () => {
 		const store = useLibrary()
 		store.chapters.value = [root]

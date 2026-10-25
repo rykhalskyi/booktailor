@@ -92,7 +92,7 @@ Delivered:
 - Asset panel for the selected chapter: filename, tag chips, open in editor via the webroot-aware `/f/{fileId}` route, new asset, upload, and delete with confirmation.
 - Central `DialogHost` for create/rename prompts and destructive confirmations; all deletes require a confirmation dialog.
 - Responsive two-pane layout that stacks on narrower screens.
-- Frontend tests for tree helpers and keyboard behavior, destructive confirmation guards, OCS envelope/error handling, stale-response protection, per-chapter asset loading, dialog submit behavior, and file URL generation: 9 files / 20 tests.
+- Frontend tests for tree helpers and keyboard behavior, destructive confirmation guards, OCS envelope/error handling, stale-response protection, per-chapter asset loading, dialog submit behavior, and file URL generation: 8 files / 20 tests.
 
 Deviations:
 
@@ -106,7 +106,7 @@ Verification:
 - `npm run lint`
 - `npm run stylelint`
 - `npm run typecheck`
-- `npm test` (9 files / 20 tests)
+- `npm test` (8 files / 20 tests)
 - `npm run build`
 - Headless Chromium smoke: create book → add root chapter → add subchapter → create asset → upload asset → delete both with confirmation → delete chapter with confirmation; no console or API errors.
 

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace OCA\BookTailor\Controller;
 
 use OCA\BookTailor\Entity\Structure;
+use OCA\BookTailor\Exception\ValidationException;
 use OCA\BookTailor\Service\SerializerService;
 use OCA\BookTailor\Service\StructureService;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataResponse;
@@ -42,6 +44,20 @@ class StructureController extends AbstractApiController {
 	}
 
 	#[NoAdminRequired]
+	#[ApiRoute(verb: 'POST', url: '/api/v1/books/{bookId}/structures')]
+	public function create(int $bookId, ?string $name = null): DataResponse {
+		return $this->handle(function () use ($bookId, $name): DataResponse {
+			if ($name === null) {
+				throw new ValidationException('Structure name is required');
+			}
+
+			$structure = $this->structureService->create($this->currentUserId(), $bookId, $name);
+
+			return new DataResponse($this->serializer->structure($structure), Http::STATUS_CREATED);
+		});
+	}
+
+	#[NoAdminRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/v1/structures/{structureId}')]
 	public function show(int $structureId): DataResponse {
 		return $this->handle(function () use ($structureId): DataResponse {
@@ -52,20 +68,62 @@ class StructureController extends AbstractApiController {
 	}
 
 	#[NoAdminRequired]
+	#[ApiRoute(verb: 'PATCH', url: '/api/v1/structures/{structureId}')]
+	public function update(int $structureId, ?string $name = null): DataResponse {
+		return $this->handle(function () use ($structureId, $name): DataResponse {
+			if ($name === null) {
+				throw new ValidationException('Structure name is required');
+			}
+
+			$structure = $this->structureService->rename($this->currentUserId(), $structureId, $name);
+
+			return new DataResponse($this->serializer->structure($structure));
+		});
+	}
+
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'DELETE', url: '/api/v1/structures/{structureId}')]
+	public function destroy(int $structureId): DataResponse {
+		return $this->handle(function () use ($structureId): DataResponse {
+			$this->structureService->delete($this->currentUserId(), $structureId);
+
+			return new DataResponse([], Http::STATUS_NO_CONTENT);
+		});
+	}
+
+	#[NoAdminRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/v1/structures/{structureId}/entries')]
 	public function entries(int $structureId): DataResponse {
 		return $this->handle(function () use ($structureId): DataResponse {
-			$entries = $this->structureService->getEntries($this->currentUserId(), $structureId);
-
-			return new DataResponse(array_map(
-				fn (array $entry): array => $this->serializer->structureEntry(
-					$entry['chapterId'],
-					$entry['included'],
-					$entry['position'],
-					$entry['effectiveParentId'],
-				),
-				$entries,
+			return new DataResponse($this->serializeEntries(
+				$this->structureService->getEntries($this->currentUserId(), $structureId),
 			));
 		});
+	}
+
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'PUT', url: '/api/v1/structures/{structureId}/entries')]
+	public function replaceEntries(int $structureId, array $entries = []): DataResponse {
+		return $this->handle(function () use ($structureId, $entries): DataResponse {
+			return new DataResponse($this->serializeEntries(
+				$this->structureService->replaceEntries($this->currentUserId(), $structureId, $entries),
+			));
+		});
+	}
+
+	/**
+	 * @param list<array{chapterId: int, included: bool, position: int, effectiveParentId: ?int}> $entries
+	 * @return list<array>
+	 */
+	private function serializeEntries(array $entries): array {
+		return array_map(
+			fn (array $entry): array => $this->serializer->structureEntry(
+				$entry['chapterId'],
+				$entry['included'],
+				$entry['position'],
+				$entry['effectiveParentId'],
+			),
+			$entries,
+		);
 	}
 }

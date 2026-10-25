@@ -1,6 +1,6 @@
 import { computed, reactive, ref } from 'vue'
 import { api, ApiError } from '../api/client'
-import type { Asset, Book, Chapter, DialogState, Structure } from '../types'
+import type { Asset, Book, Chapter, DialogState, Structure, StructureEntry } from '../types'
 import { collectChapterIds, findChapter } from '../utils/tree'
 
 function messageFor(errorValue: unknown): string {
@@ -28,9 +28,18 @@ export function createLibraryStore() {
 		tree: false,
 		mutation: false,
 	})
+	const structureManagerOpen = ref(false)
+	const editorChapters = ref<Chapter[]>([])
+	const editorEntries = ref<StructureEntry[]>([])
+	const editorStructureId = ref<number | null>(null)
+	const editorLoading = reactive({
+		chapters: false,
+		entries: false,
+	})
 
 	let booksRequest = 0
 	let selectionEpoch = 0
+	let editorEpoch = 0
 	const assetRequests: Record<number, number> = {}
 
 	const selectedBook = computed<Book | null>(() => books.value.find((book) => book.id === selectedBookId.value) ?? null)
@@ -51,6 +60,12 @@ export function createLibraryStore() {
 		assetsByChapter.value = {}
 		loadingAssets.value = {}
 		expandedChapterIds.value = {}
+		editorEpoch += 1
+		editorChapters.value = []
+		editorEntries.value = []
+		editorStructureId.value = null
+		editorLoading.chapters = false
+		editorLoading.entries = false
 	}
 
 	async function loadBooks(): Promise<void> {
@@ -199,6 +214,214 @@ export function createLibraryStore() {
 
 		if (error.value === null && chapters.value.length > 0) {
 			await selectChapter(chapters.value[0])
+		}
+	}
+
+	function openStructureManager(): void {
+		if (selectedBookId.value === null) {
+			return
+		}
+
+		structureManagerOpen.value = true
+		error.value = null
+		loadStructureEditor()
+	}
+
+	function closeStructureManager(): void {
+		structureManagerOpen.value = false
+		error.value = null
+	}
+
+	async function loadStructureEditor(structureId: number | null = selectedStructureId.value): Promise<void> {
+		const epoch = ++editorEpoch
+		const bookId = selectedBookId.value
+		editorChapters.value = []
+		editorEntries.value = []
+		editorStructureId.value = null
+		if (bookId === null || structureId === null) {
+			editorLoading.chapters = false
+			editorLoading.entries = false
+			return
+		}
+
+		editorLoading.chapters = true
+		editorLoading.entries = true
+		try {
+			const [allChapters, entries] = await Promise.all([
+				api.chapters.tree(bookId),
+				api.structures.entries(structureId),
+			])
+			if (epoch !== editorEpoch || selectedBookId.value !== bookId || selectedStructureId.value !== structureId) {
+				return
+			}
+
+			editorChapters.value = allChapters
+			editorEntries.value = entries
+			editorStructureId.value = structureId
+		} catch (errorValue) {
+			if (epoch === editorEpoch) {
+				error.value = messageFor(errorValue)
+			}
+		} finally {
+			if (epoch === editorEpoch) {
+				editorLoading.chapters = false
+				editorLoading.entries = false
+			}
+		}
+	}
+
+	async function saveStructureEntries(structureId: number, entries: StructureEntry[]): Promise<boolean> {
+		if (
+			loading.mutation
+			|| editorStructureId.value !== structureId
+			|| editorLoading.chapters
+			|| editorLoading.entries
+		) {
+			return false
+		}
+
+		loading.mutation = true
+		error.value = null
+		try {
+			const saved = await api.structures.replaceEntries(structureId, entries)
+			if (selectedStructureId.value === structureId && editorStructureId.value === structureId) {
+				editorEntries.value = saved
+				if (selectedBookId.value !== null) {
+					await loadTree(selectedBookId.value, structureId)
+				}
+			}
+			return true
+		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		} finally {
+			loading.mutation = false
+		}
+	}
+
+	async function createStructure(name: string): Promise<boolean> {
+		const bookId = selectedBookId.value
+		if (bookId === null || loading.mutation) {
+			return false
+		}
+
+		loading.mutation = true
+		error.value = null
+		try {
+			const created = await api.structures.create(bookId, name)
+			const loaded = await api.structures.list(bookId)
+			if (selectedBookId.value !== bookId) {
+				return true
+			}
+
+			structures.value = loaded
+			selectedStructureId.value = created.id
+			await loadTree(bookId, created.id)
+			if (selectedBookId.value !== bookId || selectedStructureId.value !== created.id) {
+				return true
+			}
+			if (chapters.value.length > 0) {
+				await selectChapter(chapters.value[0])
+			}
+			await loadStructureEditor(created.id)
+			return true
+		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		} finally {
+			loading.mutation = false
+		}
+	}
+
+	async function renameStructure(structure: Structure, name: string): Promise<boolean> {
+		const bookId = selectedBookId.value
+		if (bookId === null || loading.mutation) {
+			return false
+		}
+
+		loading.mutation = true
+		error.value = null
+		try {
+			await api.structures.update(structure.id, name)
+			const loaded = await api.structures.list(bookId)
+			if (selectedBookId.value === bookId) {
+				structures.value = loaded
+			}
+			return true
+		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		} finally {
+			loading.mutation = false
+		}
+	}
+
+	async function deleteStructure(structure: Structure): Promise<boolean> {
+		const bookId = selectedBookId.value
+		if (bookId === null || structure.isDefault || loading.mutation) {
+			return false
+		}
+
+		loading.mutation = true
+		error.value = null
+		try {
+			await api.structures.remove(structure.id)
+			const loaded = await api.structures.list(bookId)
+			if (selectedBookId.value !== bookId) {
+				return true
+			}
+
+			structures.value = loaded
+			if (selectedStructureId.value === structure.id) {
+				const next = loaded.find((candidate) => candidate.isDefault) ?? loaded[0] ?? null
+				selectedStructureId.value = next?.id ?? null
+				if (next === null) {
+					chapters.value = []
+					selectedChapterId.value = null
+					editorChapters.value = []
+					editorEntries.value = []
+					return true
+				}
+
+				await loadTree(bookId, next.id)
+				if (chapters.value.length > 0) {
+					await selectChapter(chapters.value[0])
+				}
+				await loadStructureEditor(next.id)
+			}
+			return true
+		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		} finally {
+			loading.mutation = false
+		}
+	}
+
+	async function moveChapter(chapterId: number, parentId: number | null): Promise<boolean> {
+		const bookId = selectedBookId.value
+		if (bookId === null || loading.mutation) {
+			return false
+		}
+
+		loading.mutation = true
+		error.value = null
+		try {
+			await api.chapters.move(chapterId, parentId)
+			if (selectedBookId.value !== bookId) {
+				return true
+			}
+
+			await loadTree(bookId, selectedStructureId.value)
+			if (selectedStructureId.value !== null) {
+				await loadStructureEditor(selectedStructureId.value)
+			}
+			return true
+		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		} finally {
+			loading.mutation = false
 		}
 	}
 
@@ -432,6 +655,10 @@ export function createLibraryStore() {
 		books,
 		chapters,
 		dialog,
+		editorChapters,
+		editorEntries,
+		editorLoading,
+		editorStructureId,
 		error,
 		expandedChapterIds,
 		loading,
@@ -445,19 +672,28 @@ export function createLibraryStore() {
 		selectedStructure,
 		selectedStructureId,
 		structures,
+		structureManagerOpen,
 		clearError,
 		closeDialog,
+		closeStructureManager,
 		createAsset,
 		createBook,
 		createChapter,
+		createStructure,
 		deleteAsset,
 		deleteChapter,
+		deleteStructure,
 		initialize,
 		loadAssets,
 		loadBooks,
+		loadStructureEditor,
 		loadTree,
+		moveChapter,
 		openDialog,
+		openStructureManager,
 		renameChapter,
+		renameStructure,
+		saveStructureEntries,
 		selectBook,
 		selectChapter,
 		selectStructure,

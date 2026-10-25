@@ -297,6 +297,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
   /structures/{structureId}:
@@ -324,6 +326,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
     delete:
@@ -364,8 +368,10 @@ paths:
       summary: Replace inclusion and sibling order for a structure
       description: |
         The list must contain every chapter in the book exactly once. Omitted or
-        duplicate chapters are rejected with 422. Effective parents are derived from
-        the canonical tree at read time.
+        duplicate chapters are rejected with 422. Positions are normalized per
+        canonical sibling group. Effective parents are derived from the canonical
+        tree at read time; children of excluded chapters are promoted into the
+        nearest included ancestor's sibling list at the excluded chapter's position.
       requestBody:
         required: true
         content:
@@ -1386,6 +1392,11 @@ components:
           type: integer
           format: int64
           description: Nextcloud file id of the chapter folder
+        number:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Structure-based number such as 1.1; null for canonical trees
         children:
           type: array
           items:
@@ -1410,6 +1421,7 @@ components:
           nullable: true
     ChapterUpdate:
       type: object
+      description: Send exactly one of name or parentId per request.
       properties:
         name:
           type: string
@@ -1419,7 +1431,10 @@ components:
           type: integer
           format: int64
           nullable: true
-          description: Move the chapter; only the movement rules in D-07 are allowed
+          description: |
+            Move the chapter using the D-07 rules: promote to the grandparent,
+            demote under the previous sibling, or attach under a sibling of the
+            current parent. An explicit null promotes to the book root.
     Structure:
       type: object
       required: [id, bookId, name, isDefault, createdAt, updatedAt]

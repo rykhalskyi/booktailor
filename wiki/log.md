@@ -37,3 +37,9 @@
 ## [2026-10-24] update | T2 smoke: subchapter, asset upload, confirmation deletes, and cascade verified headlessly
 ## [2026-10-24] update | T2 review fixes: stale-response guards, per-chapter loading, router-based file links, single-submit dialogs, and mutation-time action blocking
 ## [2026-10-24] update | T2 review fixes: ARIA tree semantics and arrow-key navigation; added vue-tsc typecheck and review tests
+## [2026-10-25] update | T3 Slice 1: extracted structure tree builder, added numbering service, structure tree numbers, and exclusion/order tests
+## [2026-10-25] update | T3 Slice 2: structure CRUD with default-structure protection, copied entries, owner scoping, and API client methods
+## [2026-10-25] update | T3 Slice 3: inclusion and ordering writes, position normalization, default invariants, parent-based new-chapter inclusion, and entries API
+## [2026-10-25] update | T3 Slice 4: validated chapter promotion, demotion, and parent-sibling attachment with folder moves, structure reordering, rollback, and API client support
+## [2026-10-25] update | T3 Slice 5: structure manager with CRUD, inclusion, sibling reorder, allowed-target chapter moves, and numbering preview; T3 complete
+## [2026-10-25] update | T3 review fixes: editor readiness guard, slot-preserving orphan ordering, structure timestamps, explicit move targets, and frontend/backend coverage

@@ -14,6 +14,7 @@ export interface Chapter {
 	parentId: number | null
 	name: string
 	fileId: number | null
+	number?: string | null
 	children: Chapter[]
 	createdAt: string
 	updatedAt: string
@@ -45,6 +46,13 @@ export interface Structure {
 	isDefault: boolean
 	createdAt: string
 	updatedAt: string
+}
+
+export interface StructureEntry {
+	chapterId: number
+	included: boolean
+	position: number
+	effectiveParentId: number | null
 }
 
 export type DialogState =
