@@ -353,7 +353,7 @@ function openAsset(asset: Asset): void {
 	display: inline-flex;
 	align-items: center;
 	padding: 1px 4px 1px 6px;
-	border: none;
+		border: none;
 	background: transparent;
 	color: var(--color-main-text);
 	font-size: inherit;

@@ -69,52 +69,54 @@ onMounted(() => {
 		</NcAppNavigation>
 
 		<NcAppContent>
-			<StructureManager v-if="structureManagerOpen" />
-			<TagManager v-else-if="tagsManagerOpen" />
-			<div v-else-if="assetManagerOpen" class="asset-manager">
-				<AssetList show-back @back="closeAssetManager" />
-			</div>
-			<div v-else class="library-app">
-				<NcNoteCard
-					v-if="error && !dialog"
-					type="error"
-					:text="error"
-					class="library-error" />
-
-				<div v-if="loading.books" class="library-loading">
-					<NcLoadingIcon name="Loading books" :size="32" />
+			<div class="app-content-safe-area">
+				<StructureManager v-if="structureManagerOpen" />
+				<TagManager v-else-if="tagsManagerOpen" />
+				<div v-else-if="assetManagerOpen" class="asset-manager">
+					<AssetList show-back @back="closeAssetManager" />
 				</div>
+				<div v-else class="library-app">
+					<NcNoteCard
+						v-if="error && !dialog"
+						type="error"
+						:text="error"
+						class="library-error" />
 
-				<NcEmptyContent
-					v-else-if="books.length === 0"
-					name="No books yet"
-					description="Create a book to start organizing chapters and Markdown assets.">
-					<template #action>
-						<NcButton
-							variant="primary"
-							@click="openDialog({ type: 'book-create' })">
-							Create book
-						</NcButton>
-					</template>
-				</NcEmptyContent>
+					<div v-if="loading.books" class="library-loading">
+						<NcLoadingIcon name="Loading books" :size="32" />
+					</div>
 
-				<template v-else-if="selectedBook">
-					<LibraryToolbar />
-					<section class="library-pane" aria-label="Chapters">
-						<div class="pane-header">
-							<h2 class="pane-title">
-								Chapters
-							</h2>
+					<NcEmptyContent
+						v-else-if="books.length === 0"
+						name="No books yet"
+						description="Create a book to start organizing chapters and Markdown assets.">
+						<template #action>
 							<NcButton
 								variant="primary"
-								:disabled="loading.mutation"
-								@click="openDialog({ type: 'chapter-create', parentId: null })">
-								Add chapter
+								@click="openDialog({ type: 'book-create' })">
+								Create book
 							</NcButton>
-						</div>
-						<ChapterTree />
-					</section>
-				</template>
+						</template>
+					</NcEmptyContent>
+
+					<template v-else-if="selectedBook">
+						<LibraryToolbar />
+						<section class="library-pane" aria-label="Chapters">
+							<div class="pane-header">
+								<h2 class="pane-title">
+									Chapters
+								</h2>
+								<NcButton
+									variant="primary"
+									:disabled="loading.mutation"
+									@click="openDialog({ type: 'chapter-create', parentId: null })">
+									Add chapter
+								</NcButton>
+							</div>
+							<ChapterTree />
+						</section>
+					</template>
+				</div>
 			</div>
 		</NcAppContent>
 
@@ -124,6 +126,14 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.app-content-safe-area {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+	padding-top: 32px;
+}
+
 .library-app {
 	display: flex;
 	flex-direction: column;
