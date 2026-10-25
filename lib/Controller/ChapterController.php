@@ -101,7 +101,7 @@ class ChapterController extends AbstractApiController {
 	}
 
 	/**
-	 * @param list<array{chapter: Chapter, children: array}> $nodes
+	 * @param list<array{chapter: Chapter, children: array, effectiveParentId?: ?int, number?: string}> $nodes
 	 * @return list<array>
 	 */
 	private function serializeTree(array $nodes): array {
@@ -111,6 +111,7 @@ class ChapterController extends AbstractApiController {
 			$serialized[] = $this->serializer->chapter(
 				$node['chapter'],
 				$this->serializeTree($node['children']),
+				$node['number'] ?? null,
 			);
 		}
 

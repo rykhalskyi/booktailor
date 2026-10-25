@@ -33,13 +33,14 @@ class SerializerService {
 	/**
 	 * @param list<array> $children
 	 */
-	public function chapter(Chapter $chapter, array $children = []): array {
+	public function chapter(Chapter $chapter, array $children = [], ?string $number = null): array {
 		return [
 			'id' => $chapter->getId(),
 			'bookId' => $chapter->getBookId(),
 			'parentId' => $chapter->getParentId(),
 			'name' => $chapter->getName(),
 			'fileId' => $chapter->getFileId(),
+			'number' => $number,
 			'children' => $children,
 			'createdAt' => $this->date($chapter->getCreatedAt()),
 			'updatedAt' => $this->date($chapter->getUpdatedAt()),

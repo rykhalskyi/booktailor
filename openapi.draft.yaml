@@ -1386,6 +1386,11 @@ components:
           type: integer
           format: int64
           description: Nextcloud file id of the chapter folder
+        number:
+          type: string
+          nullable: true
+          readOnly: true
+          description: Structure-based number such as 1.1; null for canonical trees
         children:
           type: array
           items:

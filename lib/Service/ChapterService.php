@@ -19,6 +19,8 @@ class ChapterService {
 	public function __construct(
 		private readonly ChapterMapper $chapterMapper,
 		private readonly StructureChapterMapper $structureChapterMapper,
+		private readonly StructureTreeBuilder $structureTreeBuilder,
+		private readonly NumberingService $numberingService,
 		private readonly BookService $bookService,
 		private readonly StructureService $structureService,
 		private readonly StorageService $storage,
@@ -38,7 +40,7 @@ class ChapterService {
 	}
 
 	/**
-	 * @return list<array{chapter: Chapter, children: array}>
+	 * @return list<array{chapter: Chapter, children: array, effectiveParentId?: ?int, number?: string}>
 	 */
 	public function tree(
 		string $userId,
@@ -56,7 +58,10 @@ class ChapterService {
 				throw new NotFoundException('Structure not found');
 			}
 
-			return $this->buildStructureTree($chapters, $structureId);
+			$entries = $this->structureChapterMapper->findByStructure($structureId);
+			$tree = $this->structureTreeBuilder->build($chapters, $entries)['tree'];
+
+			return $this->numberingService->number($tree);
 		}
 
 		if ($parentId !== null) {
@@ -175,76 +180,6 @@ class ChapterService {
 		};
 
 		return $build($rootParentId, 1);
-	}
-
-	/**
-	 * @param list<Chapter> $chapters
-	 * @return list<array{chapter: Chapter, children: array}>
-	 */
-	private function buildStructureTree(array $chapters, int $structureId): array {
-		$canonicalParent = [];
-		foreach ($chapters as $chapter) {
-			$canonicalParent[$chapter->getId()] = $chapter->getParentId();
-		}
-
-		$entries = $this->structureChapterMapper->findByStructure($structureId);
-		$included = [];
-		$positions = [];
-		foreach ($entries as $entry) {
-			if (!$entry['included']) {
-				continue;
-			}
-			$included[$entry['chapter_id']] = true;
-			$positions[$entry['chapter_id']] = $entry['position'];
-		}
-
-		$effectiveParentCache = [];
-		$effectiveParent = function (int $chapterId) use (&$effectiveParent, $canonicalParent, $included, &$effectiveParentCache): ?int {
-			if (array_key_exists($chapterId, $effectiveParentCache)) {
-				return $effectiveParentCache[$chapterId];
-			}
-
-			$parentId = $canonicalParent[$chapterId] ?? null;
-			while ($parentId !== null) {
-				if (isset($included[$parentId])) {
-					return $effectiveParentCache[$chapterId] = $parentId;
-				}
-				$parentId = $canonicalParent[$parentId] ?? null;
-			}
-
-			return $effectiveParentCache[$chapterId] = null;
-		};
-
-		$childrenByParent = [];
-		foreach ($chapters as $chapter) {
-			$chapterId = $chapter->getId();
-			if (!isset($included[$chapterId])) {
-				continue;
-			}
-			$parentId = $effectiveParent($chapterId);
-			$childrenByParent[$parentId ?? 0][] = $chapter;
-		}
-		foreach ($childrenByParent as &$siblings) {
-			usort($siblings, static function (Chapter $a, Chapter $b) use ($positions): int {
-				return ($positions[$a->getId()] ?? 0) <=> ($positions[$b->getId()] ?? 0)
-					?: ($a->getId() <=> $b->getId());
-			});
-		}
-		unset($siblings);
-
-		$build = function (?int $parentId) use (&$build, $childrenByParent): array {
-			/** @var list<array{chapter: Chapter, children: array}> $nodes */
-			$nodes = [];
-			foreach ($childrenByParent[$parentId ?? 0] ?? [] as $chapter) {
-				/** @var list<array{chapter: Chapter, children: array}> $children */
-				$children = $build($chapter->getId());
-				$nodes[] = ['chapter' => $chapter, 'children' => $children];
-			}
-
-			return $nodes;
-		};
-
-		return $build(null);
 	}
 
 	private function validateName(string $name): string {

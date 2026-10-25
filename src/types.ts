@@ -14,6 +14,7 @@ export interface Chapter {
 	parentId: number | null
 	name: string
 	fileId: number | null
+	number?: string | null
 	children: Chapter[]
 	createdAt: string
 	updatedAt: string

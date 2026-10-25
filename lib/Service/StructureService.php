@@ -19,6 +19,7 @@ class StructureService {
 	public function __construct(
 		private readonly StructureMapper $structureMapper,
 		private readonly StructureChapterMapper $structureChapterMapper,
+		private readonly StructureTreeBuilder $structureTreeBuilder,
 		private readonly ChapterMapper $chapterMapper,
 		private readonly BookMapper $bookMapper,
 	) {
@@ -69,35 +70,7 @@ class StructureService {
 		$structure = $this->getOwned($userId, $structureId);
 		$rows = $this->structureChapterMapper->findByStructure($structureId);
 		$chapters = $this->chapterMapper->findByBook($structure->getBookId());
-
-		$parentById = [];
-		foreach ($chapters as $chapter) {
-			$parentById[$chapter->getId()] = $chapter->getParentId();
-		}
-
-		$included = [];
-		foreach ($rows as $row) {
-			if ($row['included']) {
-				$included[$row['chapter_id']] = true;
-			}
-		}
-
-		$effectiveParentCache = [];
-		$effectiveParent = function (int $chapterId) use (&$effectiveParent, $parentById, $included, &$effectiveParentCache): ?int {
-			if (array_key_exists($chapterId, $effectiveParentCache)) {
-				return $effectiveParentCache[$chapterId];
-			}
-
-			$parentId = $parentById[$chapterId] ?? null;
-			while ($parentId !== null) {
-				if (isset($included[$parentId])) {
-					return $effectiveParentCache[$chapterId] = $parentId;
-				}
-				$parentId = $parentById[$parentId] ?? null;
-			}
-
-			return $effectiveParentCache[$chapterId] = null;
-		};
+		$effectiveParentIds = $this->structureTreeBuilder->build($chapters, $rows)['effectiveParentIds'];
 
 		$result = [];
 		foreach ($rows as $row) {
@@ -105,7 +78,7 @@ class StructureService {
 				'chapterId' => $row['chapter_id'],
 				'included' => $row['included'],
 				'position' => $row['position'],
-				'effectiveParentId' => $effectiveParent($row['chapter_id']),
+				'effectiveParentId' => $effectiveParentIds[$row['chapter_id']] ?? null,
 			];
 		}
 

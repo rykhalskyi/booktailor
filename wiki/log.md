@@ -37,3 +37,4 @@
 ## [2026-10-24] update | T2 smoke: subchapter, asset upload, confirmation deletes, and cascade verified headlessly
 ## [2026-10-24] update | T2 review fixes: stale-response guards, per-chapter loading, router-based file links, single-submit dialogs, and mutation-time action blocking
 ## [2026-10-24] update | T2 review fixes: ARIA tree semantics and arrow-key navigation; added vue-tsc typecheck and review tests
+## [2026-10-25] update | T3 Slice 1: extracted structure tree builder, added numbering service, structure tree numbers, and exclusion/order tests
