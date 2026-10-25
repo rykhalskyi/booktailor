@@ -46,6 +46,20 @@ class StructureMapper extends QBMapper {
 		}
 	}
 
+	public function findByBookAndName(int $bookId, string $name): ?Structure {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->tableName)
+			->where($qb->expr()->eq('book_id', $qb->createNamedParameter($bookId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('name', $qb->createNamedParameter($name, IQueryBuilder::PARAM_STR)));
+
+		try {
+			return $this->findEntity($qb);
+		} catch (DoesNotExistException) {
+			return null;
+		}
+	}
+
 	public function findDefaultByBook(int $bookId): ?Structure {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')

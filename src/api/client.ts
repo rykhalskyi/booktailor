@@ -113,6 +113,17 @@ export const api = {
 	},
 	structures: {
 		list: (bookId: number): Promise<Structure[]> => request<Structure[]>(`/books/${bookId}/structures`),
+		create: (bookId: number, name: string): Promise<Structure> => request<Structure>(`/books/${bookId}/structures`, {
+			method: 'POST',
+			body: { name },
+		}),
+		update: (structureId: number, name: string): Promise<Structure> => request<Structure>(`/structures/${structureId}`, {
+			method: 'PATCH',
+			body: { name },
+		}),
+		remove: (structureId: number): Promise<void> => request<void>(`/structures/${structureId}`, {
+			method: 'DELETE',
+		}),
 	},
 	chapters: {
 		tree: (bookId: number, structureId?: number): Promise<Chapter[]> => request<Chapter[]>(`/books/${bookId}/chapters`, {

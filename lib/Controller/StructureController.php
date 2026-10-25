@@ -7,6 +7,7 @@ namespace OCA\BookTailor\Controller;
 use OCA\BookTailor\Entity\Structure;
 use OCA\BookTailor\Service\SerializerService;
 use OCA\BookTailor\Service\StructureService;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataResponse;
@@ -42,12 +43,42 @@ class StructureController extends AbstractApiController {
 	}
 
 	#[NoAdminRequired]
+	#[ApiRoute(verb: 'POST', url: '/api/v1/books/{bookId}/structures')]
+	public function create(int $bookId, string $name): DataResponse {
+		return $this->handle(function () use ($bookId, $name): DataResponse {
+			$structure = $this->structureService->create($this->currentUserId(), $bookId, $name);
+
+			return new DataResponse($this->serializer->structure($structure), Http::STATUS_CREATED);
+		});
+	}
+
+	#[NoAdminRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/v1/structures/{structureId}')]
 	public function show(int $structureId): DataResponse {
 		return $this->handle(function () use ($structureId): DataResponse {
 			$structure = $this->structureService->getOwned($this->currentUserId(), $structureId);
 
 			return new DataResponse($this->serializer->structure($structure));
+		});
+	}
+
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'PATCH', url: '/api/v1/structures/{structureId}')]
+	public function update(int $structureId, string $name): DataResponse {
+		return $this->handle(function () use ($structureId, $name): DataResponse {
+			$structure = $this->structureService->rename($this->currentUserId(), $structureId, $name);
+
+			return new DataResponse($this->serializer->structure($structure));
+		});
+	}
+
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'DELETE', url: '/api/v1/structures/{structureId}')]
+	public function destroy(int $structureId): DataResponse {
+		return $this->handle(function () use ($structureId): DataResponse {
+			$this->structureService->delete($this->currentUserId(), $structureId);
+
+			return new DataResponse([], Http::STATUS_NO_CONTENT);
 		});
 	}
 

@@ -38,3 +38,4 @@ Append-only decision record. The "why" lives here; the full change history lives
 - [2026-10-24] D-35 — Guard selection requests with a monotonic epoch and keep asset loading per chapter — because out-of-order book/chapter responses must never overwrite the current selection and a shared loading flag flashes the wrong empty state
 - [2026-10-24] D-36 — Add vue-tsc to the frontend verification loop and build file links through generateUrl — because Vite does not typecheck and hardcoded /index.php paths break subdirectory installs
 - [2026-10-25] D-37 — Compute structure-based numbering server-side in StructureTreeBuilder + NumberingService and return number on chapter nodes — because composition and UI must share one numbering definition
+- [2026-10-25] D-38 — Start each new custom structure as a copy of the default structure — because users need a predictable starting point and the copy preserves the full chapter inclusion and sibling order
