@@ -368,8 +368,9 @@ paths:
       summary: Replace inclusion and sibling order for a structure
       description: |
         The list must contain every chapter in the book exactly once. Omitted or
-        duplicate chapters are rejected with 422. Effective parents are derived from
-        the canonical tree at read time.
+        duplicate chapters are rejected with 422. Positions are normalized per
+        canonical sibling group. Effective parents are derived from the canonical
+        tree at read time.
       requestBody:
         required: true
         content:

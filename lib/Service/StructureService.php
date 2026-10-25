@@ -9,6 +9,7 @@ use OCA\BookTailor\Db\BookMapper;
 use OCA\BookTailor\Db\ChapterMapper;
 use OCA\BookTailor\Db\StructureChapterMapper;
 use OCA\BookTailor\Db\StructureMapper;
+use OCA\BookTailor\Entity\Chapter;
 use OCA\BookTailor\Entity\Structure;
 use OCA\BookTailor\Exception\ConflictException;
 use OCA\BookTailor\Exception\NotFoundException;
@@ -177,9 +178,111 @@ class StructureService {
 	public function addChapterToStructures(int $bookId, int $chapterId, ?int $parentId): void {
 		$structures = $this->structureMapper->findByBook($bookId);
 		foreach ($structures as $structure) {
+			$includedByChapter = [];
+			foreach ($this->structureChapterMapper->findByStructure($structure->getId()) as $entry) {
+				$includedByChapter[$entry['chapter_id']] = $entry['included'];
+			}
+
+			$included = $structure->getIsDefault()
+				|| $parentId === null
+				|| ($includedByChapter[$parentId] ?? false);
 			$position = $this->structureChapterMapper->nextPosition($structure->getId(), $bookId, $parentId);
-			$this->structureChapterMapper->insertEntry($structure->getId(), $chapterId, true, $position);
+			$this->structureChapterMapper->insertEntry($structure->getId(), $chapterId, $included, $position);
 		}
+	}
+
+	/**
+	 * @param array<array-key, mixed> $entries
+	 * @return list<array{chapterId: int, included: bool, position: int, effectiveParentId: ?int}>
+	 */
+	public function replaceEntries(string $userId, int $structureId, array $entries): array {
+		$structure = $this->getOwned($userId, $structureId);
+		/** @var array<int, Chapter> $chapterById */
+		$chapterById = [];
+		foreach ($this->chapterMapper->findByBook($structure->getBookId()) as $chapter) {
+			$chapterById[$chapter->getId()] = $chapter;
+		}
+
+		$normalized = [];
+		$seen = [];
+		foreach ($entries as $entry) {
+			if (!is_array($entry)) {
+				throw new ValidationException('Structure entries must be objects');
+			}
+
+			$chapterId = filter_var($entry['chapterId'] ?? null, FILTER_VALIDATE_INT);
+			if ($chapterId === false || $chapterId <= 0) {
+				throw new ValidationException('A valid chapter id is required');
+			}
+			$chapter = $chapterById[$chapterId] ?? null;
+			if ($chapter === null) {
+				throw new ValidationException('Chapter does not belong to this book');
+			}
+			if (isset($seen[$chapterId])) {
+				throw new ValidationException('Each chapter may appear only once');
+			}
+			$seen[$chapterId] = true;
+
+			if (!array_key_exists('included', $entry) || !is_bool($entry['included'])) {
+				throw new ValidationException('The included flag is required');
+			}
+			if ($structure->getIsDefault() && $entry['included'] === false) {
+				throw new ValidationException('The default structure must include every chapter');
+			}
+
+			$position = filter_var($entry['position'] ?? null, FILTER_VALIDATE_INT);
+			if ($position === false || $position < 0) {
+				throw new ValidationException('A valid position is required');
+			}
+
+			$normalized[] = [
+				'chapterId' => $chapterId,
+				'included' => $entry['included'],
+				'position' => $position,
+				'parentId' => $chapter->getParentId(),
+			];
+		}
+
+		if (count($normalized) !== count($chapterById)) {
+			throw new ValidationException('Every chapter must appear exactly once');
+		}
+
+		$groups = [];
+		foreach ($normalized as $index => $entry) {
+			$parentId = $entry['parentId'] ?? 0;
+			$groups[$parentId][] = $index;
+		}
+		foreach ($groups as $indexes) {
+			usort($indexes, static function (int $a, int $b) use ($normalized): int {
+				return $normalized[$a]['position'] <=> $normalized[$b]['position']
+					?: $normalized[$a]['chapterId'] <=> $normalized[$b]['chapterId'];
+			});
+			foreach ($indexes as $position => $index) {
+				$normalized[$index]['position'] = $position + 1;
+			}
+		}
+
+		$this->db->beginTransaction();
+		try {
+			$this->structureChapterMapper->deleteByStructure($structureId);
+			foreach ($normalized as $entry) {
+				$this->structureChapterMapper->insertEntry(
+					$structureId,
+					$entry['chapterId'],
+					$entry['included'],
+					$entry['position'],
+				);
+			}
+
+			$structure->setUpdatedAt(new DateTime());
+			$this->structureMapper->update($structure);
+			$this->db->commit();
+		} catch (\Throwable $e) {
+			$this->db->rollBack();
+			throw $e;
+		}
+
+		return $this->getEntries($userId, $structureId);
 	}
 
 	private function validateName(string $name): string {

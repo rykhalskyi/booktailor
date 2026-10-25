@@ -48,6 +48,13 @@ class StructureChapterMapper {
 		return (int)$max + 1;
 	}
 
+	public function deleteByStructure(int $structureId): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('booktailor_structure_chapters')
+			->where($qb->expr()->eq('structure_id', $qb->createNamedParameter($structureId, IQueryBuilder::PARAM_INT)));
+		$qb->executeStatement();
+	}
+
 	/**
 	 * @return list<array{chapter_id: int, included: bool, position: int}>
 	 */

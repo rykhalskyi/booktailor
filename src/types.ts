@@ -48,6 +48,13 @@ export interface Structure {
 	updatedAt: string
 }
 
+export interface StructureEntry {
+	chapterId: number
+	included: boolean
+	position: number
+	effectiveParentId: number | null
+}
+
 export type DialogState =
 	| { type: 'book-create' }
 	| { type: 'chapter-create'; parentId: number | null }

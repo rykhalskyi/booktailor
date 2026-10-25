@@ -1,5 +1,5 @@
 import { generateOcsUrl } from '@nextcloud/router'
-import type { Asset, Book, Chapter, Structure } from '../types'
+import type { Asset, Book, Chapter, Structure, StructureEntry } from '../types'
 
 declare global {
 	interface Window {
@@ -123,6 +123,11 @@ export const api = {
 		}),
 		remove: (structureId: number): Promise<void> => request<void>(`/structures/${structureId}`, {
 			method: 'DELETE',
+		}),
+		entries: (structureId: number): Promise<StructureEntry[]> => request<StructureEntry[]>(`/structures/${structureId}/entries`),
+		replaceEntries: (structureId: number, entries: StructureEntry[]): Promise<StructureEntry[]> => request<StructureEntry[]>(`/structures/${structureId}/entries`, {
+			method: 'PUT',
+			body: { entries },
 		}),
 	},
 	chapters: {

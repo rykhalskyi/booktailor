@@ -96,4 +96,23 @@ describe('API client', () => {
 		expect(deleteUrl).toContain('/structures/5')
 		expect(deleteOptions.method).toBe('DELETE')
 	})
+
+	it('replaces structure entries', async () => {
+		const entries = [
+			{ chapterId: 1, included: true, position: 1, effectiveParentId: null },
+			{ chapterId: 2, included: false, position: 1, effectiveParentId: 1 },
+		]
+		const fetchMock = vi.fn().mockResolvedValue(response({
+			ocs: { meta: { statuscode: 200 }, data: entries },
+		}))
+		vi.stubGlobal('fetch', fetchMock)
+
+		const replaced = await api.structures.replaceEntries(9, entries)
+
+		expect(replaced).toEqual(entries)
+		const [url, options] = fetchMock.mock.calls[0]
+		expect(url).toContain('/structures/9/entries')
+		expect(options.method).toBe('PUT')
+		expect(options.body).toBe(JSON.stringify({ entries }))
+	})
 })

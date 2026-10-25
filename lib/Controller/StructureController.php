@@ -86,17 +86,35 @@ class StructureController extends AbstractApiController {
 	#[ApiRoute(verb: 'GET', url: '/api/v1/structures/{structureId}/entries')]
 	public function entries(int $structureId): DataResponse {
 		return $this->handle(function () use ($structureId): DataResponse {
-			$entries = $this->structureService->getEntries($this->currentUserId(), $structureId);
-
-			return new DataResponse(array_map(
-				fn (array $entry): array => $this->serializer->structureEntry(
-					$entry['chapterId'],
-					$entry['included'],
-					$entry['position'],
-					$entry['effectiveParentId'],
-				),
-				$entries,
+			return new DataResponse($this->serializeEntries(
+				$this->structureService->getEntries($this->currentUserId(), $structureId),
 			));
 		});
+	}
+
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'PUT', url: '/api/v1/structures/{structureId}/entries')]
+	public function replaceEntries(int $structureId, array $entries = []): DataResponse {
+		return $this->handle(function () use ($structureId, $entries): DataResponse {
+			return new DataResponse($this->serializeEntries(
+				$this->structureService->replaceEntries($this->currentUserId(), $structureId, $entries),
+			));
+		});
+	}
+
+	/**
+	 * @param list<array{chapterId: int, included: bool, position: int, effectiveParentId: ?int}> $entries
+	 * @return list<array>
+	 */
+	private function serializeEntries(array $entries): array {
+		return array_map(
+			fn (array $entry): array => $this->serializer->structureEntry(
+				$entry['chapterId'],
+				$entry['included'],
+				$entry['position'],
+				$entry['effectiveParentId'],
+			),
+			$entries,
+		);
 	}
 }
