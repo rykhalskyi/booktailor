@@ -1,5 +1,5 @@
 import { generateOcsUrl } from '@nextcloud/router'
-import type { Asset, Book, Chapter, Structure, StructureEntry } from '../types'
+import type { Asset, Book, Capabilities, Chapter, Structure, StructureEntry, Tag, Version } from '../types'
 
 declare global {
 	interface Window {
@@ -104,6 +104,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 export const api = {
+	capabilities: (): Promise<Capabilities> => request<Capabilities>('/capabilities'),
 	books: {
 		list: (): Promise<Book[]> => request<Book[]>('/books'),
 		create: (name: string, description?: string): Promise<Book> => request<Book>('/books', {
@@ -168,5 +169,40 @@ export const api = {
 		remove: (assetId: number): Promise<void> => request<void>(`/assets/${assetId}`, {
 			method: 'DELETE',
 		}),
+		content: (assetId: number): Promise<{ content: string }> => request<{ content: string }>(`/assets/${assetId}/content`),
+		updateContent: (assetId: number, content: string): Promise<{ content: string }> => request<{ content: string }>(`/assets/${assetId}/content`, {
+			method: 'PUT',
+			body: { content },
+		}),
+	},
+	tags: {
+		list: (bookId: number): Promise<Tag[]> => request<Tag[]>(`/books/${bookId}/tags`),
+		create: (bookId: number, name: string, color?: string): Promise<Tag> => request<Tag>(`/books/${bookId}/tags`, {
+			method: 'POST',
+			body: { name, color },
+		}),
+		update: (tagId: number, name?: string, color?: string): Promise<Tag> => request<Tag>(`/tags/${tagId}`, {
+			method: 'PATCH',
+			body: { name, color },
+		}),
+		remove: (tagId: number): Promise<void> => request<void>(`/tags/${tagId}`, {
+			method: 'DELETE',
+		}),
+		forAsset: (assetId: number): Promise<Tag[]> => request<Tag[]>(`/assets/${assetId}/tags`),
+		replaceForAsset: (assetId: number, tagIds: number[]): Promise<Tag[]> => request<Tag[]>(`/assets/${assetId}/tags`, {
+			method: 'PUT',
+			body: { tagIds },
+		}),
+	},
+	versions: {
+		list: (assetId: number): Promise<Version[]> => request<Version[]>(`/assets/${assetId}/versions`),
+		checkIn: (assetId: number, message: string | null): Promise<Version> => request<Version>(`/assets/${assetId}/versions`, {
+			method: 'POST',
+			body: { message },
+		}),
+		restore: (assetId: number, revisionId: string): Promise<Version> => request<Version>(`/assets/${assetId}/versions/${encodeURIComponent(revisionId)}/restore`, {
+			method: 'POST',
+		}),
+		content: (assetId: number, revisionId: string): Promise<{ revisionId: string, content: string }> => request<{ revisionId: string, content: string }>(`/assets/${assetId}/versions/${encodeURIComponent(revisionId)}/content`),
 	},
 }

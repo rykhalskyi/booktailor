@@ -68,9 +68,9 @@ class SerializerService {
 	}
 
 	/**
-	 * @param list<array{id: int, bookId: int, name: string, slug: string}|Tag> $tags
+	 * @param list<array{id: int, bookId: int, name: string, slug: string, color: string}|Tag> $tags
 	 */
-	public function asset(Asset $asset, int $bookId, array $tags = []): array {
+	public function asset(Asset $asset, string $userId, int $bookId, array $tags = []): array {
 		return [
 			'id' => $asset->getId(),
 			'bookId' => $bookId,
@@ -78,6 +78,7 @@ class SerializerService {
 			'name' => $asset->getName(),
 			'fileName' => $asset->getFileName(),
 			'fileId' => $asset->getFileId(),
+			'path' => $this->storage->relativePathForFileId($userId, $asset->getFileId()),
 			'tags' => array_map(fn (Tag|array $tag): array => $this->tag($tag), $tags),
 			'createdAt' => $this->date($asset->getCreatedAt()),
 			'updatedAt' => $this->date($asset->getUpdatedAt()),
@@ -91,6 +92,7 @@ class SerializerService {
 				'bookId' => $tag->getBookId(),
 				'name' => $tag->getName(),
 				'slug' => $tag->getSlug(),
+				'color' => $tag->getColor(),
 			];
 		}
 
@@ -99,6 +101,7 @@ class SerializerService {
 			'bookId' => (int)$tag['bookId'],
 			'name' => (string)$tag['name'],
 			'slug' => (string)$tag['slug'],
+			'color' => (string)($tag['color'] ?? '#2563eb'),
 		];
 	}
 

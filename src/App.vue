@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import NcAppContent from '@nextcloud/vue/components/NcAppContent'
 import NcAppNavigation from '@nextcloud/vue/components/NcAppNavigation'
+import NcAppNavigationCaption from '@nextcloud/vue/components/NcAppNavigationCaption'
 import NcAppNavigationItem from '@nextcloud/vue/components/NcAppNavigationItem'
 import NcAppNavigationList from '@nextcloud/vue/components/NcAppNavigationList'
 import NcAppNavigationNew from '@nextcloud/vue/components/NcAppNavigationNew'
@@ -10,11 +11,13 @@ import NcContent from '@nextcloud/vue/components/NcContent'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import AssetList from './components/AssetList.vue'
 import ChapterTree from './components/ChapterTree.vue'
-
 import DialogHost from './components/DialogHost.vue'
 import LibraryToolbar from './components/LibraryToolbar.vue'
 import StructureManager from './components/StructureManager.vue'
+import TagManager from './components/TagManager.vue'
+import VersionHistoryDialog from './components/VersionHistoryDialog.vue'
 import { useLibrary } from './stores/useLibrary'
 
 const {
@@ -23,11 +26,15 @@ const {
 	error,
 	initialize,
 	loading,
+	assetManagerOpen,
+	closeAssetManager,
 	openDialog,
+	openTagsManager,
 	selectBook,
 	selectedBook,
 	selectedBookId,
 	structureManagerOpen,
+	tagsManagerOpen,
 } = useLibrary()
 
 onMounted(() => {
@@ -52,10 +59,21 @@ onMounted(() => {
 					icon="icon-folder"
 					@click="selectBook(book)" />
 			</NcAppNavigationList>
+			<NcAppNavigationCaption name="Book tools" />
+			<NcAppNavigationItem
+				name="Tags"
+				icon="icon-tag"
+				:active="tagsManagerOpen"
+				:disabled="selectedBook === null"
+				@click="openTagsManager" />
 		</NcAppNavigation>
 
 		<NcAppContent>
 			<StructureManager v-if="structureManagerOpen" />
+			<TagManager v-else-if="tagsManagerOpen" />
+			<div v-else-if="assetManagerOpen" class="asset-manager">
+				<AssetList show-back @back="closeAssetManager" />
+			</div>
 			<div v-else class="library-app">
 				<NcNoteCard
 					v-if="error && !dialog"
@@ -82,7 +100,7 @@ onMounted(() => {
 
 				<template v-else-if="selectedBook">
 					<LibraryToolbar />
-					<section class="library-pane library-pane--tree" aria-label="Chapters">
+					<section class="library-pane" aria-label="Chapters">
 						<div class="pane-header">
 							<h2 class="pane-title">
 								Chapters
@@ -101,6 +119,7 @@ onMounted(() => {
 		</NcAppContent>
 
 		<DialogHost />
+		<VersionHistoryDialog />
 	</NcContent>
 </template>
 
@@ -153,12 +172,30 @@ onMounted(() => {
 	font-size: 1rem;
 }
 
-.library-pane--tree :deep(.chapter-tree) {
+.library-pane :deep(.chapter-tree) {
 	flex: 1;
+}
+
+.asset-manager {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	padding: 16px;
+}
+
+.asset-manager :deep(.asset-list) {
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	background: var(--color-main-background);
+	overflow: hidden;
 }
 
 @media (max-width: 900px) {
 	.library-app {
+		padding: 12px;
+	}
+
+	.asset-manager {
 		padding: 12px;
 	}
 }

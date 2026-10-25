@@ -53,6 +53,19 @@ class AssetMapper extends QBMapper {
 		}
 	}
 
+	public function findByFileId(int $fileId): ?Asset {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->tableName)
+			->where($qb->expr()->eq('file_id', $qb->createNamedParameter($fileId, IQueryBuilder::PARAM_INT)));
+
+		try {
+			return $this->findEntity($qb);
+		} catch (DoesNotExistException) {
+			return null;
+		}
+	}
+
 	public function findByChapterAndName(int $chapterId, string $name): ?Asset {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')

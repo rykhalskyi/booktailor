@@ -44,9 +44,9 @@ class TagController extends AbstractApiController {
 
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'POST', url: '/api/v1/books/{bookId}/tags')]
-	public function create(int $bookId, string $name): DataResponse {
-		return $this->handle(function () use ($bookId, $name): DataResponse {
-			$tag = $this->tagService->create($this->currentUserId(), $bookId, $name);
+	public function create(int $bookId, string $name, ?string $color = null): DataResponse {
+		return $this->handle(function () use ($bookId, $name, $color): DataResponse {
+			$tag = $this->tagService->create($this->currentUserId(), $bookId, $name, $color);
 
 			return new DataResponse($this->serializer->tag($tag), Http::STATUS_CREATED);
 		});
@@ -54,9 +54,9 @@ class TagController extends AbstractApiController {
 
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'PATCH', url: '/api/v1/tags/{tagId}')]
-	public function update(int $tagId, string $name): DataResponse {
-		return $this->handle(function () use ($tagId, $name): DataResponse {
-			$tag = $this->tagService->rename($this->currentUserId(), $tagId, $name);
+	public function update(int $tagId, ?string $name = null, ?string $color = null): DataResponse {
+		return $this->handle(function () use ($tagId, $name, $color): DataResponse {
+			$tag = $this->tagService->update($this->currentUserId(), $tagId, $name, $color);
 
 			return new DataResponse($this->serializer->tag($tag));
 		});

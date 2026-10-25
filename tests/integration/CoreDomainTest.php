@@ -13,6 +13,7 @@ use OCA\BookTailor\Service\BookService;
 use OCA\BookTailor\Service\ChapterService;
 use OCA\BookTailor\Service\StorageService;
 use OCA\BookTailor\Service\StructureService;
+use OCA\BookTailor\Service\TagColor;
 use OCA\BookTailor\Service\TagService;
 use OCA\BookTailor\Service\VersionService;
 use OCA\Files_Versions\Versions\IVersionManager;
@@ -128,6 +129,15 @@ final class CoreDomainTest extends TestCase {
 		$this->assertSame("# Raw\n\nHello\n", $this->assets->getContent($this->userId, $asset->getId()));
 
 		$tag = $this->tags->create($this->userId, $book->getId(), 'source');
+		$this->assertSame(TagColor::DEFAULT, $tag->getColor());
+
+		$colored = $this->tags->create($this->userId, $book->getId(), 'highlight', '#b91c1c');
+		$this->assertSame('#b91c1c', $colored->getColor());
+		$recolored = $this->tags->update($this->userId, $colored->getId(), null, '#15803d');
+		$this->assertSame('highlight', $recolored->getName());
+		$this->assertSame('#15803d', $recolored->getColor());
+		$this->tags->delete($this->userId, $colored->getId());
+
 		$assigned = $this->tags->replaceForAsset($this->userId, $asset->getId(), [$tag->getId()]);
 		$this->assertSame([$tag->getId()], array_map(static fn ($t): int => $t->getId(), $assigned));
 		$this->assertSame([$tag->getId()], array_map(
@@ -184,6 +194,13 @@ final class CoreDomainTest extends TestCase {
 
 		$this->expectException(ConflictException::class);
 		$this->tags->create($this->userId, $book->getId(), 'source');
+	}
+
+	public function testTagColorMustComeFromThePalette(): void {
+		$book = $this->books->create($this->userId, 'Colors');
+
+		$this->expectException(ValidationException::class);
+		$this->tags->create($this->userId, $book->getId(), 'Source', '#123456');
 	}
 
 	public function testChapterDeleteCascadesAssetsAndFolders(): void {
@@ -249,6 +266,15 @@ final class CoreDomainTest extends TestCase {
 			}
 		}
 		$this->assertNotNull($historical);
+
+		$oldContent = $this->versions->getContent($this->userId, $asset->getId(), $historical['revisionId']);
+		$this->assertStringContainsString('v1', $oldContent);
+		try {
+			$this->versions->getContent($this->userId, $asset->getId(), $current['revisionId']);
+			$this->fail('The current revision should not be readable as a historical version');
+		} catch (ConflictException) {
+			// Expected: the current content is read through the asset endpoint.
+		}
 
 		$restored = $this->versions->restore($this->userId, $asset->getId(), $historical['revisionId']);
 		$this->assertTrue($restored['isCurrent']);

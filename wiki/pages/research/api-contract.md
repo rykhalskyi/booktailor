@@ -103,6 +103,19 @@ version downloads (T4), compositions (T5), AI/prompts (T6), settings/images (T7)
 `openapi.json` remains the generated skeleton until every controller method has the full
 extractor docblock; `openapi.draft.yaml` is the reviewed T1 contract.
 
+## T4 implementation status
+
+- Raw content endpoints are now implemented: `GET|PUT /assets/{id}/content` and
+  `GET /assets/{id}/versions/{revisionId}/content`.
+- `GET /capabilities` reports `editor` (`text` or `null`) and `versions` (boolean) for
+  runtime degradation.
+- `Asset` now includes read-only `path` (the visible file path) so clients can build the
+  Files/Text editor URL.
+- Check-in remains `POST /assets/{id}/versions` and labels the current native revision
+  (D-21); the UI exposes it from the history dialog.
+- Tags include a palette `color` (10 allowed hex values). `POST /books/{id}/tags` accepts
+  an optional color and `PATCH /tags/{id}` accepts name and/or color.
+
 ## Review outcome
 
 Reviewed against the MVP spec and domain schema on 2026-10-24 and accepted as the T1

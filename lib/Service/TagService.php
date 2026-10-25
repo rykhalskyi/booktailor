@@ -32,10 +32,11 @@ class TagService {
 		return $this->tagMapper->findByBook($bookId);
 	}
 
-	public function create(string $userId, int $bookId, string $name): Tag {
+	public function create(string $userId, int $bookId, string $name, ?string $color = null): Tag {
 		$this->bookService->get($userId, $bookId);
 		$name = $this->validateName($name);
 		$slug = $this->slugify($name);
+		$color = $this->validateColor($color) ?? TagColor::DEFAULT;
 
 		if ($this->tagMapper->findByBookAndSlug($bookId, $slug) !== null) {
 			throw new ConflictException('A tag with this name already exists');
@@ -45,6 +46,7 @@ class TagService {
 		$tag->setBookId($bookId);
 		$tag->setName($name);
 		$tag->setSlug($slug);
+		$tag->setColor($color);
 
 		try {
 			return $this->tagMapper->insert($tag);
@@ -59,18 +61,34 @@ class TagService {
 		}
 	}
 
-	public function rename(string $userId, int $tagId, string $name): Tag {
-		$tag = $this->getOwned($userId, $tagId);
-		$name = $this->validateName($name);
-		$slug = $this->slugify($name);
+	/** @psalm-suppress PossiblyUnusedMethod */
+	public function rename(string $userId, int $tagId, string $name, ?string $color = null): Tag {
+		return $this->update($userId, $tagId, $name, $color);
+	}
 
-		$duplicate = $this->tagMapper->findByBookAndSlug($tag->getBookId(), $slug);
-		if ($duplicate !== null && $duplicate->getId() !== $tag->getId()) {
-			throw new ConflictException('A tag with this name already exists');
+	public function update(string $userId, int $tagId, ?string $name = null, ?string $color = null): Tag {
+		$tag = $this->getOwned($userId, $tagId);
+		if ($name === null && $color === null) {
+			throw new ValidationException('Tag name or color is required');
 		}
 
-		$tag->setName($name);
-		$tag->setSlug($slug);
+		if ($name !== null) {
+			$name = $this->validateName($name);
+			$slug = $this->slugify($name);
+
+			$duplicate = $this->tagMapper->findByBookAndSlug($tag->getBookId(), $slug);
+			if ($duplicate !== null && $duplicate->getId() !== $tag->getId()) {
+				throw new ConflictException('A tag with this name already exists');
+			}
+
+			$tag->setName($name);
+			$tag->setSlug($slug);
+		}
+
+		$validatedColor = $this->validateColor($color);
+		if ($validatedColor !== null) {
+			$tag->setColor($validatedColor);
+		}
 
 		return $this->tagMapper->update($tag);
 	}
@@ -144,6 +162,18 @@ class TagService {
 		}
 
 		return $name;
+	}
+
+	private function validateColor(?string $color): ?string {
+		$color = TagColor::normalize($color);
+		if ($color === null || $color === '') {
+			return null;
+		}
+		if (!TagColor::isValid($color)) {
+			throw new ValidationException('Choose one of the available tag colors');
+		}
+
+		return $color;
 	}
 
 	private function slugify(string $name): string {

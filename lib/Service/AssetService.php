@@ -28,7 +28,7 @@ class AssetService {
 	}
 
 	/**
-	 * @return array{assets: list<Asset>, bookId: int, tagsByAsset: array<int, list<array{id: int, bookId: int, name: string, slug: string}>>}
+	 * @return array{assets: list<Asset>, bookId: int, tagsByAsset: array<int, list<array{id: int, bookId: int, name: string, slug: string, color: string}>>}
 	 */
 	public function list(string $userId, int $chapterId, ?int $limit = null, int $offset = 0): array {
 		$chapter = $this->chapterService->get($userId, $chapterId);
@@ -43,7 +43,7 @@ class AssetService {
 	}
 
 	/**
-	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string}>}
+	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
 	 */
 	public function get(string $userId, int $assetId): array {
 		$context = $this->context($userId, $assetId);
@@ -58,14 +58,14 @@ class AssetService {
 	}
 
 	/**
-	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string}>}
+	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
 	 */
 	public function create(string $userId, int $chapterId, string $name): array {
 		return $this->createWithContent($userId, $chapterId, $name, '');
 	}
 
 	/**
-	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string}>}
+	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
 	 */
 	public function upload(string $userId, int $chapterId, string $originalName, string $content): array {
 		if (strlen($content) > self::MAX_CONTENT_BYTES) {
@@ -83,7 +83,7 @@ class AssetService {
 	}
 
 	/**
-	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string}>}
+	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
 	 */
 	private function createWithContent(string $userId, int $chapterId, string $name, string $content): array {
 		$chapter = $this->chapterService->get($userId, $chapterId);
@@ -120,7 +120,7 @@ class AssetService {
 	}
 
 	/**
-	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string}>}
+	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
 	 */
 	public function rename(string $userId, int $assetId, string $name): array {
 		$context = $this->context($userId, $assetId);

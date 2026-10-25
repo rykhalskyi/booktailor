@@ -16,12 +16,15 @@ use OCP\DB\Types;
  * @method void setName(string $name)
  * @method string getSlug()
  * @method void setSlug(string $slug)
+ * @method string getColor()
+ * @method void setColor(string $color)
  * @psalm-suppress PropertyNotSetInConstructor, PossiblyUnusedProperty
  */
 class Tag extends Entity {
 	protected ?int $bookId = null;
 	protected ?string $name = null;
 	protected ?string $slug = null;
+	protected ?string $color = null;
 
 	public function __construct() {
 		$this->addType('id', Types::BIGINT);

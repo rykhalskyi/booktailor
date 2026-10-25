@@ -25,6 +25,7 @@ class StructureTreeBuilder {
 			$positions[$entry['chapter_id']] = $entry['position'];
 		}
 
+		/** @var array<int, list<Chapter>> $childrenByCanonicalParent */
 		$childrenByCanonicalParent = [];
 		foreach ($chapters as $chapter) {
 			$childrenByCanonicalParent[$chapter->getParentId() ?? 0][] = $chapter;
@@ -40,41 +41,48 @@ class StructureTreeBuilder {
 		/** @var array<int, ?int> $effectiveParentIds */
 		$effectiveParentIds = [];
 
-		/**
-		 * Excluded chapters are not emitted, but their children are promoted into the
-		 * excluded chapter's slot under the nearest included ancestor.
-		 *
-		 * @return list<array{chapter: Chapter, children: array, effectiveParentId: ?int}>
-		 */
-		$build = function (?int $effectiveParentId, int $canonicalParentKey) use (&$build, $childrenByCanonicalParent, $included, &$effectiveParentIds): array {
-			/** @var list<array{chapter: Chapter, children: array, effectiveParentId: ?int}> $nodes */
-			$nodes = [];
-			foreach ($childrenByCanonicalParent[$canonicalParentKey] ?? [] as $chapter) {
-				$chapterId = $chapter->getId();
-				$effectiveParentIds[$chapterId] = $effectiveParentId;
-
-				if (!isset($included[$chapterId])) {
-					foreach ($build($effectiveParentId, $chapterId) as $promoted) {
-						$nodes[] = $promoted;
-					}
-					continue;
-				}
-
-				/** @var list<array{chapter: Chapter, children: array, effectiveParentId: ?int}> $children */
-				$children = $build($chapterId, $chapterId);
-				$nodes[] = [
-					'chapter' => $chapter,
-					'children' => $children,
-					'effectiveParentId' => $effectiveParentId,
-				];
-			}
-
-			return $nodes;
-		};
-
 		return [
-			'tree' => $build(null, 0),
+			'tree' => $this->buildLevel(null, 0, $childrenByCanonicalParent, $included, $effectiveParentIds),
 			'effectiveParentIds' => $effectiveParentIds,
 		];
+	}
+
+	/**
+	 * Excluded chapters are not emitted, but their children are promoted into the
+	 * excluded chapter's slot under the nearest included ancestor.
+	 *
+	 * @param array<int, list<Chapter>> $childrenByCanonicalParent
+	 * @param array<int, bool> $included
+	 * @param array<int, ?int> $effectiveParentIds
+	 * @return list<array{chapter: Chapter, children: array, effectiveParentId: ?int}>
+	 */
+	private function buildLevel(
+		?int $effectiveParentId,
+		int $canonicalParentKey,
+		array $childrenByCanonicalParent,
+		array $included,
+		array &$effectiveParentIds,
+	): array {
+		/** @var list<array{chapter: Chapter, children: array, effectiveParentId: ?int}> $nodes */
+		$nodes = [];
+		foreach ($childrenByCanonicalParent[$canonicalParentKey] ?? [] as $chapter) {
+			$chapterId = $chapter->getId();
+			$effectiveParentIds[$chapterId] = $effectiveParentId;
+
+			if (!isset($included[$chapterId])) {
+				foreach ($this->buildLevel($effectiveParentId, $chapterId, $childrenByCanonicalParent, $included, $effectiveParentIds) as $promoted) {
+					$nodes[] = $promoted;
+				}
+				continue;
+			}
+
+			$nodes[] = [
+				'chapter' => $chapter,
+				'children' => $this->buildLevel($chapterId, $chapterId, $childrenByCanonicalParent, $included, $effectiveParentIds),
+				'effectiveParentId' => $effectiveParentId,
+			];
+		}
+
+		return $nodes;
 	}
 }
