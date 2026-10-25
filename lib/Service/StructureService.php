@@ -188,6 +188,7 @@ class StructureService {
 				|| ($includedByChapter[$parentId] ?? false);
 			$position = $this->structureChapterMapper->nextPosition($structure->getId(), $bookId, $parentId);
 			$this->structureChapterMapper->insertEntry($structure->getId(), $chapterId, $included, $position);
+			$this->touch($structure);
 		}
 	}
 
@@ -195,6 +196,7 @@ class StructureService {
 		foreach ($this->structureMapper->findByBook($bookId) as $structure) {
 			$position = $this->structureChapterMapper->nextPosition($structure->getId(), $bookId, $newParentId);
 			$this->structureChapterMapper->updatePosition($structure->getId(), $chapterId, $position);
+			$this->touch($structure);
 		}
 	}
 
@@ -281,8 +283,7 @@ class StructureService {
 				);
 			}
 
-			$structure->setUpdatedAt(new DateTime());
-			$this->structureMapper->update($structure);
+			$this->touch($structure);
 			$this->db->commit();
 		} catch (\Throwable $e) {
 			$this->db->rollBack();
@@ -290,6 +291,11 @@ class StructureService {
 		}
 
 		return $this->getEntries($userId, $structureId);
+	}
+
+	private function touch(Structure $structure): void {
+		$structure->setUpdatedAt(new DateTime());
+		$this->structureMapper->update($structure);
 	}
 
 	private function validateName(string $name): string {

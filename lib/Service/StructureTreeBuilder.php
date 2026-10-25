@@ -16,11 +16,6 @@ class StructureTreeBuilder {
 	 * }
 	 */
 	public function build(array $chapters, array $entries): array {
-		$canonicalParent = [];
-		foreach ($chapters as $chapter) {
-			$canonicalParent[$chapter->getId()] = $chapter->getParentId();
-		}
-
 		$included = [];
 		$positions = [];
 		foreach ($entries as $entry) {
@@ -30,39 +25,11 @@ class StructureTreeBuilder {
 			$positions[$entry['chapter_id']] = $entry['position'];
 		}
 
-		$effectiveParentIds = [];
-		$effectiveParent = function (int $chapterId) use (&$effectiveParent, &$effectiveParentIds, $canonicalParent, $included): ?int {
-			if (array_key_exists($chapterId, $effectiveParentIds)) {
-				return $effectiveParentIds[$chapterId];
-			}
-
-			$parentId = $canonicalParent[$chapterId] ?? null;
-			while ($parentId !== null) {
-				if (isset($included[$parentId])) {
-					return $effectiveParentIds[$chapterId] = $parentId;
-				}
-				$parentId = $canonicalParent[$parentId] ?? null;
-			}
-
-			return $effectiveParentIds[$chapterId] = null;
-		};
-
+		$childrenByCanonicalParent = [];
 		foreach ($chapters as $chapter) {
-			$effectiveParent($chapter->getId());
+			$childrenByCanonicalParent[$chapter->getParentId() ?? 0][] = $chapter;
 		}
-
-		$childrenByParent = [];
-		foreach ($chapters as $chapter) {
-			$chapterId = $chapter->getId();
-			if (!isset($included[$chapterId])) {
-				continue;
-			}
-
-			$parentId = $effectiveParent($chapterId);
-			$childrenByParent[$parentId ?? 0][] = $chapter;
-		}
-
-		foreach ($childrenByParent as &$siblings) {
+		foreach ($childrenByCanonicalParent as &$siblings) {
 			usort($siblings, static function (Chapter $a, Chapter $b) use ($positions): int {
 				return ($positions[$a->getId()] ?? 0) <=> ($positions[$b->getId()] ?? 0)
 					?: ($a->getId() <=> $b->getId());
@@ -70,16 +37,35 @@ class StructureTreeBuilder {
 		}
 		unset($siblings);
 
-		$build = function (?int $parentId) use (&$build, $childrenByParent): array {
+		/** @var array<int, ?int> $effectiveParentIds */
+		$effectiveParentIds = [];
+
+		/**
+		 * Excluded chapters are not emitted, but their children are promoted into the
+		 * excluded chapter's slot under the nearest included ancestor.
+		 *
+		 * @return list<array{chapter: Chapter, children: array, effectiveParentId: ?int}>
+		 */
+		$build = function (?int $effectiveParentId, int $canonicalParentKey) use (&$build, $childrenByCanonicalParent, $included, &$effectiveParentIds): array {
 			/** @var list<array{chapter: Chapter, children: array, effectiveParentId: ?int}> $nodes */
 			$nodes = [];
-			foreach ($childrenByParent[$parentId ?? 0] ?? [] as $chapter) {
+			foreach ($childrenByCanonicalParent[$canonicalParentKey] ?? [] as $chapter) {
+				$chapterId = $chapter->getId();
+				$effectiveParentIds[$chapterId] = $effectiveParentId;
+
+				if (!isset($included[$chapterId])) {
+					foreach ($build($effectiveParentId, $chapterId) as $promoted) {
+						$nodes[] = $promoted;
+					}
+					continue;
+				}
+
 				/** @var list<array{chapter: Chapter, children: array, effectiveParentId: ?int}> $children */
-				$children = $build($chapter->getId());
+				$children = $build($chapterId, $chapterId);
 				$nodes[] = [
 					'chapter' => $chapter,
 					'children' => $children,
-					'effectiveParentId' => $parentId,
+					'effectiveParentId' => $effectiveParentId,
 				];
 			}
 
@@ -87,7 +73,7 @@ class StructureTreeBuilder {
 		};
 
 		return [
-			'tree' => $build(null),
+			'tree' => $build(null, 0),
 			'effectiveParentIds' => $effectiveParentIds,
 		];
 	}

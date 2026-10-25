@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace OCA\BookTailor\Tests\Integration;
 
+use DateTime;
 use OCA\BookTailor\AppInfo\Application;
+use OCA\BookTailor\Entity\Structure;
 use OCA\BookTailor\Exception\ConflictException;
 use OCA\BookTailor\Exception\NotFoundException;
 use OCA\BookTailor\Service\BookService;
 use OCA\BookTailor\Service\ChapterService;
 use OCA\BookTailor\Service\StructureService;
+use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -23,6 +26,7 @@ final class StructureCrudTest extends TestCase {
 	private BookService $books;
 	private ChapterService $chapters;
 	private StructureService $structures;
+	private IDBConnection $db;
 
 	protected function setUp(): void {
 		$server = \OC::$server;
@@ -30,6 +34,7 @@ final class StructureCrudTest extends TestCase {
 		if (!$db->tableExists('booktailor_books')) {
 			$this->markTestSkipped('BookTailor tables are not migrated');
 		}
+		$this->db = $db;
 
 		$this->userId = 'bt-structures-' . bin2hex(random_bytes(4));
 		$this->user = $server->get(IUserManager::class)->createUser(
@@ -125,6 +130,41 @@ final class StructureCrudTest extends TestCase {
 
 		$this->expectException(NotFoundException::class);
 		$this->structures->rename($otherId, $structure->getId(), 'Stolen');
+	}
+
+	public function testStructureTimestampAdvancesOnEntryMutations(): void {
+		$book = $this->books->create($this->userId, 'Timestamps');
+		$root = $this->chapters->create($this->userId, $book->getId(), 'Root');
+		$custom = $this->structures->create($this->userId, $book->getId(), 'Custom');
+		$past = new DateTime('2000-01-01 00:00:00');
+
+		$this->setUpdatedAt($custom->getId(), $past);
+		$this->chapters->create($this->userId, $book->getId(), 'Added later');
+		$afterCreate = $this->structureById($book->getId(), $custom->getId());
+		$this->assertGreaterThan($past->getTimestamp(), $afterCreate->getUpdatedAt()->getTimestamp());
+
+		$this->setUpdatedAt($custom->getId(), $past);
+		$this->structures->moveChapterEntries($book->getId(), $root->getId(), null);
+		$afterMove = $this->structureById($book->getId(), $custom->getId());
+		$this->assertGreaterThan($past->getTimestamp(), $afterMove->getUpdatedAt()->getTimestamp());
+	}
+
+	private function setUpdatedAt(int $structureId, DateTime $updatedAt): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('booktailor_structures')
+			->set('updated_at', $qb->createNamedParameter($updatedAt, IQueryBuilder::PARAM_DATETIME_MUTABLE))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($structureId, IQueryBuilder::PARAM_INT)));
+		$qb->executeStatement();
+	}
+
+	private function structureById(int $bookId, int $structureId): Structure {
+		foreach ($this->structures->listForBook($this->userId, $bookId) as $structure) {
+			if ($structure->getId() === $structureId) {
+				return $structure;
+			}
+		}
+
+		throw new \RuntimeException('Structure not found');
 	}
 
 	/**

@@ -42,3 +42,4 @@
 ## [2026-10-25] update | T3 Slice 3: inclusion and ordering writes, position normalization, default invariants, parent-based new-chapter inclusion, and entries API
 ## [2026-10-25] update | T3 Slice 4: validated chapter promotion, demotion, and parent-sibling attachment with folder moves, structure reordering, rollback, and API client support
 ## [2026-10-25] update | T3 Slice 5: structure manager with CRUD, inclusion, sibling reorder, allowed-target chapter moves, and numbering preview; T3 complete
+## [2026-10-25] update | T3 review fixes: editor readiness guard, slot-preserving orphan ordering, structure timestamps, explicit move targets, and frontend/backend coverage

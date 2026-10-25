@@ -38,6 +38,7 @@ const {
 	editorChapters,
 	editorEntries,
 	editorLoading,
+	editorStructureId,
 	error,
 	loadStructureEditor,
 	loading,
@@ -53,6 +54,24 @@ const {
 
 const managerDialog = ref<ManagerDialog>(null)
 const moveChapterState = ref<Chapter | null>(null)
+
+const editorReady = computed<boolean>(() => (
+	selectedStructureId.value !== null
+	&& editorStructureId.value === selectedStructureId.value
+))
+
+const editorFailed = computed<boolean>(() => (
+	!editorLoading.chapters
+	&& !editorLoading.entries
+	&& selectedStructureId.value !== null
+	&& !editorReady.value
+))
+
+function retryEditor(): void {
+	if (selectedStructureId.value !== null) {
+		loadStructureEditor(selectedStructureId.value)
+	}
+}
 
 const entryByChapter = computed<Map<number, StructureEntry>>(() => new Map(
 	editorEntries.value.map((entry) => [entry.chapterId, entry]),
@@ -156,7 +175,7 @@ async function submitMove(parentId: number | null): Promise<void> {
 
 async function persist(next: StructureEntry[]): Promise<void> {
 	const structureId = selectedStructureId.value
-	if (structureId === null) {
+	if (structureId === null || !editorReady.value) {
 		return
 	}
 
@@ -301,6 +320,15 @@ function closeMoveChapter(): void {
 			<NcLoadingIcon name="Loading structure" :size="32" />
 		</div>
 
+		<div v-else-if="editorFailed" class="manager-loading manager-loading--failed">
+			<NcNoteCard
+				type="error"
+				text="The structure could not be loaded. No changes can be saved until it loads." />
+			<NcButton @click="retryEditor">
+				Retry
+			</NcButton>
+		</div>
+
 		<div v-else class="manager-layout">
 			<section class="manager-panel" aria-label="Structure chapters">
 				<h3 class="panel-title">
@@ -319,7 +347,7 @@ function closeMoveChapter(): void {
 							type="checkbox"
 							class="entry-toggle"
 							:checked="row.included"
-							:disabled="loading.mutation || selectedStructure?.isDefault"
+							:disabled="loading.mutation || !editorReady || selectedStructure?.isDefault"
 							:aria-label="`Include ${row.chapter.name}`"
 							@change="toggleIncluded(row.chapter.id, $event)">
 						<span v-if="numbersByChapter.get(row.chapter.id)" class="entry-number">
@@ -329,19 +357,19 @@ function closeMoveChapter(): void {
 						<div class="entry-actions">
 							<NcButton
 								variant="tertiary"
-								:disabled="loading.mutation || !canMoveChapter(row.chapter)"
+								:disabled="loading.mutation || !editorReady || !canMoveChapter(row.chapter)"
 								@click="openMoveChapter(row.chapter)">
 								Move
 							</NcButton>
 							<NcButton
 								variant="tertiary"
-								:disabled="loading.mutation || !canMove(row.chapter.id, -1)"
+								:disabled="loading.mutation || !editorReady || !canMove(row.chapter.id, -1)"
 								@click="moveSibling(row.chapter.id, -1)">
 								Up
 							</NcButton>
 							<NcButton
 								variant="tertiary"
-								:disabled="loading.mutation || !canMove(row.chapter.id, 1)"
+								:disabled="loading.mutation || !editorReady || !canMove(row.chapter.id, 1)"
 								@click="moveSibling(row.chapter.id, 1)">
 								Down
 							</NcButton>
@@ -455,6 +483,12 @@ function closeMoveChapter(): void {
 	justify-content: center;
 	flex: 1;
 	min-height: 240px;
+}
+
+.manager-loading--failed {
+	flex-direction: column;
+	gap: 16px;
+	padding: 24px;
 }
 
 .manager-layout {

@@ -31,6 +31,7 @@ export function createLibraryStore() {
 	const structureManagerOpen = ref(false)
 	const editorChapters = ref<Chapter[]>([])
 	const editorEntries = ref<StructureEntry[]>([])
+	const editorStructureId = ref<number | null>(null)
 	const editorLoading = reactive({
 		chapters: false,
 		entries: false,
@@ -62,6 +63,7 @@ export function createLibraryStore() {
 		editorEpoch += 1
 		editorChapters.value = []
 		editorEntries.value = []
+		editorStructureId.value = null
 		editorLoading.chapters = false
 		editorLoading.entries = false
 	}
@@ -233,9 +235,10 @@ export function createLibraryStore() {
 	async function loadStructureEditor(structureId: number | null = selectedStructureId.value): Promise<void> {
 		const epoch = ++editorEpoch
 		const bookId = selectedBookId.value
+		editorChapters.value = []
+		editorEntries.value = []
+		editorStructureId.value = null
 		if (bookId === null || structureId === null) {
-			editorChapters.value = []
-			editorEntries.value = []
 			editorLoading.chapters = false
 			editorLoading.entries = false
 			return
@@ -254,6 +257,7 @@ export function createLibraryStore() {
 
 			editorChapters.value = allChapters
 			editorEntries.value = entries
+			editorStructureId.value = structureId
 		} catch (errorValue) {
 			if (epoch === editorEpoch) {
 				error.value = messageFor(errorValue)
@@ -267,7 +271,12 @@ export function createLibraryStore() {
 	}
 
 	async function saveStructureEntries(structureId: number, entries: StructureEntry[]): Promise<boolean> {
-		if (loading.mutation) {
+		if (
+			loading.mutation
+			|| editorStructureId.value !== structureId
+			|| editorLoading.chapters
+			|| editorLoading.entries
+		) {
 			return false
 		}
 
@@ -275,7 +284,7 @@ export function createLibraryStore() {
 		error.value = null
 		try {
 			const saved = await api.structures.replaceEntries(structureId, entries)
-			if (selectedStructureId.value === structureId) {
+			if (selectedStructureId.value === structureId && editorStructureId.value === structureId) {
 				editorEntries.value = saved
 				if (selectedBookId.value !== null) {
 					await loadTree(selectedBookId.value, structureId)
@@ -649,6 +658,7 @@ export function createLibraryStore() {
 		editorChapters,
 		editorEntries,
 		editorLoading,
+		editorStructureId,
 		error,
 		expandedChapterIds,
 		loading,

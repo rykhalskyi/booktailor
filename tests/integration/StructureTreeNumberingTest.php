@@ -121,6 +121,63 @@ final class StructureTreeNumberingTest extends TestCase {
 		$this->assertSame($root->getId(), $entries[$grandchild->getId()]['effectiveParentId']);
 	}
 
+	public function testExcludedRootChildrenKeepTheRootSlot(): void {
+		$book = $this->books->create($this->userId, 'Promoted roots');
+		$rootA = $this->chapters->create($this->userId, $book->getId(), 'Root A');
+		$rootB = $this->chapters->create($this->userId, $book->getId(), 'Root B');
+		$childA = $this->chapters->create($this->userId, $book->getId(), 'Child A', $rootA->getId());
+		$structure = $this->structures->listForBook($this->userId, $book->getId())[0];
+
+		$this->setIncluded($structure->getId(), $rootA->getId(), false);
+		$this->setPosition($structure->getId(), $rootA->getId(), 2);
+		$this->setPosition($structure->getId(), $rootB->getId(), 1);
+
+		$tree = $this->chapters->tree($this->userId, $book->getId(), $structure->getId());
+		$this->assertSame($rootB->getId(), $tree[0]['chapter']->getId());
+		$this->assertSame($childA->getId(), $tree[1]['chapter']->getId());
+		$this->assertSame('2.', $tree[1]['number']);
+
+		$this->setPosition($structure->getId(), $rootA->getId(), 1);
+		$this->setPosition($structure->getId(), $rootB->getId(), 2);
+
+		$tree = $this->chapters->tree($this->userId, $book->getId(), $structure->getId());
+		$this->assertSame($childA->getId(), $tree[0]['chapter']->getId());
+		$this->assertSame('1.', $tree[0]['number']);
+		$this->assertSame($rootB->getId(), $tree[1]['chapter']->getId());
+
+		$entries = $this->entriesByChapter($structure->getId());
+		$this->assertNull($entries[$childA->getId()]['effectiveParentId']);
+	}
+
+	public function testExcludedMiddleChapterChildrenKeepItsSlot(): void {
+		$book = $this->books->create($this->userId, 'Promoted children');
+		$root = $this->chapters->create($this->userId, $book->getId(), 'Root');
+		$childA = $this->chapters->create($this->userId, $book->getId(), 'Child A', $root->getId());
+		$childB = $this->chapters->create($this->userId, $book->getId(), 'Child B', $root->getId());
+		$grandchild = $this->chapters->create($this->userId, $book->getId(), 'Grandchild', $childA->getId());
+		$structure = $this->structures->listForBook($this->userId, $book->getId())[0];
+
+		$this->setIncluded($structure->getId(), $childA->getId(), false);
+		$this->setPosition($structure->getId(), $childA->getId(), 2);
+		$this->setPosition($structure->getId(), $childB->getId(), 1);
+
+		$tree = $this->chapters->tree($this->userId, $book->getId(), $structure->getId());
+		$this->assertSame($childB->getId(), $tree[0]['children'][0]['chapter']->getId());
+		$this->assertSame($grandchild->getId(), $tree[0]['children'][1]['chapter']->getId());
+		$this->assertSame('1.2', $tree[0]['children'][1]['number']);
+
+		$this->setPosition($structure->getId(), $childA->getId(), 1);
+		$this->setPosition($structure->getId(), $childB->getId(), 2);
+
+		$tree = $this->chapters->tree($this->userId, $book->getId(), $structure->getId());
+		$this->assertSame($grandchild->getId(), $tree[0]['children'][0]['chapter']->getId());
+		$this->assertSame('1.1', $tree[0]['children'][0]['number']);
+		$this->assertSame($childB->getId(), $tree[0]['children'][1]['chapter']->getId());
+
+		$entries = $this->entriesByChapter($structure->getId());
+		$this->assertSame($root->getId(), $entries[$grandchild->getId()]['effectiveParentId']);
+	}
+
 	public function testSiblingPositionDrivesOrderAndNumbering(): void {
 		$book = $this->books->create($this->userId, 'Ordering');
 		$rootA = $this->chapters->create($this->userId, $book->getId(), 'Root A');

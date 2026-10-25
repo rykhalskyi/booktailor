@@ -101,13 +101,20 @@ Delivered:
   new root chapters are included.
 - `StructureTreeBuilder` centralizes effective-parent and ordering logic; `NumberingService`
   produces `1.`, `1.1`, `1.1.1` and the chapter serializer returns `number`.
+- Excluded chapters are promoted into their canonical slot rather than ordered against
+  positions from unrelated sibling groups, so orphan order stays deterministic and
+  user-controllable.
 - Chapter movement rules: promote to the grandparent, demote under the previous sibling,
   attach under a sibling of the current parent, and promote to the root. Arbitrary
   reparenting and cycles are rejected.
 - Movement updates the visible chapter folder, rolls back the folder on database failure,
   and appends the moved chapter to every structure sibling group.
+- Structure timestamps advance when chapters are added or moved, not only when entries
+  are replaced.
 - Structure manager view with structure create/rename/delete, include/exclude toggles,
-  sibling reordering, allowed-target chapter moves, and a numbering preview.
+  sibling reordering, allowed-target chapter moves, and a numbering preview. Entry writes
+  are blocked while the editor does not hold the selected structure, and chapter moves
+  require an explicit target.
 - API client support for structure CRUD, entries read/write, and chapter movement.
 
 Deviations:
@@ -120,12 +127,13 @@ Deviations:
 
 Verification:
 
-- `npm run check` (9 files / 27 tests)
+- `npm run check` (12 files / 42 tests)
 - `npm run build`
 - `composer run lint`
 - `composer run cs:check`
 - `composer run psalm`
-- `composer run test:unit` (26 tests / 139 assertions)
+- `composer run test:unit` (includes ordering, timestamp, cascade, and controller
+  validation tests)
 - HTTP smoke: create book → chapters → custom structure → entry replacement → promote
   a chapter to root → verify numbering → delete book
 

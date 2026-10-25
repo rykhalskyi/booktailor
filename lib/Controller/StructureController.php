@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\BookTailor\Controller;
 
 use OCA\BookTailor\Entity\Structure;
+use OCA\BookTailor\Exception\ValidationException;
 use OCA\BookTailor\Service\SerializerService;
 use OCA\BookTailor\Service\StructureService;
 use OCP\AppFramework\Http;
@@ -44,8 +45,12 @@ class StructureController extends AbstractApiController {
 
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'POST', url: '/api/v1/books/{bookId}/structures')]
-	public function create(int $bookId, string $name): DataResponse {
+	public function create(int $bookId, ?string $name = null): DataResponse {
 		return $this->handle(function () use ($bookId, $name): DataResponse {
+			if ($name === null) {
+				throw new ValidationException('Structure name is required');
+			}
+
 			$structure = $this->structureService->create($this->currentUserId(), $bookId, $name);
 
 			return new DataResponse($this->serializer->structure($structure), Http::STATUS_CREATED);
@@ -64,8 +69,12 @@ class StructureController extends AbstractApiController {
 
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'PATCH', url: '/api/v1/structures/{structureId}')]
-	public function update(int $structureId, string $name): DataResponse {
+	public function update(int $structureId, ?string $name = null): DataResponse {
 		return $this->handle(function () use ($structureId, $name): DataResponse {
+			if ($name === null) {
+				throw new ValidationException('Structure name is required');
+			}
+
 			$structure = $this->structureService->rename($this->currentUserId(), $structureId, $name);
 
 			return new DataResponse($this->serializer->structure($structure));

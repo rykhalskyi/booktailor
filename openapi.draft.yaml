@@ -370,7 +370,8 @@ paths:
         The list must contain every chapter in the book exactly once. Omitted or
         duplicate chapters are rejected with 422. Positions are normalized per
         canonical sibling group. Effective parents are derived from the canonical
-        tree at read time.
+        tree at read time; children of excluded chapters are promoted into the
+        nearest included ancestor's sibling list at the excluded chapter's position.
       requestBody:
         required: true
         content:

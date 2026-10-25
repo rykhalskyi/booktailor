@@ -21,11 +21,17 @@ vi.mock('../../src/api/client', () => {
 			},
 			structures: {
 				list: vi.fn(),
+				create: vi.fn(),
+				update: vi.fn(),
+				remove: vi.fn(),
+				entries: vi.fn(),
+				replaceEntries: vi.fn(),
 			},
 			chapters: {
 				tree: vi.fn(),
 				create: vi.fn(),
 				rename: vi.fn(),
+				move: vi.fn(),
 				remove: vi.fn(),
 			},
 			assets: {
@@ -63,12 +69,12 @@ function book(id: number): Book {
 	}
 }
 
-function structure(id: number, bookId: number): Structure {
+function structure(id: number, bookId: number, isDefault = true): Structure {
 	return {
 		id,
 		bookId,
 		name: `Structure ${id}`,
-		isDefault: true,
+		isDefault,
 		createdAt: '2026-01-01T00:00:00+00:00',
 		updatedAt: '2026-01-01T00:00:00+00:00',
 	}
@@ -104,6 +110,8 @@ function asset(id: number, chapterId: number): Asset {
 beforeEach(() => {
 	vi.mocked(api.books.list).mockResolvedValue([])
 	vi.mocked(api.structures.list).mockResolvedValue([])
+	vi.mocked(api.structures.entries).mockResolvedValue([])
+	vi.mocked(api.structures.replaceEntries).mockResolvedValue([])
 	vi.mocked(api.chapters.tree).mockResolvedValue([])
 	vi.mocked(api.assets.list).mockResolvedValue([])
 })
@@ -208,5 +216,132 @@ describe('library store', () => {
 		store.loading.mutation = false
 		store.openDialog({ type: 'book-create' })
 		expect(store.dialog.value).toEqual({ type: 'book-create' })
+	})
+
+	it('loads the structure editor for the requested structure', async () => {
+		const store = createLibraryStore()
+		store.selectedBookId.value = 1
+		store.selectedStructureId.value = 10
+		vi.mocked(api.chapters.tree).mockResolvedValue([chapter(1, 1)])
+		vi.mocked(api.structures.entries).mockResolvedValue([
+			{ chapterId: 1, included: true, position: 1, effectiveParentId: null },
+		])
+
+		await store.loadStructureEditor(10)
+
+		expect(store.editorChapters.value.map((item) => item.id)).toEqual([1])
+		expect(store.editorEntries.value).toHaveLength(1)
+		expect(store.editorStructureId.value).toBe(10)
+	})
+
+	it('blocks entry saves when the editor failed to load', async () => {
+		const store = createLibraryStore()
+		store.selectedBookId.value = 1
+		store.selectedStructureId.value = 20
+		vi.mocked(api.chapters.tree).mockRejectedValue(new Error('offline'))
+		vi.mocked(api.structures.entries).mockRejectedValue(new Error('offline'))
+
+		await store.loadStructureEditor(20)
+
+		expect(store.editorChapters.value).toEqual([])
+		expect(store.editorEntries.value).toEqual([])
+		expect(store.editorStructureId.value).toBeNull()
+
+		const saved = await store.saveStructureEntries(20, [
+			{ chapterId: 1, included: true, position: 1, effectiveParentId: null },
+		])
+
+		expect(saved).toBe(false)
+		expect(api.structures.replaceEntries).not.toHaveBeenCalled()
+	})
+
+	it('does not save entries for a structure that is not loaded in the editor', async () => {
+		const store = createLibraryStore()
+		store.selectedBookId.value = 1
+		store.selectedStructureId.value = 10
+		vi.mocked(api.chapters.tree).mockResolvedValue([chapter(1, 1)])
+		vi.mocked(api.structures.entries).mockResolvedValue([
+			{ chapterId: 1, included: true, position: 1, effectiveParentId: null },
+		])
+		await store.loadStructureEditor(10)
+
+		const saved = await store.saveStructureEntries(20, [
+			{ chapterId: 1, included: false, position: 1, effectiveParentId: null },
+		])
+
+		expect(saved).toBe(false)
+		expect(api.structures.replaceEntries).not.toHaveBeenCalled()
+	})
+
+	it('moves a chapter and reloads the tree and editor', async () => {
+		const store = createLibraryStore()
+		store.selectedBookId.value = 1
+		store.selectedStructureId.value = 10
+		vi.mocked(api.chapters.move).mockResolvedValue(chapter(2, 1))
+		vi.mocked(api.chapters.tree).mockResolvedValue([chapter(1, 1)])
+		vi.mocked(api.structures.entries).mockResolvedValue([
+			{ chapterId: 1, included: true, position: 1, effectiveParentId: null },
+		])
+
+		const moved = await store.moveChapter(2, null)
+
+		expect(moved).toBe(true)
+		expect(api.chapters.move).toHaveBeenCalledWith(2, null)
+		expect(api.chapters.tree).toHaveBeenCalledWith(1, 10)
+		expect(api.structures.entries).toHaveBeenCalledWith(10)
+		expect(store.editorStructureId.value).toBe(10)
+	})
+
+	it('creates a structure, selects it, and loads its editor', async () => {
+		const store = createLibraryStore()
+		const created = structure(20, 1, false)
+		store.selectedBookId.value = 1
+		store.selectedStructureId.value = 10
+		vi.mocked(api.structures.create).mockResolvedValue(created)
+		vi.mocked(api.structures.list).mockResolvedValue([structure(10, 1), created])
+		vi.mocked(api.chapters.tree).mockResolvedValue([])
+		vi.mocked(api.structures.entries).mockResolvedValue([])
+
+		const result = await store.createStructure('Study')
+
+		expect(result).toBe(true)
+		expect(api.structures.create).toHaveBeenCalledWith(1, 'Study')
+		expect(store.selectedStructureId.value).toBe(20)
+		expect(store.structures.value.map((item) => item.id)).toEqual([10, 20])
+		expect(store.editorStructureId.value).toBe(20)
+	})
+
+	it('renames a structure and refreshes the list', async () => {
+		const store = createLibraryStore()
+		const renamed = { ...structure(20, 1), name: 'Final' }
+		store.selectedBookId.value = 1
+		vi.mocked(api.structures.update).mockResolvedValue(renamed)
+		vi.mocked(api.structures.list).mockResolvedValue([structure(10, 1), renamed])
+
+		const result = await store.renameStructure(structure(20, 1), 'Final')
+
+		expect(result).toBe(true)
+		expect(api.structures.update).toHaveBeenCalledWith(20, 'Final')
+		expect(store.structures.value.find((item) => item.id === 20)?.name).toBe('Final')
+	})
+
+	it('falls back to the default structure after deleting the selected one', async () => {
+		const store = createLibraryStore()
+		const fallback = structure(10, 1)
+		const custom = structure(20, 1, false)
+		store.selectedBookId.value = 1
+		store.selectedStructureId.value = 20
+		store.structures.value = [fallback, custom]
+		vi.mocked(api.structures.remove).mockResolvedValue(undefined)
+		vi.mocked(api.structures.list).mockResolvedValue([fallback])
+		vi.mocked(api.chapters.tree).mockResolvedValue([])
+		vi.mocked(api.structures.entries).mockResolvedValue([])
+
+		const result = await store.deleteStructure(custom)
+
+		expect(result).toBe(true)
+		expect(api.structures.remove).toHaveBeenCalledWith(20)
+		expect(store.selectedStructureId.value).toBe(10)
+		expect(store.structures.value).toEqual([fallback])
 	})
 })

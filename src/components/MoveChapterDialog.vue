@@ -23,11 +23,11 @@ const emit = defineEmits<{
 }>()
 
 const targets = computed<MoveTarget[]>(() => moveTargetsFor(props.chapter, props.chapters))
-const selected = ref<MoveTarget | null>(targets.value[0] ?? null)
+const selected = ref<MoveTarget | null>(null)
 
 watch(targets, (value) => {
-	if (selected.value === null || !value.some((target) => target.id === selected.value?.id)) {
-		selected.value = value[0] ?? null
+	if (selected.value !== null && !value.some((target) => target.id === selected.value?.id)) {
+		selected.value = null
 	}
 })
 
@@ -63,6 +63,7 @@ function confirm(): void {
 			label="label"
 			input-label="New parent"
 			aria-label="New parent"
+			placeholder="Select a new parent"
 			:clearable="false"
 			:searchable="false"
 			@update:model-value="onSelect" />
