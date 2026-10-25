@@ -1,7 +1,7 @@
 ---
 created: 2026-10-22
 type: ticket
-status: proposed
+status: implemented
 summary: Add custom structures with independent chapter inclusion, sibling ordering, draft move rules, and numbering.
 ---
 
@@ -85,4 +85,53 @@ Dependencies:
 
 ## Outcome
 
-Pending. Fill in schema, services, UI, tests, and deviations when done.
+Implemented. Structures are now first-class ordered, partially inclusive views with
+server-side numbering, guarded chapter movement, and a management view.
+
+Delivered:
+
+- Structure CRUD with default-structure protection. New structures copy the default
+  entries, including inclusion and sibling positions.
+- Full entry replacement for a structure with these invariants:
+  - every book chapter appears exactly once;
+  - unknown, duplicate, and cross-book chapters are rejected;
+  - the default structure cannot exclude a chapter;
+  - positions are normalized per canonical sibling group.
+- New chapters inherit inclusion from their canonical parent in custom structures;
+  new root chapters are included.
+- `StructureTreeBuilder` centralizes effective-parent and ordering logic; `NumberingService`
+  produces `1.`, `1.1`, `1.1.1` and the chapter serializer returns `number`.
+- Chapter movement rules: promote to the grandparent, demote under the previous sibling,
+  attach under a sibling of the current parent, and promote to the root. Arbitrary
+  reparenting and cycles are rejected.
+- Movement updates the visible chapter folder, rolls back the folder on database failure,
+  and appends the moved chapter to every structure sibling group.
+- Structure manager view with structure create/rename/delete, include/exclude toggles,
+  sibling reordering, allowed-target chapter moves, and a numbering preview.
+- API client support for structure CRUD, entries read/write, and chapter movement.
+
+Deviations:
+
+- Structure management is an in-app view opened from the main toolbar rather than a
+  separate route.
+- Entry changes save immediately instead of using a batch save action.
+- Chapter moves use an allowed-target picker; drag-and-drop reparenting remains out of
+  scope.
+
+Verification:
+
+- `npm run check` (9 files / 27 tests)
+- `npm run build`
+- `composer run lint`
+- `composer run cs:check`
+- `composer run psalm`
+- `composer run test:unit` (26 tests / 139 assertions)
+- HTTP smoke: create book → chapters → custom structure → entry replacement → promote
+  a chapter to root → verify numbering → delete book
+
+Main files: `lib/Service/StructureService.php`, `lib/Service/StructureTreeBuilder.php`,
+`lib/Service/NumberingService.php`, `lib/Service/ChapterService.php`,
+`lib/Controller/StructureController.php`, `lib/Controller/ChapterController.php`,
+`src/components/StructureManager.vue`, `src/components/MoveChapterDialog.vue`,
+`src/api/client.ts`, `src/utils/movement.ts`, `tests/integration/`.
+

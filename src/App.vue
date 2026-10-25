@@ -14,6 +14,7 @@ import ChapterTree from './components/ChapterTree.vue'
 
 import DialogHost from './components/DialogHost.vue'
 import LibraryToolbar from './components/LibraryToolbar.vue'
+import StructureManager from './components/StructureManager.vue'
 import { useLibrary } from './stores/useLibrary'
 
 const {
@@ -26,6 +27,7 @@ const {
 	selectBook,
 	selectedBook,
 	selectedBookId,
+	structureManagerOpen,
 } = useLibrary()
 
 onMounted(() => {
@@ -53,7 +55,8 @@ onMounted(() => {
 		</NcAppNavigation>
 
 		<NcAppContent>
-			<div class="library-app">
+			<StructureManager v-if="structureManagerOpen" />
+			<div v-else class="library-app">
 				<NcNoteCard
 					v-if="error && !dialog"
 					type="error"

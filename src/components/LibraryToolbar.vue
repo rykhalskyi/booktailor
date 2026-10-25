@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import NcButton from '@nextcloud/vue/components/NcButton'
 import NcSelect from '@nextcloud/vue/components/NcSelect'
 import { useLibrary } from '../stores/useLibrary'
 import type { Structure } from '../types'
 
-const { selectedStructure, selectStructure, structures } = useLibrary()
+const { loading, openStructureManager, selectedStructure, selectStructure, structures } = useLibrary()
 
 function onStructureChange(structure: Structure | null): void {
 	selectStructure(structure?.id ?? null)
@@ -23,6 +24,9 @@ function onStructureChange(structure: Structure | null): void {
 				:searchable="false"
 				@update:model-value="onStructureChange" />
 		</div>
+		<NcButton :disabled="loading.mutation" @click="openStructureManager">
+			Manage structures
+		</NcButton>
 	</div>
 </template>
 
