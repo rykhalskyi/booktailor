@@ -13,6 +13,8 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AssetList from './components/AssetList.vue'
 import ChapterTree from './components/ChapterTree.vue'
+import ComposeScreen from './components/ComposeScreen.vue'
+import CompositionsList from './components/CompositionsList.vue'
 import DialogHost from './components/DialogHost.vue'
 import LibraryToolbar from './components/LibraryToolbar.vue'
 import StructureManager from './components/StructureManager.vue'
@@ -22,12 +24,16 @@ import { useLibrary } from './stores/useLibrary'
 
 const {
 	books,
+	composeOpen,
+	compositionsOpen,
 	dialog,
 	error,
 	initialize,
 	loading,
 	assetManagerOpen,
 	closeAssetManager,
+	openCompose,
+	openCompositions,
 	openDialog,
 	openTagsManager,
 	selectBook,
@@ -66,12 +72,26 @@ onMounted(() => {
 				:active="tagsManagerOpen"
 				:disabled="selectedBook === null"
 				@click="openTagsManager" />
+			<NcAppNavigationItem
+				name="Compose"
+				icon="icon-add"
+				:active="composeOpen"
+				:disabled="selectedBook === null"
+				@click="openCompose" />
+			<NcAppNavigationItem
+				name="Compositions"
+				icon="icon-file"
+				:active="compositionsOpen"
+				:disabled="selectedBook === null"
+				@click="openCompositions" />
 		</NcAppNavigation>
 
 		<NcAppContent>
 			<div class="app-content-safe-area">
 				<StructureManager v-if="structureManagerOpen" />
 				<TagManager v-else-if="tagsManagerOpen" />
+				<ComposeScreen v-else-if="composeOpen" />
+				<CompositionsList v-else-if="compositionsOpen" />
 				<div v-else-if="assetManagerOpen" class="asset-manager">
 					<AssetList show-back @back="closeAssetManager" />
 				</div>

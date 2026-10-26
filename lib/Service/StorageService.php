@@ -119,6 +119,77 @@ class StorageService {
 		return $parent->newFolder($name);
 	}
 
+	public function getCompositionsFolder(Book $book): Folder {
+		return $this->getOrCreateFolder($this->getBookFolder($book), 'compositions');
+	}
+
+	public function getCompositionsImagesFolder(Book $book): Folder {
+		return $this->getOrCreateFolder($this->getCompositionsFolder($book), 'images');
+	}
+
+	/**
+	 * @return array{file: File, path: string}
+	 */
+	public function writeComposition(Book $book, string $baseName, string $content): array {
+		$folder = $this->getCompositionsFolder($book);
+		$fileName = $this->uniqueChildName($folder, $baseName, '.md');
+		$tmpName = '.booktailor-' . bin2hex(random_bytes(8)) . '.tmp';
+		$tmp = $folder->newFile($tmpName);
+
+		try {
+			$tmp->putContent($content);
+			$tmp->move($folder->getPath() . '/' . $fileName);
+		} catch (\Throwable $e) {
+			$this->deleteNodeIfExists($tmp);
+			throw $e;
+		}
+
+		$file = $folder->get($fileName);
+		if (!$file instanceof File) {
+			throw new ConflictException('Could not write the composition output');
+		}
+
+		return [
+			'file' => $file,
+			'path' => $this->relativePathForFileId($book->getUserId(), $file->getId()) ?? $fileName,
+		];
+	}
+
+	public function copyCompositionImage(Book $book, File $source): string {
+		$folder = $this->getCompositionsImagesFolder($book);
+		$base = pathinfo($source->getName(), PATHINFO_FILENAME);
+		$extension = pathinfo($source->getName(), PATHINFO_EXTENSION);
+		$base = mb_substr($this->sanitizeName($base), 0, 150);
+		$name = $base . '-' . $source->getId() . ($extension !== '' ? '.' . $extension : '');
+
+		if ($folder->nodeExists($name)) {
+			$existing = $folder->get($name);
+			if (!$existing instanceof File) {
+				throw new ConflictException('Could not write a composition image');
+			}
+			$existing->putContent($source->getContent());
+
+			return $name;
+		}
+
+		$folder->newFile($name, $source->getContent());
+
+		return $name;
+	}
+
+	private function getOrCreateFolder(Folder $parent, string $name): Folder {
+		if ($parent->nodeExists($name)) {
+			$node = $parent->get($name);
+			if (!$node instanceof Folder) {
+				throw new ConflictException($name . ' is not a folder');
+			}
+
+			return $node;
+		}
+
+		return $parent->newFolder($name);
+	}
+
 	/**
 	 * @return array{file: File, fileName: string}
 	 */

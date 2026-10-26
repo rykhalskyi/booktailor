@@ -1,6 +1,7 @@
 import { computed, reactive, ref } from 'vue'
 import { api, ApiError } from '../api/client'
-import type { Asset, Book, Capabilities, Chapter, DialogState, Structure, StructureEntry, Tag, Version } from '../types'
+import type { Asset, Book, Capabilities, Chapter, Composition, CompositionRule, DialogState, Structure, StructureEntry, Tag, Version } from '../types'
+import { compositionFileName, saveBlob } from '../utils/compositions'
 import { collectChapterIds, findChapter } from '../utils/tree'
 
 function messageFor(errorValue: unknown): string {
@@ -31,6 +32,10 @@ export function createLibraryStore() {
 	const structureManagerOpen = ref(false)
 	const tagsManagerOpen = ref(false)
 	const assetManagerOpen = ref(false)
+	const composeOpen = ref(false)
+	const compositionsOpen = ref(false)
+	const compositions = ref<Composition[]>([])
+	const compositionsLoading = ref(false)
 	const capabilities = ref<Capabilities>({ editor: 'text', versions: true })
 	const tags = ref<Tag[]>([])
 	const tagsLoading = ref(false)
@@ -51,6 +56,7 @@ export function createLibraryStore() {
 
 	let booksRequest = 0
 	let selectionEpoch = 0
+	let compositionsEpoch = 0
 	let editorEpoch = 0
 	let historyEpoch = 0
 	const assetRequests: Record<number, number> = {}
@@ -66,6 +72,11 @@ export function createLibraryStore() {
 		: loadingAssets.value[selectedChapterId.value] ?? false)
 
 	function resetBookData(): void {
+		composeOpen.value = false
+		compositionsOpen.value = false
+		compositions.value = []
+		compositionsLoading.value = false
+		compositionsEpoch += 1
 		structures.value = []
 		selectedStructureId.value = null
 		chapters.value = []
@@ -212,6 +223,8 @@ export function createLibraryStore() {
 		structureManagerOpen.value = false
 		tagsManagerOpen.value = false
 		assetManagerOpen.value = false
+		composeOpen.value = false
+		compositionsOpen.value = false
 		resetBookData()
 		error.value = null
 
@@ -281,6 +294,8 @@ export function createLibraryStore() {
 		structureManagerOpen.value = true
 		tagsManagerOpen.value = false
 		assetManagerOpen.value = false
+		composeOpen.value = false
+		compositionsOpen.value = false
 		error.value = null
 		loadStructureEditor()
 	}
@@ -464,6 +479,8 @@ export function createLibraryStore() {
 		tagsManagerOpen.value = true
 		structureManagerOpen.value = false
 		assetManagerOpen.value = false
+		composeOpen.value = false
+		compositionsOpen.value = false
 		error.value = null
 		loadTags(selectedBookId.value)
 	}
@@ -476,6 +493,8 @@ export function createLibraryStore() {
 	async function openAssetManager(chapter: Chapter): Promise<void> {
 		structureManagerOpen.value = false
 		tagsManagerOpen.value = false
+		composeOpen.value = false
+		compositionsOpen.value = false
 		assetManagerOpen.value = true
 		selectedChapterId.value = chapter.id
 		error.value = null
@@ -916,6 +935,148 @@ export function createLibraryStore() {
 		}
 	}
 
+	function openCompose(): void {
+		if (selectedBookId.value === null) {
+			return
+		}
+
+		composeOpen.value = true
+		compositionsOpen.value = false
+		structureManagerOpen.value = false
+		tagsManagerOpen.value = false
+		assetManagerOpen.value = false
+		error.value = null
+	}
+
+	function closeCompose(): void {
+		composeOpen.value = false
+		error.value = null
+	}
+
+	function openCompositions(): void {
+		if (selectedBookId.value === null) {
+			return
+		}
+
+		compositionsOpen.value = true
+		composeOpen.value = false
+		structureManagerOpen.value = false
+		tagsManagerOpen.value = false
+		assetManagerOpen.value = false
+		error.value = null
+		loadCompositions()
+	}
+
+	function closeCompositions(): void {
+		compositionsOpen.value = false
+		compositionsEpoch += 1
+		compositionsLoading.value = false
+		error.value = null
+	}
+
+	async function loadCompositions(): Promise<void> {
+		const bookId = selectedBookId.value
+		if (bookId === null) {
+			return
+		}
+
+		const epoch = ++compositionsEpoch
+		compositionsLoading.value = true
+		error.value = null
+		try {
+			const loaded = await api.compositions.list(bookId)
+			if (epoch !== compositionsEpoch || selectedBookId.value !== bookId) {
+				return
+			}
+			compositions.value = loaded
+		} catch (errorValue) {
+			if (epoch !== compositionsEpoch || selectedBookId.value !== bookId) {
+				return
+			}
+			compositions.value = []
+			error.value = messageFor(errorValue)
+		} finally {
+			if (epoch === compositionsEpoch && selectedBookId.value === bookId) {
+				compositionsLoading.value = false
+			}
+		}
+	}
+
+	async function createComposition(structureId: number, rules: CompositionRule[], name?: string): Promise<boolean> {
+		const bookId = selectedBookId.value
+		if (bookId === null || loading.mutation) {
+			return false
+		}
+
+		loading.mutation = true
+		error.value = null
+		try {
+			await api.compositions.create(bookId, structureId, rules, name)
+			if (selectedBookId.value !== bookId) {
+				return true
+			}
+			composeOpen.value = false
+			compositionsOpen.value = true
+			await loadCompositions()
+			return true
+		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		} finally {
+			loading.mutation = false
+		}
+	}
+
+	async function retryComposition(composition: Composition): Promise<boolean> {
+		if (loading.mutation) {
+			return false
+		}
+
+		loading.mutation = true
+		error.value = null
+		try {
+			await api.compositions.retry(composition.id)
+			await loadCompositions()
+			return true
+		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		} finally {
+			loading.mutation = false
+		}
+	}
+
+	async function deleteComposition(composition: Composition): Promise<boolean> {
+		if (loading.mutation) {
+			return false
+		}
+
+		loading.mutation = true
+		error.value = null
+		try {
+			await api.compositions.remove(composition.id)
+			await loadCompositions()
+			return true
+		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		} finally {
+			loading.mutation = false
+		}
+	}
+
+	async function downloadComposition(composition: Composition): Promise<boolean> {
+		error.value = null
+		try {
+			const blob = await api.compositions.download(composition.id)
+			saveBlob(blob, compositionFileName(composition))
+			return true
+		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		}
+	}
+
 	function openDialog(state: DialogState): void {
 		if (loading.mutation) {
 			return
@@ -938,6 +1099,10 @@ export function createLibraryStore() {
 		assetManagerOpen,
 		assetsByChapter,
 		books,
+		composeOpen,
+		compositions,
+		compositionsLoading,
+		compositionsOpen,
 		capabilities,
 		chapters,
 		dialog,
@@ -973,6 +1138,8 @@ export function createLibraryStore() {
 		checkInCurrentRevision,
 		clearError,
 		closeAssetManager,
+		closeCompose,
+		closeCompositions,
 		closeDialog,
 		closeHistory,
 		closeStructureManager,
@@ -980,21 +1147,27 @@ export function createLibraryStore() {
 		createAsset,
 		createBook,
 		createChapter,
+		createComposition,
 		createStructure,
 		createTag,
 		deleteAsset,
 		deleteChapter,
+		deleteComposition,
 		deleteStructure,
 		deleteTag,
+		downloadComposition,
 		initialize,
 		loadAssets,
 		loadBooks,
+		loadCompositions,
 		loadHistory,
 		loadStructureEditor,
 		loadTags,
 		loadTree,
 		moveChapter,
 		openAssetManager,
+		openCompose,
+		openCompositions,
 		openDialog,
 		openHistory,
 		openStructureManager,
@@ -1004,6 +1177,7 @@ export function createLibraryStore() {
 		renameStructure,
 		renameTag,
 		restoreVersion,
+		retryComposition,
 		saveStructureEntries,
 		selectBook,
 		selectChapter,

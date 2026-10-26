@@ -1,5 +1,5 @@
 import { generateOcsUrl } from '@nextcloud/router'
-import type { Asset, Book, Capabilities, Chapter, Structure, StructureEntry, Tag, Version } from '../types'
+import type { Asset, Book, Capabilities, Chapter, Composition, CompositionRule, Structure, StructureEntry, Tag, Version } from '../types'
 
 declare global {
 	interface Window {
@@ -103,6 +103,37 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 	return (payload?.ocs?.data ?? ([] as unknown)) as T
 }
 
+async function requestBlob(path: string): Promise<Blob> {
+	const headers: Record<string, string> = {
+		Accept: 'text/markdown',
+		'OCS-APIRequest': 'true',
+	}
+	const requestToken = window.OC?.requestToken
+	if (requestToken) {
+		headers.requesttoken = requestToken
+	}
+
+	const response = await fetch(buildUrl(path), {
+		method: 'GET',
+		credentials: 'same-origin',
+		headers,
+	})
+
+	if (!response.ok) {
+		let message = response.statusText || 'Request failed'
+		try {
+			const raw = await response.text()
+			const payload = JSON.parse(raw) as OcsResponse<{ message?: string }>
+			message = payload?.ocs?.data?.message ?? payload?.ocs?.meta?.message ?? message
+		} catch {
+			// Keep the HTTP status text.
+		}
+		throw new ApiError(message, response.status)
+	}
+
+	return response.blob()
+}
+
 export const api = {
 	capabilities: (): Promise<Capabilities> => request<Capabilities>('/capabilities'),
 	books: {
@@ -193,6 +224,23 @@ export const api = {
 			method: 'PUT',
 			body: { tagIds },
 		}),
+	},
+	compositions: {
+		list: (bookId: number, status?: string): Promise<Composition[]> => request<Composition[]>(`/books/${bookId}/compositions`, {
+			query: { status },
+		}),
+		create: (bookId: number, structureId: number, rules: CompositionRule[], name?: string): Promise<Composition> => request<Composition>(`/books/${bookId}/compositions`, {
+			method: 'POST',
+			body: { structureId, rules, name: name ?? null },
+		}),
+		get: (compositionId: number): Promise<Composition> => request<Composition>(`/compositions/${compositionId}`),
+		remove: (compositionId: number): Promise<void> => request<void>(`/compositions/${compositionId}`, {
+			method: 'DELETE',
+		}),
+		retry: (compositionId: number): Promise<Composition> => request<Composition>(`/compositions/${compositionId}/retry`, {
+			method: 'POST',
+		}),
+		download: (compositionId: number): Promise<Blob> => requestBlob(`/compositions/${compositionId}/download`),
 	},
 	versions: {
 		list: (assetId: number): Promise<Version[]> => request<Version[]>(`/assets/${assetId}/versions`),

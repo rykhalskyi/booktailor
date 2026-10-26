@@ -40,6 +40,22 @@ class AssetMapper extends QBMapper {
 		return $this->findEntities($qb);
 	}
 
+	/**
+	 * @return list<Asset>
+	 */
+	public function findByBook(int $bookId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('a.*')
+			->from($this->tableName, 'a')
+			->innerJoin('a', 'booktailor_chapters', 'c', 'a.chapter_id = c.id')
+			->where($qb->expr()->eq('c.book_id', $qb->createNamedParameter($bookId, IQueryBuilder::PARAM_INT)))
+			->orderBy('a.chapter_id', 'ASC')
+			->addOrderBy('a.name', 'ASC')
+			->addOrderBy('a.id', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
 	public function findById(int $id): ?Asset {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')

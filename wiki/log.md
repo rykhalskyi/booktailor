@@ -52,3 +52,6 @@
 ## [2026-10-25] update | Assets: dedicated chapter asset manager view with back button and Edit assets menu action; tree-only main screen
 ## [2026-10-25] update | Chapter tree: asset chips show a colored dot per tag
 ## [2026-10-25] update | Asset view: tag filter moved to its own row below the header so it no longer overlaps New asset
+## [2026-10-26] update | T5 plan refined: frozen rule, merge, image, naming, retry semantics and sliced implementation
+## [2026-10-26] update | T5 backend: composition entities, API, resolver, merge, image copy, ComposeJob, migration, and tests
+## [2026-10-26] ticket | T5 — Markdown composition
