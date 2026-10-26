@@ -1,6 +1,6 @@
 import { computed, reactive, ref } from 'vue'
 import { api, ApiError } from '../api/client'
-import type { Asset, Book, Chapter, DialogState, Structure, StructureEntry } from '../types'
+import type { Asset, Book, Capabilities, Chapter, DialogState, Structure, StructureEntry, Tag, Version } from '../types'
 import { collectChapterIds, findChapter } from '../utils/tree'
 
 function messageFor(errorValue: unknown): string {
@@ -29,6 +29,18 @@ export function createLibraryStore() {
 		mutation: false,
 	})
 	const structureManagerOpen = ref(false)
+	const tagsManagerOpen = ref(false)
+	const assetManagerOpen = ref(false)
+	const capabilities = ref<Capabilities>({ editor: 'text', versions: true })
+	const tags = ref<Tag[]>([])
+	const tagsLoading = ref(false)
+	const historyAsset = ref<Asset | null>(null)
+	const historyVersions = ref<Version[]>([])
+	const historyLoading = ref(false)
+	const historyBusy = ref(false)
+	const historyError = ref<string | null>(null)
+	const historyPreview = ref<{ revisionId: string, content: string } | null>(null)
+	const historyPreviewLoading = ref(false)
 	const editorChapters = ref<Chapter[]>([])
 	const editorEntries = ref<StructureEntry[]>([])
 	const editorStructureId = ref<number | null>(null)
@@ -40,6 +52,7 @@ export function createLibraryStore() {
 	let booksRequest = 0
 	let selectionEpoch = 0
 	let editorEpoch = 0
+	let historyEpoch = 0
 	const assetRequests: Record<number, number> = {}
 
 	const selectedBook = computed<Book | null>(() => books.value.find((book) => book.id === selectedBookId.value) ?? null)
@@ -60,6 +73,15 @@ export function createLibraryStore() {
 		assetsByChapter.value = {}
 		loadingAssets.value = {}
 		expandedChapterIds.value = {}
+		tags.value = []
+		historyEpoch += 1
+		historyAsset.value = null
+		historyVersions.value = []
+		historyPreview.value = null
+		historyError.value = null
+		historyBusy.value = false
+		historyLoading.value = false
+		historyPreviewLoading.value = false
 		editorEpoch += 1
 		editorChapters.value = []
 		editorEntries.value = []
@@ -84,6 +106,32 @@ export function createLibraryStore() {
 		} finally {
 			if (request === booksRequest) {
 				loading.books = false
+			}
+		}
+	}
+
+	async function loadCapabilities(): Promise<void> {
+		try {
+			capabilities.value = await api.capabilities()
+		} catch {
+			capabilities.value = { editor: 'text', versions: true }
+		}
+	}
+
+	async function loadTags(bookId: number): Promise<void> {
+		tagsLoading.value = true
+		try {
+			const loaded = await api.tags.list(bookId)
+			if (selectedBookId.value === bookId) {
+				tags.value = loaded
+			}
+		} catch (errorValue) {
+			if (selectedBookId.value === bookId) {
+				error.value = messageFor(errorValue)
+			}
+		} finally {
+			if (selectedBookId.value === bookId) {
+				tagsLoading.value = false
 			}
 		}
 	}
@@ -161,6 +209,9 @@ export function createLibraryStore() {
 	async function selectBook(book: Book): Promise<void> {
 		const epoch = ++selectionEpoch
 		selectedBookId.value = book.id
+		structureManagerOpen.value = false
+		tagsManagerOpen.value = false
+		assetManagerOpen.value = false
 		resetBookData()
 		error.value = null
 
@@ -181,6 +232,11 @@ export function createLibraryStore() {
 			selectedStructureId.value = null
 		}
 
+		if (epoch !== selectionEpoch || selectedBookId.value !== book.id) {
+			return
+		}
+
+		await loadTags(book.id)
 		if (epoch !== selectionEpoch || selectedBookId.value !== book.id) {
 			return
 		}
@@ -223,6 +279,8 @@ export function createLibraryStore() {
 		}
 
 		structureManagerOpen.value = true
+		tagsManagerOpen.value = false
+		assetManagerOpen.value = false
 		error.value = null
 		loadStructureEditor()
 	}
@@ -398,6 +456,229 @@ export function createLibraryStore() {
 		}
 	}
 
+	function openTagsManager(): void {
+		if (selectedBookId.value === null) {
+			return
+		}
+
+		tagsManagerOpen.value = true
+		structureManagerOpen.value = false
+		assetManagerOpen.value = false
+		error.value = null
+		loadTags(selectedBookId.value)
+	}
+
+	function closeTagsManager(): void {
+		tagsManagerOpen.value = false
+		error.value = null
+	}
+
+	async function openAssetManager(chapter: Chapter): Promise<void> {
+		structureManagerOpen.value = false
+		tagsManagerOpen.value = false
+		assetManagerOpen.value = true
+		selectedChapterId.value = chapter.id
+		error.value = null
+		await loadAssets(chapter.id)
+	}
+
+	function closeAssetManager(): void {
+		assetManagerOpen.value = false
+		error.value = null
+	}
+
+	async function createTag(name: string, color: string): Promise<boolean> {
+		const bookId = selectedBookId.value
+		if (bookId === null || loading.mutation) {
+			return false
+		}
+
+		loading.mutation = true
+		error.value = null
+		try {
+			await api.tags.create(bookId, name, color)
+			await loadTags(bookId)
+			return true
+		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		} finally {
+			loading.mutation = false
+		}
+	}
+
+	async function renameTag(tag: Tag, name: string, color: string): Promise<boolean> {
+		const bookId = selectedBookId.value
+		if (bookId === null || loading.mutation) {
+			return false
+		}
+
+		loading.mutation = true
+		error.value = null
+		try {
+			await api.tags.update(tag.id, name, color)
+			await loadTags(bookId)
+			await refreshLoadedAssets()
+			return true
+		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		} finally {
+			loading.mutation = false
+		}
+	}
+
+	async function deleteTag(tag: Tag): Promise<boolean> {
+		const bookId = selectedBookId.value
+		if (bookId === null || loading.mutation) {
+			return false
+		}
+
+		loading.mutation = true
+		error.value = null
+		try {
+			await api.tags.remove(tag.id)
+			await loadTags(bookId)
+			await refreshLoadedAssets()
+			return true
+		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		} finally {
+			loading.mutation = false
+		}
+	}
+
+	async function assignAssetTags(asset: Asset, tagIds: number[]): Promise<boolean> {
+		if (loading.mutation) {
+			return false
+		}
+
+		loading.mutation = true
+		error.value = null
+		try {
+			await api.tags.replaceForAsset(asset.id, tagIds)
+			await loadAssets(asset.chapterId)
+			return true
+		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		} finally {
+			loading.mutation = false
+		}
+	}
+
+	async function refreshLoadedAssets(): Promise<void> {
+		const chapterIds = Object.keys(assetsByChapter.value).map(Number)
+		await Promise.all(chapterIds.map(async (chapterId) => loadAssets(chapterId)))
+	}
+
+	async function openHistory(asset: Asset): Promise<void> {
+		historyAsset.value = asset
+		historyVersions.value = []
+		historyPreview.value = null
+		historyError.value = null
+		await loadHistory(asset)
+	}
+
+	async function loadHistory(asset: Asset | null = historyAsset.value): Promise<void> {
+		if (asset === null) {
+			return
+		}
+
+		const epoch = ++historyEpoch
+		historyLoading.value = true
+		historyError.value = null
+		try {
+			const versions = await api.versions.list(asset.id)
+			if (epoch !== historyEpoch || historyAsset.value?.id !== asset.id) {
+				return
+			}
+			historyVersions.value = versions
+		} catch (errorValue) {
+			if (epoch === historyEpoch) {
+				historyError.value = messageFor(errorValue)
+			}
+		} finally {
+			if (epoch === historyEpoch) {
+				historyLoading.value = false
+			}
+		}
+	}
+
+	function closeHistory(): void {
+		historyEpoch += 1
+		historyAsset.value = null
+		historyVersions.value = []
+		historyPreview.value = null
+		historyError.value = null
+		historyLoading.value = false
+		historyBusy.value = false
+		historyPreviewLoading.value = false
+	}
+
+	async function checkInCurrentRevision(asset: Asset, message: string): Promise<boolean> {
+		if (historyBusy.value) {
+			return false
+		}
+
+		historyBusy.value = true
+		historyError.value = null
+		try {
+			await api.versions.checkIn(asset.id, message.trim() === '' ? null : message.trim())
+			await loadHistory(asset)
+			await loadAssets(asset.chapterId)
+			return true
+		} catch (errorValue) {
+			historyError.value = messageFor(errorValue)
+			return false
+		} finally {
+			historyBusy.value = false
+		}
+	}
+
+	async function restoreVersion(asset: Asset, revisionId: string): Promise<boolean> {
+		if (historyBusy.value) {
+			return false
+		}
+
+		historyBusy.value = true
+		historyError.value = null
+		try {
+			await api.versions.restore(asset.id, revisionId)
+			historyPreview.value = null
+			await loadHistory(asset)
+			await loadAssets(asset.chapterId)
+			return true
+		} catch (errorValue) {
+			historyError.value = messageFor(errorValue)
+			return false
+		} finally {
+			historyBusy.value = false
+		}
+	}
+
+	async function previewVersion(asset: Asset, revisionId: string): Promise<void> {
+		if (historyPreview.value?.revisionId === revisionId) {
+			historyPreview.value = null
+			return
+		}
+
+		historyPreviewLoading.value = true
+		historyError.value = null
+		try {
+			const result = await api.versions.content(asset.id, revisionId)
+			historyPreview.value = {
+				revisionId: result.revisionId,
+				content: result.content,
+			}
+		} catch (errorValue) {
+			historyError.value = messageFor(errorValue)
+		} finally {
+			historyPreviewLoading.value = false
+		}
+	}
+
 	async function moveChapter(chapterId: number, parentId: number | null): Promise<boolean> {
 		const bookId = selectedBookId.value
 		if (bookId === null || loading.mutation) {
@@ -433,7 +714,7 @@ export function createLibraryStore() {
 	}
 
 	async function initialize(): Promise<void> {
-		await loadBooks()
+		await Promise.all([loadCapabilities(), loadBooks()])
 		if (books.value.length === 0) {
 			selectedBookId.value = null
 			resetBookData()
@@ -622,6 +903,9 @@ export function createLibraryStore() {
 		error.value = null
 		try {
 			await api.assets.remove(asset.id)
+			if (historyAsset.value?.id === asset.id) {
+				closeHistory()
+			}
 			await loadAssets(asset.chapterId)
 			return true
 		} catch (errorValue) {
@@ -651,10 +935,19 @@ export function createLibraryStore() {
 	}
 
 	return {
+		assetManagerOpen,
 		assetsByChapter,
 		books,
+		capabilities,
 		chapters,
 		dialog,
+		historyAsset,
+		historyBusy,
+		historyError,
+		historyLoading,
+		historyPreview,
+		historyPreviewLoading,
+		historyVersions,
 		editorChapters,
 		editorEntries,
 		editorLoading,
@@ -673,26 +966,44 @@ export function createLibraryStore() {
 		selectedStructureId,
 		structures,
 		structureManagerOpen,
+		tags,
+		tagsLoading,
+		tagsManagerOpen,
+		assignAssetTags,
+		checkInCurrentRevision,
 		clearError,
+		closeAssetManager,
 		closeDialog,
+		closeHistory,
 		closeStructureManager,
+		closeTagsManager,
 		createAsset,
 		createBook,
 		createChapter,
 		createStructure,
+		createTag,
 		deleteAsset,
 		deleteChapter,
 		deleteStructure,
+		deleteTag,
 		initialize,
 		loadAssets,
 		loadBooks,
+		loadHistory,
 		loadStructureEditor,
+		loadTags,
 		loadTree,
 		moveChapter,
+		openAssetManager,
 		openDialog,
+		openHistory,
 		openStructureManager,
+		openTagsManager,
+		previewVersion,
 		renameChapter,
 		renameStructure,
+		renameTag,
+		restoreVersion,
 		saveStructureEntries,
 		selectBook,
 		selectChapter,

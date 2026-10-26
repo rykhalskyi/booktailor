@@ -141,4 +141,25 @@ describe('API client', () => {
 		expect(options.method).toBe('PATCH')
 		expect(options.body).toBe(JSON.stringify({ parentId: null }))
 	})
+
+	it('creates tags with a color and updates the color', async () => {
+		const tag = { id: 3, bookId: 1, name: 'Raw', slug: 'raw', color: '#15803d' }
+		const fetchMock = vi.fn()
+			.mockResolvedValueOnce(response({ ocs: { meta: { statuscode: 201 }, data: tag } }, 201))
+			.mockResolvedValueOnce(response({ ocs: { meta: { statuscode: 200 }, data: { ...tag, color: '#b91c1c' } } }))
+		vi.stubGlobal('fetch', fetchMock)
+
+		await api.tags.create(1, 'Raw', '#15803d')
+		await api.tags.update(3, undefined, '#b91c1c')
+
+		const [createUrl, createOptions] = fetchMock.mock.calls[0]
+		expect(createUrl).toContain('/books/1/tags')
+		expect(createOptions.method).toBe('POST')
+		expect(createOptions.body).toBe(JSON.stringify({ name: 'Raw', color: '#15803d' }))
+
+		const [updateUrl, updateOptions] = fetchMock.mock.calls[1]
+		expect(updateUrl).toContain('/tags/3')
+		expect(updateOptions.method).toBe('PATCH')
+		expect(updateOptions.body).toBe(JSON.stringify({ color: '#b91c1c' }))
+	})
 })

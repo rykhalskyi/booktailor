@@ -39,6 +39,7 @@ class AssetController extends AbstractApiController {
 			return new DataResponse(array_map(
 				fn (Asset $asset): array => $this->serializer->asset(
 					$asset,
+					$this->currentUserId(),
 					$result['bookId'],
 					$result['tagsByAsset'][$asset->getId()] ?? [],
 				),
@@ -55,9 +56,32 @@ class AssetController extends AbstractApiController {
 
 			return new DataResponse($this->serializer->asset(
 				$result['asset'],
+				$this->currentUserId(),
 				$result['bookId'],
 				$result['tags'],
 			));
+		});
+	}
+
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'GET', url: '/api/v1/assets/{assetId}/content')]
+	public function content(int $assetId): DataResponse {
+		return $this->handle(function () use ($assetId): DataResponse {
+			return new DataResponse([
+				'content' => $this->assetService->getContent($this->currentUserId(), $assetId),
+			]);
+		});
+	}
+
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'PUT', url: '/api/v1/assets/{assetId}/content')]
+	public function updateContent(int $assetId, string $content = ''): DataResponse {
+		return $this->handle(function () use ($assetId, $content): DataResponse {
+			$this->assetService->updateContent($this->currentUserId(), $assetId, $content);
+
+			return new DataResponse([
+				'content' => $this->assetService->getContent($this->currentUserId(), $assetId),
+			]);
 		});
 	}
 
@@ -69,6 +93,7 @@ class AssetController extends AbstractApiController {
 
 			return new DataResponse($this->serializer->asset(
 				$result['asset'],
+				$this->currentUserId(),
 				$result['bookId'],
 				$result['tags'],
 			), Http::STATUS_CREATED);
@@ -104,6 +129,7 @@ class AssetController extends AbstractApiController {
 
 			return new DataResponse($this->serializer->asset(
 				$result['asset'],
+				$this->currentUserId(),
 				$result['bookId'],
 				$result['tags'],
 			), Http::STATUS_CREATED);
@@ -118,6 +144,7 @@ class AssetController extends AbstractApiController {
 
 			return new DataResponse($this->serializer->asset(
 				$result['asset'],
+				$this->currentUserId(),
 				$result['bookId'],
 				$result['tags'],
 			));

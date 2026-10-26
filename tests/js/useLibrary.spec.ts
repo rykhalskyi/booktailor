@@ -15,6 +15,7 @@ vi.mock('../../src/api/client', () => {
 	return {
 		ApiError,
 		api: {
+			capabilities: vi.fn(),
 			books: {
 				list: vi.fn(),
 				create: vi.fn(),
@@ -40,13 +41,27 @@ vi.mock('../../src/api/client', () => {
 				upload: vi.fn(),
 				remove: vi.fn(),
 			},
+			tags: {
+				list: vi.fn(),
+				create: vi.fn(),
+				update: vi.fn(),
+				remove: vi.fn(),
+				forAsset: vi.fn(),
+				replaceForAsset: vi.fn(),
+			},
+			versions: {
+				list: vi.fn(),
+				checkIn: vi.fn(),
+				restore: vi.fn(),
+				content: vi.fn(),
+			},
 		},
 	}
 })
 
 import { api } from '../../src/api/client'
 import { createLibraryStore } from '../../src/stores/useLibrary'
-import type { Asset, Book, Chapter, Structure } from '../../src/types'
+import type { Asset, Book, Chapter, Structure, Tag, Version } from '../../src/types'
 
 function deferred<T>() {
 	let resolve!: (value: T) => void
@@ -93,6 +108,27 @@ function chapter(id: number, bookId: number, children: Chapter[] = []): Chapter 
 	}
 }
 
+function tag(id: number, name = `Tag ${id}`): Tag {
+	return {
+		id,
+		bookId: 1,
+		name,
+		slug: name.toLowerCase().replace(/\s+/g, '-'),
+		color: '#2563eb',
+	}
+}
+
+function version(revisionId: string, isCurrent = false): Version {
+	return {
+		revisionId,
+		author: 'Ada',
+		message: null,
+		size: 10,
+		createdAt: '2026-01-01T00:00:00+00:00',
+		isCurrent,
+	}
+}
+
 function asset(id: number, chapterId: number): Asset {
 	return {
 		id,
@@ -101,6 +137,7 @@ function asset(id: number, chapterId: number): Asset {
 		name: `Asset ${id}`,
 		fileName: `Asset ${id}.md`,
 		fileId: id,
+		path: `BookTailor/Book 1/Chapter ${chapterId}/Asset ${id}.md`,
 		tags: [],
 		createdAt: '2026-01-01T00:00:00+00:00',
 		updatedAt: '2026-01-01T00:00:00+00:00',
@@ -108,8 +145,11 @@ function asset(id: number, chapterId: number): Asset {
 }
 
 beforeEach(() => {
+	vi.mocked(api.capabilities).mockResolvedValue({ editor: 'text', versions: true })
 	vi.mocked(api.books.list).mockResolvedValue([])
 	vi.mocked(api.structures.list).mockResolvedValue([])
+	vi.mocked(api.tags.list).mockResolvedValue([])
+	vi.mocked(api.versions.list).mockResolvedValue([])
 	vi.mocked(api.structures.entries).mockResolvedValue([])
 	vi.mocked(api.structures.replaceEntries).mockResolvedValue([])
 	vi.mocked(api.chapters.tree).mockResolvedValue([])
@@ -343,5 +383,136 @@ describe('library store', () => {
 		expect(api.structures.remove).toHaveBeenCalledWith(20)
 		expect(store.selectedStructureId.value).toBe(10)
 		expect(store.structures.value).toEqual([fallback])
+	})
+
+	it('switches between the structure and tag managers', () => {
+		const store = createLibraryStore()
+		store.selectedBookId.value = 1
+
+		store.openStructureManager()
+		expect(store.structureManagerOpen.value).toBe(true)
+		expect(store.tagsManagerOpen.value).toBe(false)
+
+		store.openTagsManager()
+		expect(store.tagsManagerOpen.value).toBe(true)
+		expect(store.structureManagerOpen.value).toBe(false)
+
+		store.closeTagsManager()
+		expect(store.tagsManagerOpen.value).toBe(false)
+	})
+
+	it('opens and closes the asset manager for a chapter', async () => {
+		const store = createLibraryStore()
+		store.selectedBookId.value = 1
+		vi.mocked(api.assets.list).mockResolvedValue([asset(10, 1)])
+
+		await store.openAssetManager(chapter(1, 1))
+
+		expect(store.assetManagerOpen.value).toBe(true)
+		expect(store.selectedChapterId.value).toBe(1)
+		expect(store.assetsByChapter.value[1].map((item) => item.id)).toEqual([10])
+
+		store.closeAssetManager()
+		expect(store.assetManagerOpen.value).toBe(false)
+	})
+
+	it('creates a tag with the chosen color', async () => {
+		const store = createLibraryStore()
+		store.selectedBookId.value = 1
+		vi.mocked(api.tags.create).mockResolvedValue(tag(5, 'Raw'))
+		vi.mocked(api.tags.list).mockResolvedValue([tag(5, 'Raw')])
+
+		const result = await store.createTag('Raw', '#15803d')
+
+		expect(result).toBe(true)
+		expect(api.tags.create).toHaveBeenCalledWith(1, 'Raw', '#15803d')
+	})
+
+	it('updates a tag name and color', async () => {
+		const store = createLibraryStore()
+		const updated = { ...tag(5, 'Source'), color: '#b91c1c' }
+		store.selectedBookId.value = 1
+		vi.mocked(api.tags.update).mockResolvedValue(updated)
+		vi.mocked(api.tags.list).mockResolvedValue([updated])
+		vi.mocked(api.assets.list).mockResolvedValue([])
+
+		const result = await store.renameTag(tag(5, 'Raw'), 'Source', '#b91c1c')
+
+		expect(result).toBe(true)
+		expect(api.tags.update).toHaveBeenCalledWith(5, 'Source', '#b91c1c')
+	})
+
+	it('deletes a tag and refreshes loaded asset lists', async () => {
+		const store = createLibraryStore()
+		const removed = tag(5)
+		store.selectedBookId.value = 1
+		store.assetsByChapter.value = { 1: [asset(10, 1)] }
+		vi.mocked(api.tags.remove).mockResolvedValue(undefined)
+		vi.mocked(api.tags.list).mockResolvedValue([])
+		vi.mocked(api.assets.list).mockResolvedValue([])
+
+		const result = await store.deleteTag(removed)
+
+		expect(result).toBe(true)
+		expect(api.tags.remove).toHaveBeenCalledWith(5)
+		expect(store.tags.value).toEqual([])
+		expect(api.assets.list).toHaveBeenCalledWith(1)
+	})
+
+	it('replaces the tags of an asset and reloads the chapter', async () => {
+		const store = createLibraryStore()
+		const assigned = [tag(5)]
+		vi.mocked(api.tags.replaceForAsset).mockResolvedValue(assigned)
+		vi.mocked(api.assets.list).mockResolvedValue([asset(10, 1)])
+
+		const result = await store.assignAssetTags(asset(10, 1), [5])
+
+		expect(result).toBe(true)
+		expect(api.tags.replaceForAsset).toHaveBeenCalledWith(10, [5])
+		expect(api.assets.list).toHaveBeenCalledWith(1)
+	})
+
+	it('opens history and loads versions newest first', async () => {
+		const store = createLibraryStore()
+		const current = version('200', true)
+		const previous = version('100')
+		vi.mocked(api.versions.list).mockResolvedValue([current, previous])
+
+		await store.openHistory(asset(10, 1))
+
+		expect(store.historyAsset.value?.id).toBe(10)
+		expect(store.historyVersions.value).toEqual([current, previous])
+	})
+
+	it('checks in the current revision and refreshes history and assets', async () => {
+		const store = createLibraryStore()
+		const current = version('200', true)
+		vi.mocked(api.versions.checkIn).mockResolvedValue(current)
+		vi.mocked(api.versions.list).mockResolvedValue([current])
+		vi.mocked(api.assets.list).mockResolvedValue([asset(10, 1)])
+		await store.openHistory(asset(10, 1))
+
+		const result = await store.checkInCurrentRevision(asset(10, 1), '  First draft  ')
+
+		expect(result).toBe(true)
+		expect(api.versions.checkIn).toHaveBeenCalledWith(10, 'First draft')
+		expect(api.assets.list).toHaveBeenCalledWith(1)
+	})
+
+	it('restores a historical version and clears the preview', async () => {
+		const store = createLibraryStore()
+		vi.mocked(api.versions.list).mockResolvedValue([version('200', true), version('100')])
+		vi.mocked(api.versions.content).mockResolvedValue({ revisionId: '100', content: 'old' })
+		vi.mocked(api.versions.restore).mockResolvedValue(version('100', true))
+		vi.mocked(api.assets.list).mockResolvedValue([asset(10, 1)])
+		await store.openHistory(asset(10, 1))
+		await store.previewVersion(asset(10, 1), '100')
+		expect(store.historyPreview.value?.content).toBe('old')
+
+		const result = await store.restoreVersion(asset(10, 1), '100')
+
+		expect(result).toBe(true)
+		expect(api.versions.restore).toHaveBeenCalledWith(10, '100')
+		expect(store.historyPreview.value).toBeNull()
 	})
 })

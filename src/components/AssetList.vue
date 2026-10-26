@@ -1,17 +1,53 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import NcActionButton from '@nextcloud/vue/components/NcActionButton'
 import NcActions from '@nextcloud/vue/components/NcActions'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
+import NcSelect from '@nextcloud/vue/components/NcSelect'
 import { useLibrary } from '../stores/useLibrary'
-import type { Asset } from '../types'
-import { assetFileUrl } from '../utils/files'
+import type { Asset, Tag } from '../types'
+import { filterAssetsByTag } from '../utils/assets'
+import { assetEditorUrl, assetFileUrl } from '../utils/files'
+import { tagChipStyle } from '../utils/tags'
 
-const { loading, openDialog, selectedAssets, selectedAssetsLoading, selectedChapter, uploadAsset } = useLibrary()
+withDefaults(defineProps<{
+	showBack?: boolean
+}>(), {
+	showBack: false,
+})
+
+const emit = defineEmits<{
+	(event: 'back'): void
+}>()
+
+const {
+	capabilities,
+	loading,
+	openDialog,
+	openHistory,
+	selectedAssets,
+	selectedAssetsLoading,
+	selectedChapter,
+	tags,
+	uploadAsset,
+} = useLibrary()
 
 const fileInput = ref<HTMLInputElement | null>(null)
+const selectedTag = ref<Tag | null>(null)
+
+const filteredAssets = computed<Asset[]>(() => filterAssetsByTag(
+	selectedAssets.value,
+	selectedTag.value?.id ?? null,
+))
+
+watch(tags, (available) => {
+	const current = selectedTag.value
+	if (current !== null && !available.some((tag) => tag.id === current.id)) {
+		selectedTag.value = null
+	}
+})
 
 function chooseFile(): void {
 	if (selectedChapter.value) {
@@ -34,7 +70,7 @@ function fileUrl(asset: Asset): string | null {
 }
 
 function openAsset(asset: Asset): void {
-	const url = fileUrl(asset)
+	const url = assetEditorUrl(asset)
 	if (url !== null) {
 		window.open(url, '_blank', 'noopener')
 	}
@@ -44,9 +80,14 @@ function openAsset(asset: Asset): void {
 <template>
 	<div class="asset-list">
 		<header class="asset-header">
-			<h2 class="asset-title">
-				{{ selectedChapter?.name ?? 'Assets' }}
-			</h2>
+			<div class="asset-header-main">
+				<NcButton v-if="showBack" @click="emit('back')">
+					Back to chapters
+				</NcButton>
+				<h2 class="asset-title">
+					{{ selectedChapter?.name ?? 'Assets' }}
+				</h2>
+			</div>
 			<div v-if="selectedChapter" class="asset-header-actions">
 				<NcButton
 					:disabled="loading.mutation"
@@ -58,6 +99,19 @@ function openAsset(asset: Asset): void {
 				</NcButton>
 			</div>
 		</header>
+
+		<div v-if="selectedChapter && tags.length > 0" class="asset-filter-row">
+			<NcSelect
+				v-model="selectedTag"
+				class="asset-filter"
+				:options="tags"
+				label="name"
+				input-label="Filter by tag"
+				aria-label="Filter assets by tag"
+				:clearable="true"
+				:searchable="false"
+				placeholder="All tags" />
+		</div>
 
 		<div v-if="!selectedChapter" class="asset-state">
 			<NcEmptyContent
@@ -80,8 +134,19 @@ function openAsset(asset: Asset): void {
 				</NcButton>
 			</template>
 		</NcEmptyContent>
+		<NcEmptyContent
+			v-else-if="filteredAssets.length === 0"
+			class="asset-state"
+			name="No assets match this tag"
+			description="Clear the tag filter to see all assets in this chapter.">
+			<template #action>
+				<NcButton @click="selectedTag = null">
+					Clear filter
+				</NcButton>
+			</template>
+		</NcEmptyContent>
 		<ul v-else class="asset-rows">
-			<li v-for="asset in selectedAssets" :key="asset.id" class="asset-row">
+			<li v-for="asset in filteredAssets" :key="asset.id" class="asset-row">
 				<div class="asset-info">
 					<button
 						v-if="fileUrl(asset)"
@@ -93,21 +158,40 @@ function openAsset(asset: Asset): void {
 					</button>
 					<span v-else class="asset-link asset-link--missing">{{ asset.fileName }}</span>
 					<div v-if="asset.tags.length > 0" class="asset-tags">
-						<span v-for="tag in asset.tags" :key="tag.id" class="asset-tag">
+						<button
+							v-for="tag in asset.tags"
+							:key="tag.id"
+							type="button"
+							class="asset-tag"
+							:style="tagChipStyle(tag.color)"
+							:title="`Filter by ${tag.name}`"
+							@click="selectedTag = tag">
 							{{ tag.name }}
-						</span>
+						</button>
 					</div>
 				</div>
-				<NcActions :aria-label="`Actions for ${asset.fileName}`" :force-menu="true">
-					<NcActionButton v-if="fileUrl(asset)" @click="openAsset(asset)">
-						Open in editor
-					</NcActionButton>
-					<NcActionButton
+				<div class="asset-row-actions">
+					<NcButton
 						:disabled="loading.mutation"
-						@click="openDialog({ type: 'asset-delete', asset })">
-						Delete
-					</NcActionButton>
-				</NcActions>
+						@click="openDialog({ type: 'asset-tags', asset })">
+						Tags
+					</NcButton>
+					<NcActions :aria-label="`Actions for ${asset.fileName}`" :force-menu="true">
+						<NcActionButton v-if="fileUrl(asset)" @click="openAsset(asset)">
+							Open in editor
+						</NcActionButton>
+						<NcActionButton
+							:disabled="!capabilities.versions"
+							@click="openHistory(asset)">
+							History
+						</NcActionButton>
+						<NcActionButton
+							:disabled="loading.mutation"
+							@click="openDialog({ type: 'asset-delete', asset })">
+							Delete
+						</NcActionButton>
+					</NcActions>
+				</div>
 			</li>
 		</ul>
 
@@ -133,8 +217,16 @@ function openAsset(asset: Asset): void {
 	align-items: center;
 	justify-content: space-between;
 	gap: 12px;
+	flex-wrap: wrap;
 	padding: 14px 16px;
 	border-bottom: 1px solid var(--color-border);
+}
+
+.asset-header-main {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-width: 0;
 }
 
 .asset-title {
@@ -179,6 +271,13 @@ function openAsset(asset: Asset): void {
 	background: var(--color-background-hover);
 }
 
+.asset-row-actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-shrink: 0;
+}
+
 .asset-info {
 	display: flex;
 	flex-direction: column;
@@ -214,12 +313,33 @@ function openAsset(asset: Asset): void {
 	gap: 4px;
 }
 
+.asset-filter-row {
+	padding: 10px 16px;
+	border-bottom: 1px solid var(--color-border);
+}
+
+.asset-filter {
+	width: 220px;
+	max-width: 100%;
+}
+
 .asset-tag {
 	padding: 1px 8px;
+	border: none;
 	border-radius: 12px;
-	background: var(--color-background-dark);
-	color: var(--color-text-maxcontrast);
 	font-size: 0.8rem;
+	cursor: pointer;
+	opacity: 0.92;
+}
+
+.asset-tag:hover,
+.asset-tag:focus-visible {
+	opacity: 1;
+}
+
+.asset-tag:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: 1px;
 }
 
 .asset-link:focus-visible {

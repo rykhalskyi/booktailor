@@ -12,6 +12,7 @@ vi.mock('../../src/api/client', () => {
 	return {
 		ApiError,
 		api: {
+			capabilities: vi.fn().mockResolvedValue({ editor: 'text', versions: true }),
 			books: {
 				list: vi.fn().mockResolvedValue([]),
 				create: vi.fn(),

@@ -43,3 +43,12 @@
 ## [2026-10-25] update | T3 Slice 4: validated chapter promotion, demotion, and parent-sibling attachment with folder moves, structure reordering, rollback, and API client support
 ## [2026-10-25] update | T3 Slice 5: structure manager with CRUD, inclusion, sibling reorder, allowed-target chapter moves, and numbering preview; T3 complete
 ## [2026-10-25] update | T3 review fixes: editor readiness guard, slot-preserving orphan ordering, structure timestamps, explicit move targets, and frontend/backend coverage
+## [2026-10-25] ticket | T4 — Editing, versions, and tags implemented
+## [2026-10-25] update | T4 backend: asset and version content endpoints, capabilities, asset path, and NodeWrittenEvent metadata sync
+## [2026-10-25] update | T4 frontend: Files/Text editor launch, history dialog with check-in/preview/restore, tag manager, assignment, and filtering
+## [2026-10-25] update | T4 verification: 36 PHP tests, 57 JS tests, psalm, cs, lint, build, and HTTP smoke
+## [2026-10-25] update | Tag colors: 10-color palette, tag edit dialog, colored chips, migration and app version 1.2.0
+## [2026-10-25] update | UI: Tags moved to navigation below books; chapter asset pane restored with a visible Tags action per asset
+## [2026-10-25] update | Assets: dedicated chapter asset manager view with back button and Edit assets menu action; tree-only main screen
+## [2026-10-25] update | Chapter tree: asset chips show a colored dot per tag
+## [2026-10-25] update | Asset view: tag filter moved to its own row below the header so it no longer overlaps New asset

@@ -25,6 +25,7 @@ export interface Tag {
 	bookId: number
 	name: string
 	slug: string
+	color: string
 }
 
 export interface Asset {
@@ -34,9 +35,24 @@ export interface Asset {
 	name: string
 	fileName: string
 	fileId: number | null
+	path: string | null
 	tags: Tag[]
 	createdAt: string
 	updatedAt: string
+}
+
+export interface Version {
+	revisionId: string
+	author: string | null
+	message: string | null
+	size: number
+	createdAt: string
+	isCurrent: boolean
+}
+
+export interface Capabilities {
+	editor: 'text' | null
+	versions: boolean
 }
 
 export interface Structure {
@@ -60,5 +76,7 @@ export type DialogState =
 	| { type: 'chapter-create'; parentId: number | null }
 	| { type: 'chapter-rename'; chapter: Chapter }
 	| { type: 'chapter-delete'; chapter: Chapter }
+	| { type: 'chapter-history'; chapter: Chapter }
 	| { type: 'asset-create'; chapterId: number }
 	| { type: 'asset-delete'; asset: Asset }
+	| { type: 'asset-tags'; asset: Asset }

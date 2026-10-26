@@ -13,6 +13,7 @@ use OCP\AppFramework\OCSController;
 use OCP\Files\NotFoundException as FileNotFoundException;
 use OCP\Files\NotPermittedException;
 use OCP\IRequest;
+use OCP\IUser;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 
@@ -23,6 +24,10 @@ abstract class AbstractApiController extends OCSController {
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(Application::APP_ID, $request);
+	}
+
+	protected function currentUser(): ?IUser {
+		return $this->userSession->getUser();
 	}
 
 	protected function currentUserId(): string {

@@ -9,6 +9,7 @@ import { mdiChevronDown, mdiChevronRight } from '../icons'
 import { useLibrary } from '../stores/useLibrary'
 import type { Asset, Chapter } from '../types'
 import { assetFileUrl } from '../utils/files'
+import { normalizeTagColor } from '../utils/tags'
 import { treeFocusKey } from '../utils/treeFocus'
 
 defineOptions({ name: 'ChapterNode' })
@@ -20,10 +21,12 @@ const props = defineProps<{
 
 const {
 	assetsByChapter,
+	capabilities,
 	expandedChapterIds,
 	loading,
 	loadingAssets,
 	loadAssets,
+	openAssetManager,
 	openDialog,
 	selectChapter,
 	selectedChapterId,
@@ -77,6 +80,10 @@ function fileUrl(asset: Asset): string | null {
 	return assetFileUrl(asset.fileId)
 }
 
+function assetTagNames(asset: Asset): string {
+	return asset.tags.map((tag) => tag.name).join(', ')
+}
+
 function openAsset(asset: Asset): void {
 	const url = fileUrl(asset)
 	if (url !== null) {
@@ -127,6 +134,16 @@ function openAsset(asset: Asset): void {
 					:key="asset.id"
 					class="asset-chip"
 					:class="{ 'asset-chip--missing': !fileUrl(asset) }">
+					<span
+						v-if="asset.tags.length > 0"
+						class="asset-chip-tags"
+						:title="assetTagNames(asset)">
+						<span
+							v-for="tag in asset.tags"
+							:key="tag.id"
+							class="asset-chip-tag"
+							:style="{ backgroundColor: normalizeTagColor(tag.color) }" />
+					</span>
 					<button
 						type="button"
 						class="asset-chip-name"
@@ -151,6 +168,11 @@ function openAsset(asset: Asset): void {
 					</NcActionButton>
 					<NcActionButton
 						:disabled="loading.mutation"
+						@click="openAssetManager(chapter)">
+						Edit assets
+					</NcActionButton>
+					<NcActionButton
+						:disabled="loading.mutation"
 						@click="openDialog({ type: 'asset-create', chapterId: chapter.id })">
 						New asset
 					</NcActionButton>
@@ -161,6 +183,14 @@ function openAsset(asset: Asset): void {
 						:disabled="loading.mutation"
 						@click="openDialog({ type: 'chapter-rename', chapter })">
 						Rename
+					</NcActionButton>
+					<NcActionButton
+						:disabled="!capabilities.versions"
+						@click="openDialog({ type: 'chapter-history', chapter })">
+						History
+					</NcActionButton>
+					<NcActionButton disabled>
+						Agent (coming soon)
 					</NcActionButton>
 					<NcActionSeparator />
 					<NcActionButton
@@ -303,11 +333,27 @@ function openAsset(asset: Asset): void {
 	background: var(--color-primary-element-light);
 }
 
+.asset-chip-tags {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		padding-inline-start: 7px;
+		flex-shrink: 0;
+	}
+
+.asset-chip-tag {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	box-shadow: 0 0 0 1px var(--color-main-background);
+	flex-shrink: 0;
+}
+
 .asset-chip-name {
 	display: inline-flex;
 	align-items: center;
-	padding: 1px 4px 1px 8px;
-	border: none;
+	padding: 1px 4px 1px 6px;
+		border: none;
 	background: transparent;
 	color: var(--color-main-text);
 	font-size: inherit;

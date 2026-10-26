@@ -42,6 +42,17 @@ class VersionController extends AbstractApiController {
 	}
 
 	#[NoAdminRequired]
+	#[ApiRoute(verb: 'GET', url: '/api/v1/assets/{assetId}/versions/{revisionId}/content')]
+	public function content(int $assetId, string $revisionId): DataResponse {
+		return $this->handle(function () use ($assetId, $revisionId): DataResponse {
+			return new DataResponse([
+				'revisionId' => $revisionId,
+				'content' => $this->versionService->getContent($this->currentUserId(), $assetId, $revisionId),
+			]);
+		});
+	}
+
+	#[NoAdminRequired]
 	#[ApiRoute(verb: 'POST', url: '/api/v1/assets/{assetId}/versions/{revisionId}/restore')]
 	public function restore(int $assetId, string $revisionId): DataResponse {
 		return $this->handle(function () use ($assetId, $revisionId): DataResponse {

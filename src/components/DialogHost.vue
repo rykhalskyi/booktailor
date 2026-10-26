@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useLibrary } from '../stores/useLibrary'
+import ChapterHistoryDialog from './ChapterHistoryDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
+import TagAssignmentDialog from './TagAssignmentDialog.vue'
 import TextInputDialog from './TextInputDialog.vue'
 
 const {
@@ -129,4 +131,6 @@ async function submitAssetDelete(): Promise<void> {
 		:error="error"
 		@confirm="submitAssetDelete"
 		@close="closeDialog" />
+	<TagAssignmentDialog v-else-if="dialog?.type === 'asset-tags'" />
+	<ChapterHistoryDialog v-else-if="dialog?.type === 'chapter-history'" />
 </template>

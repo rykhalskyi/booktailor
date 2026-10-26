@@ -32,7 +32,7 @@ class AssetTagMapper {
 
 	/**
 	 * @param list<int> $assetIds
-	 * @return array<int, list<array{id: int, bookId: int, name: string, slug: string}>>
+	 * @return array<int, list<array{id: int, bookId: int, name: string, slug: string, color: string}>>
 	 */
 	public function findTagsByAssetIds(array $assetIds): array {
 		if ($assetIds === []) {
@@ -40,13 +40,13 @@ class AssetTagMapper {
 		}
 
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('at.asset_id', 't.id', 't.book_id', 't.name', 't.slug')
+		$qb->select('at.asset_id', 't.id', 't.book_id', 't.name', 't.slug', 't.color')
 			->from('booktailor_asset_tags', 'at')
 			->innerJoin('at', 'booktailor_tags', 't', 'at.tag_id = t.id')
 			->where($qb->expr()->in('at.asset_id', $qb->createNamedParameter($assetIds, IQueryBuilder::PARAM_INT_ARRAY)))
 			->orderBy('t.name', 'ASC');
 
-		/** @var list<array{asset_id: int|string, id: int|string, book_id: int|string, name: string, slug: string}> $rows */
+		/** @var list<array{asset_id: int|string, id: int|string, book_id: int|string, name: string, slug: string, color: string}> $rows */
 		$rows = $qb->executeQuery()->fetchAll();
 		$grouped = [];
 		foreach ($rows as $row) {
@@ -55,6 +55,7 @@ class AssetTagMapper {
 				'bookId' => (int)$row['book_id'],
 				'name' => $row['name'],
 				'slug' => $row['slug'],
+				'color' => $row['color'],
 			];
 		}
 

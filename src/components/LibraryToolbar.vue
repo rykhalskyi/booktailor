@@ -34,7 +34,7 @@ function onStructureChange(structure: Structure | null): void {
 .library-toolbar {
 	display: flex;
 	align-items: center;
-	justify-content: flex-end;
+	justify-content: flex-start;
 	gap: 12px;
 	flex-wrap: wrap;
 }
