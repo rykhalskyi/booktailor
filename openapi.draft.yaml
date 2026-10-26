@@ -1124,30 +1124,26 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
-  /settings:
+  /ai/settings:
     get:
       tags: [settings]
-      operationId: getSettings
-      summary: Read AI provider settings; the key is returned only as a mask
+      operationId: getAiSettings
+      summary: Read AI provider profiles, content-logging consent, and Langfuse status
       parameters:
         - $ref: '#/components/parameters/OCS-APIRequest'
       responses:
         '200':
-          description: Settings returned
+          description: AI settings returned
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OcsSettingsResponse'
+                $ref: '#/components/schemas/OcsAiSettingsResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-    put:
+    patch:
       tags: [settings]
-      operationId: updateSettings
-      summary: Update AI provider settings or replace the BYOK key
-      description: |
-        The API key is write-only. Omitting `apiKey` keeps the stored key. The key is
-        encrypted at rest with Nextcloud's crypto service and is never returned in
-        responses or logs.
+      operationId: updateAiSettings
+      summary: Update AI privacy settings
       parameters:
         - $ref: '#/components/parameters/OCS-APIRequest'
       requestBody:
@@ -1155,30 +1151,146 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SettingsUpdate'
+              $ref: '#/components/schemas/AiSettingsUpdate'
       responses:
         '200':
-          description: Settings updated
+          description: AI settings updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OcsSettingsResponse'
+                $ref: '#/components/schemas/OcsAiSettingsResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
-  /settings/api-key:
-    delete:
+  /ai/profiles:
+    get:
       tags: [settings]
-      operationId: deleteApiKey
-      summary: Remove the stored BYOK key
+      operationId: listAiProfiles
+      summary: List AI provider profiles; keys are masked
       parameters:
         - $ref: '#/components/parameters/OCS-APIRequest'
       responses:
-        '204':
-          description: Key removed
+        '200':
+          description: AI profiles returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAiProfileListResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [settings]
+      operationId: createAiProfile
+      summary: Create an AI provider profile with a write-only encrypted key
+      parameters:
+        - $ref: '#/components/parameters/OCS-APIRequest'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiProfileCreate'
+      responses:
+        '201':
+          description: AI profile created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAiProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /ai/profiles/{profileId}:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/ProfileId'
+    patch:
+      tags: [settings]
+      operationId: updateAiProfile
+      summary: Update an AI profile; omit apiKey to keep the stored key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiProfileUpdate'
+      responses:
+        '200':
+          description: AI profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAiProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [settings]
+      operationId: deleteAiProfile
+      summary: Delete an AI profile
+      responses:
+        '204':
+          description: Profile deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /ai/profiles/{profileId}/activate:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/ProfileId'
+    post:
+      tags: [settings]
+      operationId: activateAiProfile
+      summary: Activate one profile and deactivate the others, or deactivate this profile
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                active:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: AI profiles returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAiProfileListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /ai/profiles/{profileId}/test:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/ProfileId'
+    post:
+      tags: [settings]
+      operationId: testAiProfile
+      summary: Send a minimal request to verify the profile key and model
+      responses:
+        '200':
+          description: Provider accepted the request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsAiProfileTestResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          description: The provider rejected the request
+
 components:
   securitySchemes:
     basic_auth:
@@ -1264,6 +1376,13 @@ components:
         format: int64
     PromptId:
       name: promptId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    ProfileId:
+      name: profileId
       in: path
       required: true
       schema:
@@ -1807,6 +1926,14 @@ components:
         createdAt:
           type: string
           format: date-time
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+        result:
+          type: string
+          nullable: true
+          description: JSON result for applied actions, or the validation error for failed ones
     ChatRequest:
       type: object
       required: [bookId, message]
@@ -1817,18 +1944,31 @@ components:
         message:
           type: string
           minLength: 1
-        promptName:
-          type: string
-        promptVersion:
+          maxLength: 8000
+        structureId:
           type: integer
+          format: int64
+          nullable: true
+        chapterId:
+          type: integer
+          format: int64
+          nullable: true
         contextAssetIds:
           type: array
           items:
             type: integer
             format: int64
+        promptKey:
+          type: string
+          description: Predefined prompt key (chat, summarize, extract-terms, ask-book)
+        promptId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Book-scoped saved prompt; takes precedence over promptKey
     ChatResponse:
       type: object
-      required: [message]
+      required: [message, proposedActions, warnings, usage]
       properties:
         message:
           type: string
@@ -1838,7 +1978,15 @@ components:
             $ref: '#/components/schemas/AiAction'
         traceId:
           type: string
+          nullable: true
           description: Langfuse trace id for this call
+        warnings:
+          type: array
+          items:
+            type: string
+        usage:
+          type: object
+          additionalProperties: true
     Prompt:
       type: object
       required: [id, bookId, name, text, source, createdAt, updatedAt]
@@ -1890,48 +2038,129 @@ components:
         text:
           type: string
           minLength: 1
-    Settings:
+    AiProfile:
       type: object
-      required: [hasApiKey]
+      required: [id, name, provider, apiKeyMasked, model, connectTimeoutSeconds, readTimeoutSeconds, maxTokens, isActive, createdAt]
       properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
         provider:
           type: string
-          nullable: true
-        model:
-          type: string
-          nullable: true
-        baseUrl:
-          type: string
-          nullable: true
+          enum: [deepseek, siliconflow]
         apiKeyMasked:
           type: string
-          nullable: true
           readOnly: true
-        hasApiKey:
-          type: boolean
-          readOnly: true
-        defaultEditor:
-          type: string
-          nullable: true
-          enum: [text]
-          description: Default editor preference; Text is the only MVP editor
-    SettingsUpdate:
-      type: object
-      properties:
-        provider:
-          type: string
+          description: Masked last-four value; the plaintext key is never returned
         model:
           type: string
-        baseUrl:
+          nullable: true
+        connectTimeoutSeconds:
+          type: integer
+        readTimeoutSeconds:
+          type: integer
+        maxTokens:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
           type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    AiProfileCreate:
+      type: object
+      required: [name, provider, apiKey]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        provider:
+          type: string
+          enum: [deepseek, siliconflow]
         apiKey:
           type: string
           writeOnly: true
-          description: Plain key accepted only on write; stored encrypted and never returned
-        defaultEditor:
+          description: Plain key accepted only on write; encrypted at rest and never returned
+        model:
           type: string
           nullable: true
-          enum: [text]
+        connectTimeoutSeconds:
+          type: integer
+          default: 30
+        readTimeoutSeconds:
+          type: integer
+          default: 60
+        maxTokens:
+          type: integer
+          default: 2048
+        isActive:
+          type: boolean
+          default: false
+    AiProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        provider:
+          type: string
+          enum: [deepseek, siliconflow]
+        apiKey:
+          type: string
+          writeOnly: true
+          description: Omit or leave empty to keep the stored key
+        model:
+          type: string
+          nullable: true
+        connectTimeoutSeconds:
+          type: integer
+        readTimeoutSeconds:
+          type: integer
+        maxTokens:
+          type: integer
+        isActive:
+          type: boolean
+    AiSettings:
+      type: object
+      required: [profiles, contentLogging, langfuse, providers]
+      properties:
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/AiProfile'
+        contentLogging:
+          type: boolean
+          description: Whether prompt and response content may be sent to Langfuse
+        langfuse:
+          type: object
+          required: [configured]
+          properties:
+            configured:
+              type: boolean
+            url:
+              type: string
+              nullable: true
+        providers:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              label:
+                type: string
+              defaultModel:
+                type: string
+    AiSettingsUpdate:
+      type: object
+      properties:
+        contentLogging:
+          type: boolean
     OcsBookResponse:
       allOf:
         - $ref: '#/components/schemas/OcsEnvelope'
@@ -2164,7 +2393,7 @@ components:
                   type: array
                   items:
                     $ref: '#/components/schemas/Prompt'
-    OcsSettingsResponse:
+    OcsAiSettingsResponse:
       allOf:
         - $ref: '#/components/schemas/OcsEnvelope'
         - type: object
@@ -2173,4 +2402,44 @@ components:
               type: object
               properties:
                 data:
-                  $ref: '#/components/schemas/Settings'
+                  $ref: '#/components/schemas/AiSettings'
+    OcsAiProfileResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/AiProfile'
+    OcsAiProfileListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AiProfile'
+    OcsAiProfileTestResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: object
+                  required: [ok, model, message]
+                  properties:
+                    ok:
+                      type: boolean
+                    model:
+                      type: string
+                    message:
+                      type: string

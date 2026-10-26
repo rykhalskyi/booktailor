@@ -38,7 +38,7 @@ and settings.
 | Tags | list per book, create, rename, delete, list/replace asset tags |
 | Compositions | list, create/queue, get, delete, retry, download |
 | AI | chat, action audit, confirm/reject, prompt list/create/update/delete |
-| Settings | read/update provider and BYOK, delete key |
+| Settings | AI settings status; per-user provider profiles and write-only BYOK keys |
 
 ## Contract choices worth reviewing
 
@@ -56,9 +56,9 @@ and settings.
 - **Content writes go through the Node API.** `PUT /assets/{id}/content` exists for API
   clients and tests; the primary editor is the Text app (D-20). Both paths must trigger
   native versioning/save events.
-- **Settings split read and write.** `GET /settings` returns `hasApiKey` and
-  `apiKeyMasked`; `PUT /settings` accepts a write-only `apiKey`; `DELETE
-  /settings/api-key` removes it.
+- **Settings use profile records and write-only keys.** `GET /ai/settings` returns
+  profiles with `apiKeyMasked`; profile create/update accepts a write-only `apiKey`;
+  `DELETE /ai/profiles/{id}` removes the profile and its key.
 - **AI chat links observability.** `ChatResponse.traceId` is the Langfuse trace id, and
   `proposedActions` carries the audit rows that require confirmation (D-10).
 - **Chapter trees can lazy-load.** Without `structureId`, optional `parentId` and `depth`
@@ -115,6 +115,25 @@ extractor docblock; `openapi.draft.yaml` is the reviewed T1 contract.
   (D-21); the UI exposes it from the history dialog.
 - Tags include a palette `color` (10 allowed hex values). `POST /books/{id}/tags` accepts
   an optional color and `PATCH /tags/{id}` accepts name and/or color.
+
+## T6 implementation status
+
+- AI settings are implemented under `/ai/settings` with multiple per-user LLM profiles
+  at `/ai/profiles` (D-62). The earlier single `/settings` provider shape is superseded.
+- Profiles support DeepSeek and SiliconFlow with encrypted write-only keys, a masked
+  last-four read value, one active profile, and a connection-test endpoint (D-63).
+- Chat is `POST /ai/chat` with normal JSON, a bounded JSON tool loop, read tools, and
+  proposal-only writes (D-65/D-66). Responses include `proposedActions`, `warnings`,
+  `usage`, and an optional Langfuse `traceId`.
+- Proposals are persisted in `booktailor_ai_action_log` and applied only through
+  `/ai-actions/{id}/confirm`; `/reject` records the decision (D-67). The audit row now
+  includes `decidedAt` and `result`.
+- Predefined prompts live in the server prompt catalog; saved prompts are book-scoped
+  and CRUD-capable at `/books/{bookId}/prompts` (D-69).
+- Langfuse is app-level configuration and best-effort; content logging is per-user
+  opt-in (D-68).
+- `openapi.draft.yaml` was updated for the profile endpoints, AI settings schemas, prompt
+  keys, chat warnings/usage, and the new audit fields.
 
 ## Review outcome
 

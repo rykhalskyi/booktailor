@@ -133,6 +133,86 @@ docker exec master-nextcloud-1 bash -c \
   'cd /var/www/html/apps-extra/booktailor && composer run test:unit'
 ```
 
+## AI configuration
+
+AI provider keys are **per user** and live in the in-app **Settings** screen. They are
+encrypted with Nextcloud's `ICrypto` and only a last-four mask is returned by the API.
+Never put provider keys in `config.php`, `.env`, or the repository.
+
+Langfuse is app-level configuration. There are two supported ways to provide it.
+
+**Option A — app config via `occ`:**
+
+```bash
+docker exec -u www-data master-nextcloud-1 php occ config:app:set booktailor langfuse_url --value="http://langfuse.homelab.home.arpa"
+docker exec -u www-data master-nextcloud-1 php occ config:app:set booktailor langfuse_public_key --value="pk-lf-..."
+docker exec -u www-data master-nextcloud-1 php occ config:app:set booktailor langfuse_secret_key --value="sk-lf-..."
+# Optional; defaults to production
+docker exec -u www-data master-nextcloud-1 php occ config:app:set booktailor langfuse_prompt_label --value="production"
+```
+
+**Option B — environment variables (no `occ`):**
+
+App config values win when present; otherwise BookTailor reads:
+
+```bash
+BOOKTAILOR_LANGFUSE_URL=http://langfuse.homelab.home.arpa
+BOOKTAILOR_LANGFUSE_PUBLIC_KEY=pk-lf-...
+BOOKTAILOR_LANGFUSE_SECRET_KEY=sk-lf-...
+BOOKTAILOR_LANGFUSE_PROMPT_LABEL=production
+```
+
+The standard `LANGFUSE_URL`, `LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY`,
+`LANGFUSE_SECRET_KEY`, and `LANGFUSE_PROMPT_LABEL` names are accepted as aliases.
+A template is in `deploy/nextcloud-langfuse.env.example`. For Docker Compose, add
+those variables to the Nextcloud service or use an `env_file`. For Kubernetes, put them
+in a Secret and reference it from the Nextcloud HelmRelease `extraEnv`, for example:
+
+```yaml
+nextcloud:
+  extraEnv:
+    - name: BOOKTAILOR_LANGFUSE_URL
+      valueFrom:
+        secretKeyRef:
+          name: booktailor-langfuse
+          key: BOOKTAILOR_LANGFUSE_URL
+    - name: BOOKTAILOR_LANGFUSE_PUBLIC_KEY
+      valueFrom:
+        secretKeyRef:
+          name: booktailor-langfuse
+          key: BOOKTAILOR_LANGFUSE_PUBLIC_KEY
+    - name: BOOKTAILOR_LANGFUSE_SECRET_KEY
+      valueFrom:
+        secretKeyRef:
+          name: booktailor-langfuse
+          key: BOOKTAILOR_LANGFUSE_SECRET_KEY
+```
+
+Create the Secret from an env file:
+
+```bash
+kubectl -n homelab create secret generic booktailor-langfuse \
+  --from-env-file=deploy/nextcloud-langfuse.env
+```
+
+Langfuse is best-effort: prompt fetch and OTLP tracing failures never block chat; local
+prompt fallbacks are used. Prompt/response content is sent to Langfuse only when the user
+opts in under **Settings → Privacy and observability**. Langfuse credentials and keys are
+never logged.
+
+Apply the T6 migration and verify the routes:
+
+```bash
+docker exec -u www-data master-nextcloud-1 php occ migrations:migrate booktailor
+curl -u admin:admin -H 'OCS-APIRequest: true' -H 'Accept: application/json' \
+  http://nextcloud.local/ocs/v2.php/apps/booktailor/api/v1/ai/settings
+```
+
+AI provider setup needs an active profile; without one the chat endpoint returns 422 with
+a settings hint. DeepSeek and SiliconFlow are supported through OpenAI-compatible
+endpoints. The MVP chat transport is normal JSON (no SSE); the client shows progress and
+supports abort/retry.
+
 ## Verify loop
 
 1. `npm run lint` and `npm run stylelint` when Vue/CSS changed.

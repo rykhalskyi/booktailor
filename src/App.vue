@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import NcAppContent from '@nextcloud/vue/components/NcAppContent'
 import NcAppNavigation from '@nextcloud/vue/components/NcAppNavigation'
 import NcAppNavigationCaption from '@nextcloud/vue/components/NcAppNavigationCaption'
@@ -11,12 +11,14 @@ import NcContent from '@nextcloud/vue/components/NcContent'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import AiChatPanel from './components/AiChatPanel.vue'
 import AssetList from './components/AssetList.vue'
 import ChapterTree from './components/ChapterTree.vue'
 import ComposeScreen from './components/ComposeScreen.vue'
 import CompositionsList from './components/CompositionsList.vue'
 import DialogHost from './components/DialogHost.vue'
 import LibraryToolbar from './components/LibraryToolbar.vue'
+import SettingsScreen from './components/SettingsScreen.vue'
 import StructureManager from './components/StructureManager.vue'
 import TagManager from './components/TagManager.vue'
 import VersionHistoryDialog from './components/VersionHistoryDialog.vue'
@@ -39,9 +41,13 @@ const {
 	selectBook,
 	selectedBook,
 	selectedBookId,
+	settingsOpen,
 	structureManagerOpen,
 	tagsManagerOpen,
+	openSettings,
 } = useLibrary()
+
+const chatOpen = ref(false)
 
 onMounted(() => {
 	initialize()
@@ -84,11 +90,18 @@ onMounted(() => {
 				:active="compositionsOpen"
 				:disabled="selectedBook === null"
 				@click="openCompositions" />
+			<NcAppNavigationCaption name="Application" />
+			<NcAppNavigationItem
+				name="Settings"
+				icon="icon-settings"
+				:active="settingsOpen"
+				@click="openSettings" />
 		</NcAppNavigation>
 
 		<NcAppContent>
 			<div class="app-content-safe-area">
-				<StructureManager v-if="structureManagerOpen" />
+				<SettingsScreen v-if="settingsOpen" />
+				<StructureManager v-else-if="structureManagerOpen" />
 				<TagManager v-else-if="tagsManagerOpen" />
 				<ComposeScreen v-else-if="composeOpen" />
 				<CompositionsList v-else-if="compositionsOpen" />
@@ -121,20 +134,30 @@ onMounted(() => {
 
 					<template v-else-if="selectedBook">
 						<LibraryToolbar />
-						<section class="library-pane" aria-label="Chapters">
-							<div class="pane-header">
-								<h2 class="pane-title">
-									Chapters
-								</h2>
-								<NcButton
-									variant="primary"
-									:disabled="loading.mutation"
-									@click="openDialog({ type: 'chapter-create', parentId: null })">
-									Add chapter
-								</NcButton>
-							</div>
-							<ChapterTree />
-						</section>
+						<div class="library-workspace">
+							<section class="library-pane" aria-label="Chapters">
+								<div class="pane-header">
+									<h2 class="pane-title">
+										Chapters
+									</h2>
+									<div class="pane-actions">
+										<NcButton
+											:variant="chatOpen ? 'secondary' : 'tertiary'"
+											@click="chatOpen = !chatOpen">
+											{{ chatOpen ? 'Hide AI assistant' : 'AI assistant' }}
+										</NcButton>
+										<NcButton
+											variant="primary"
+											:disabled="loading.mutation"
+											@click="openDialog({ type: 'chapter-create', parentId: null })">
+											Add chapter
+										</NcButton>
+									</div>
+								</div>
+								<ChapterTree />
+							</section>
+							<AiChatPanel v-if="chatOpen" @close="chatOpen = false" />
+						</div>
 					</template>
 				</div>
 			</div>
@@ -177,6 +200,20 @@ onMounted(() => {
 	min-height: 240px;
 }
 
+.library-workspace {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	gap: 16px;
+}
+
+.pane-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
 .library-pane {
 	display: flex;
 	flex-direction: column;
@@ -204,6 +241,17 @@ onMounted(() => {
 
 .library-pane :deep(.chapter-tree) {
 	flex: 1;
+}
+
+@media (max-width: 1100px) {
+	.library-workspace {
+		flex-direction: column;
+	}
+
+	.library-workspace :deep(aside) {
+		width: 100%;
+		min-height: 360px;
+	}
 }
 
 .asset-manager {

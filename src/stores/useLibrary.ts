@@ -34,6 +34,7 @@ export function createLibraryStore() {
 	const assetManagerOpen = ref(false)
 	const composeOpen = ref(false)
 	const compositionsOpen = ref(false)
+	const settingsOpen = ref(false)
 	const compositions = ref<Composition[]>([])
 	const compositionsLoading = ref(false)
 	const capabilities = ref<Capabilities>({ editor: 'text', versions: true })
@@ -225,6 +226,7 @@ export function createLibraryStore() {
 		assetManagerOpen.value = false
 		composeOpen.value = false
 		compositionsOpen.value = false
+		settingsOpen.value = false
 		resetBookData()
 		error.value = null
 
@@ -296,6 +298,7 @@ export function createLibraryStore() {
 		assetManagerOpen.value = false
 		composeOpen.value = false
 		compositionsOpen.value = false
+		settingsOpen.value = false
 		error.value = null
 		loadStructureEditor()
 	}
@@ -481,6 +484,7 @@ export function createLibraryStore() {
 		assetManagerOpen.value = false
 		composeOpen.value = false
 		compositionsOpen.value = false
+		settingsOpen.value = false
 		error.value = null
 		loadTags(selectedBookId.value)
 	}
@@ -495,6 +499,7 @@ export function createLibraryStore() {
 		tagsManagerOpen.value = false
 		composeOpen.value = false
 		compositionsOpen.value = false
+		settingsOpen.value = false
 		assetManagerOpen.value = true
 		selectedChapterId.value = chapter.id
 		error.value = null
@@ -945,6 +950,7 @@ export function createLibraryStore() {
 		structureManagerOpen.value = false
 		tagsManagerOpen.value = false
 		assetManagerOpen.value = false
+		settingsOpen.value = false
 		error.value = null
 	}
 
@@ -963,6 +969,7 @@ export function createLibraryStore() {
 		structureManagerOpen.value = false
 		tagsManagerOpen.value = false
 		assetManagerOpen.value = false
+		settingsOpen.value = false
 		error.value = null
 		loadCompositions()
 	}
@@ -1077,6 +1084,21 @@ export function createLibraryStore() {
 		}
 	}
 
+	function openSettings(): void {
+		structureManagerOpen.value = false
+		tagsManagerOpen.value = false
+		assetManagerOpen.value = false
+		composeOpen.value = false
+		compositionsOpen.value = false
+		settingsOpen.value = true
+		error.value = null
+	}
+
+	function closeSettings(): void {
+		settingsOpen.value = false
+		error.value = null
+	}
+
 	function openDialog(state: DialogState): void {
 		if (loading.mutation) {
 			return
@@ -1129,6 +1151,7 @@ export function createLibraryStore() {
 		selectedChapterId,
 		selectedStructure,
 		selectedStructureId,
+		settingsOpen,
 		structures,
 		structureManagerOpen,
 		tags,
@@ -1142,6 +1165,7 @@ export function createLibraryStore() {
 		closeCompositions,
 		closeDialog,
 		closeHistory,
+		closeSettings,
 		closeStructureManager,
 		closeTagsManager,
 		createAsset,
@@ -1170,6 +1194,7 @@ export function createLibraryStore() {
 		openCompositions,
 		openDialog,
 		openHistory,
+		openSettings,
 		openStructureManager,
 		openTagsManager,
 		previewVersion,

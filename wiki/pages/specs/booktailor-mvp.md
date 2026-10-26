@@ -160,7 +160,7 @@ authoring and Markdown-composition product described here.
   - extract terms or lists into a new asset;
   - answer questions about the current book.
 - Record proposed and applied AI actions in an audit log.
-- Provider abstraction and supported providers are decided in T6.
+- Provider abstraction supports DeepSeek and SiliconFlow through OpenAI-compatible endpoints (D-63).
 
 ### Images
 
@@ -201,11 +201,13 @@ Main screen:
 
 ### Settings
 
-- Configure AI provider and BYOK credentials.
-- Show the book storage location.
-- Configure default editor/composition preferences where applicable.
-- Keys must never be exposed in the UI after entry and must be stored using
-  Nextcloud's secret storage or an equivalent protected mechanism.
+- Configure one or more AI provider profiles (DeepSeek, SiliconFlow), choose one active
+  profile, and enter BYOK credentials.
+- Show Langfuse status and a per-user content-logging opt-in.
+- Show the book storage location (T7).
+- Configure default editor/composition preferences where applicable (T7).
+- Keys must never be exposed in the UI after entry and must be stored encrypted with
+  Nextcloud's crypto service.
 
 ## Domain model (conceptual)
 
@@ -273,7 +275,7 @@ owner-scoped and use Nextcloud authentication.
 | Compositions | create, list, status, download, delete |
 | Tags | list, create, rename, delete |
 | AI | chat, prompts, propose, confirm, audit |
-| Settings | read/update AI keys and defaults |
+| Settings | AI status, per-user provider profiles, write-only encrypted keys, content-logging consent |
 
 ## Non-functional requirements
 
@@ -340,10 +342,10 @@ Resolved in T0 (see [domain-schema](../research/domain-schema.md)):
 Still open:
 
 - Composition rule precedence, fallback, and per-chapter overrides are decided in T5.
-- Langfuse hosting, provider list, and key storage are decided in T6.
+- Langfuse uses app-level configuration; the provider list is DeepSeek and SiliconFlow; keys are encrypted per-user profiles (D-62, D-63, D-68).
 - Composition output naming/location is decided in T5.
 - Sharing and permissions are post-MVP.
-- AI-generated assets may need provenance metadata; decide in T6.
+- AI provenance is recorded in the AI action audit log and in a frontmatter comment on generated content; no asset schema change in T6.
 
 ## Out of scope for the MVP
 
