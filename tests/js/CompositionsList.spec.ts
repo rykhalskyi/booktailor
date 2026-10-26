@@ -37,6 +37,11 @@ const NcButtonStub = {
 	template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
 }
 
+const NcLoadingIconStub = {
+	props: ['name', 'size'],
+	template: '<span class="loading-icon" />',
+}
+
 const NcNoteCardStub = {
 	props: ['type', 'text'],
 	template: '<div class="note">{{ text }}</div>',
@@ -87,7 +92,7 @@ function mountList() {
 					props: ['name', 'description'],
 					template: '<div class="empty"><h2>{{ name }}</h2><p>{{ description }}</p><slot name="action" /></div>',
 				},
-				NcLoadingIcon: true,
+				NcLoadingIcon: NcLoadingIconStub,
 				NcNoteCard: NcNoteCardStub,
 				ConfirmDialog: ConfirmDialogStub,
 			},
@@ -119,6 +124,19 @@ describe('CompositionsList', () => {
 		expect(wrapper.findAll('button').filter((button) => button.text().trim() === 'Delete')).toHaveLength(2)
 		expect(wrapper.findAll('button').filter((button) => button.text().trim() === 'Retry')).toHaveLength(2)
 		expect(wrapper.findAll('button').filter((button) => button.text().trim() === 'Download')).toHaveLength(3)
+	})
+
+	it('shows a spinner only for a running composition', async () => {
+		vi.mocked(api.compositions.list).mockResolvedValue([
+			composition({ id: 1, status: 'running', stale: false, outputFileId: null, outputPath: null }),
+			composition({ id: 2, status: 'queued', stale: false, outputFileId: null, outputPath: null }),
+			composition({ id: 3, status: 'running', stale: true, outputFileId: null, outputPath: null }),
+		])
+
+		const wrapper = mountList()
+		await flushPromises()
+
+		expect(wrapper.findAll('.loading-icon')).toHaveLength(1)
 	})
 
 	it('retries a failed composition and reloads the list', async () => {

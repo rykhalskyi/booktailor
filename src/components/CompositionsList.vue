@@ -33,6 +33,10 @@ const hasActive = computed<boolean>(() => compositions.value.some((composition) 
 	composition.status === 'queued' || composition.status === 'running'
 )))
 
+function isRunning(composition: Composition): boolean {
+	return composition.status === 'running' && !composition.stale
+}
+
 function canRetry(composition: Composition): boolean {
 	return composition.status === 'failed' || composition.stale
 }
@@ -125,6 +129,10 @@ onUnmounted(() => {
 					<div class="composition-heading">
 						<span class="composition-structure">{{ composition.structureName }}</span>
 						<span class="composition-status" :class="compositionStatusClass(composition)">
+							<NcLoadingIcon
+								v-if="isRunning(composition)"
+								name="Composition running"
+								:size="14" />
 							{{ compositionStatusLabel(composition) }}
 						</span>
 					</div>
@@ -266,6 +274,9 @@ onUnmounted(() => {
 }
 
 .composition-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 	padding: 1px 8px;
 	border: 1px solid currentColor;
 	border-radius: 12px;
