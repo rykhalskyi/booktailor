@@ -9,6 +9,7 @@ use OCA\BookTailor\Exception\ApiException;
 use OCA\BookTailor\Exception\UnauthorizedException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
+use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\OCSController;
 use OCP\Files\NotFoundException as FileNotFoundException;
 use OCP\Files\NotPermittedException;
@@ -43,6 +44,26 @@ abstract class AbstractApiController extends OCSController {
 	 * @param callable(): DataResponse $fn
 	 */
 	protected function handle(callable $fn): DataResponse {
+		try {
+			return $fn();
+		} catch (ApiException $e) {
+			/** @psalm-suppress ArgumentTypeCoercion */
+			return new DataResponse(['message' => $e->getMessage()], $e->getStatusCode());
+		} catch (FileNotFoundException $e) {
+			return new DataResponse(['message' => 'Not found'], Http::STATUS_NOT_FOUND);
+		} catch (NotPermittedException $e) {
+			return new DataResponse(['message' => 'Not permitted'], Http::STATUS_FORBIDDEN);
+		} catch (\Throwable $e) {
+			$this->logger->error('BookTailor API request failed', ['exception' => $e]);
+
+			return new DataResponse(['message' => 'Internal server error'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+	}
+
+	/**
+	 * @param callable(): Response $fn
+	 */
+	protected function handleResponse(callable $fn): Response {
 		try {
 			return $fn();
 		} catch (ApiException $e) {

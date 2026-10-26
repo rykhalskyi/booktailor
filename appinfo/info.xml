@@ -5,7 +5,7 @@
 	<name>Book Tailor</name>
 	<summary>Organize set of md file to one document</summary>
 	<description>AI driven organizer of markdown files. Automate learning material creation flow</description>
-	<version>1.2.0</version>
+	<version>1.3.0</version>
 	<licence>AGPL-3.0-or-later</licence>
 	<author mail="otakeessent@gmail.com" homepage="">Iaroslav Rykhalskyi</author>
 	<namespace>BookTailor</namespace>

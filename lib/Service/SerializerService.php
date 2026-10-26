@@ -8,6 +8,8 @@ use DateTimeInterface;
 use OCA\BookTailor\Entity\Asset;
 use OCA\BookTailor\Entity\Book;
 use OCA\BookTailor\Entity\Chapter;
+use OCA\BookTailor\Entity\Composition;
+use OCA\BookTailor\Entity\CompositionRule;
 use OCA\BookTailor\Entity\Structure;
 use OCA\BookTailor\Entity\Tag;
 
@@ -82,6 +84,35 @@ class SerializerService {
 			'tags' => array_map(fn (Tag|array $tag): array => $this->tag($tag), $tags),
 			'createdAt' => $this->date($asset->getCreatedAt()),
 			'updatedAt' => $this->date($asset->getUpdatedAt()),
+		];
+	}
+
+	public function composition(Composition $composition, array $rules = [], bool $stale = false): array {
+		return [
+			'id' => $composition->getId(),
+			'bookId' => $composition->getBookId(),
+			'structureId' => $composition->getStructureId(),
+			'structureName' => $composition->getStructureName(),
+			'status' => $composition->getStatus(),
+			'rules' => array_map(
+				fn (CompositionRule $rule): array => $this->compositionRule($rule),
+				$rules,
+			),
+			'outputFileId' => $composition->getOutputFileId(),
+			'outputPath' => $composition->getOutputPath(),
+			'error' => $composition->getError(),
+			'stale' => $stale,
+			'createdAt' => $this->date($composition->getCreatedAt()),
+			'startedAt' => $this->date($composition->getStartedAt()),
+			'completedAt' => $this->date($composition->getCompletedAt()),
+		];
+	}
+
+	public function compositionRule(CompositionRule $rule): array {
+		return [
+			'tagId' => $rule->getTagId(),
+			'priority' => $rule->getPriority(),
+			'fallback' => $rule->getFallback(),
 		];
 	}
 

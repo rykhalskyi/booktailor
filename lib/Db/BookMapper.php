@@ -40,6 +40,19 @@ class BookMapper extends QBMapper {
 		return $this->findEntities($qb);
 	}
 
+	public function findById(int $id): ?Book {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->tableName)
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+
+		try {
+			return $this->findEntity($qb);
+		} catch (DoesNotExistException) {
+			return null;
+		}
+	}
+
 	public function findByIdAndUser(int $id, string $userId): ?Book {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
