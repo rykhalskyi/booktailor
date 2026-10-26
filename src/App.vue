@@ -133,7 +133,9 @@ onMounted(() => {
 					</NcEmptyContent>
 
 					<template v-else-if="selectedBook">
-						<LibraryToolbar />
+						<LibraryToolbar
+							:chat-open="chatOpen"
+							@update-chat-open="chatOpen = $event" />
 						<div class="library-workspace">
 							<section class="library-pane" aria-label="Chapters">
 								<div class="pane-header">
@@ -141,11 +143,6 @@ onMounted(() => {
 										Chapters
 									</h2>
 									<div class="pane-actions">
-										<NcButton
-											:variant="chatOpen ? 'secondary' : 'tertiary'"
-											@click="chatOpen = !chatOpen">
-											{{ chatOpen ? 'Hide AI assistant' : 'AI assistant' }}
-										</NcButton>
 										<NcButton
 											variant="primary"
 											:disabled="loading.mutation"

@@ -36,18 +36,27 @@ interface PromptOption {
 	key?: string
 	id?: number
 	label: string
+	promptText: string
 }
 
 const prompts = ref<AiPrompt[]>([])
-const selectedPrompt = ref<PromptOption>({ key: 'chat', label: 'Free-form chat' })
+const selectedPrompt = ref<PromptOption>({ key: 'chat', label: 'Free-form chat', promptText: '' })
 
 const promptOptions = computed<PromptOption[]>(() => [
-	{ key: 'chat', label: 'Free-form chat' },
-	{ key: 'summarize', label: 'Summarize chapter' },
-	{ key: 'extract-terms', label: 'Extract terms' },
-	{ key: 'ask-book', label: 'Ask the book' },
-	...prompts.value.map((prompt) => ({ id: prompt.id, label: prompt.name })),
+	{ key: 'chat', label: 'Free-form chat', promptText: '' },
+	{ key: 'summarize', label: 'Summarize chapter', promptText: 'Summarize the selected chapter.' },
+	{ key: 'extract-terms', label: 'Extract terms', promptText: 'Extract and define the key terms in the selected chapter.' },
+	{ key: 'ask-book', label: 'Ask the book', promptText: 'Answer my question using the book as context.' },
+	...prompts.value.map((prompt) => ({ id: prompt.id, label: prompt.name, promptText: prompt.text })),
 ])
+
+function onPromptChange(prompt: PromptOption | null): void {
+	if (prompt === null) {
+		return
+	}
+	selectedPrompt.value = prompt
+	input.value = prompt.promptText
+}
 
 async function loadPrompts(): Promise<void> {
 	if (selectedBookId.value === null) {
@@ -65,7 +74,7 @@ onMounted(loadPrompts)
 
 watch(selectedBookId, () => {
 	loadPrompts()
-	selectedPrompt.value = { key: 'chat', label: 'Free-form chat' }
+	selectedPrompt.value = { key: 'chat', label: 'Free-form chat', promptText: '' }
 })
 
 const contextLabel = computed(() => {
@@ -161,27 +170,9 @@ function onKeydown(event: KeyboardEvent): void {
 					{{ contextLabel }}
 				</p>
 			</div>
-			<NcButton variant="tertiary" aria-label="Close AI assistant" @click="emit('close')">
-				Close
-			</NcButton>
 		</header>
 
-		<div :class="$style.quick">
-			<NcButton variant="secondary" :disabled="chat.loading.value" @click="quickPrompt('summarize', 'Summarize this chapter into a new summary asset.')">
-				Summarize
-			</NcButton>
-			<NcButton variant="secondary" :disabled="chat.loading.value" @click="quickPrompt('extract-terms', 'Extract the key terms and lists from this chapter into a new asset.')">
-				Extract terms
-			</NcButton>
-			<NcButton variant="secondary" :disabled="chat.loading.value" @click="quickPrompt('ask-book', 'What are the main ideas in this book?', false)">
-				Ask the book
-			</NcButton>
-		</div>
-
 		<div ref="messagesEl" :class="$style.messages">
-			<div v-if="chat.messages.value.length === 0" :class="$style.empty">
-				<p>Ask about the book, or use a quick prompt. The assistant proposes changes; nothing is written until you approve it.</p>
-			</div>
 
 			<div
 				v-for="message in chat.messages.value"
@@ -229,15 +220,7 @@ function onKeydown(event: KeyboardEvent): void {
 			Retry
 		</NcButton>
 
-		<div :class="$style.promptPicker">
-			<NcSelect
-				v-model="selectedPrompt"
-				:options="promptOptions"
-				label="label"
-				input-label="Prompt"
-				:clearable="false"
-				:disabled="chat.loading.value" />
-		</div>
+		
 
 		<div :class="$style.composer">
 			<textarea
@@ -248,9 +231,16 @@ function onKeydown(event: KeyboardEvent): void {
 				:disabled="chat.loading.value"
 				@keydown="onKeydown" />
 			<div :class="$style.composerActions">
-				<NcButton variant="tertiary" :disabled="chat.loading.value" @click="openSettings">
-					AI settings
-				</NcButton>
+				<div :class="$style.promptPicker">
+				<NcSelect
+					:model-value="selectedPrompt"
+					:options="promptOptions"
+					label="label"
+					input-label="Prompt"
+					:clearable="false"
+					:disabled="chat.loading.value"
+					@update:model-value="onPromptChange" />
+				</div>
 				<NcButton variant="primary" :disabled="chat.loading.value || input.trim() === ''" @click="send">
 					Send
 				</NcButton>
@@ -269,7 +259,8 @@ function onKeydown(event: KeyboardEvent): void {
 	min-width: 300px;
 	height: 100%;
 	padding: 12px;
-	border-inline-start: 1px solid var(--color-border);
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
 	background: var(--color-main-background);
 }
 

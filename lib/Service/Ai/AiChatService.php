@@ -56,7 +56,7 @@ class AiChatService {
 		$credentials = $this->profileService->activeCredentials($userId);
 		$profile = $credentials['profile'];
 
-		[$systemPrompt, $promptName, $promptVersion] = $this->resolvePrompt($userId, $bookId, $promptKey, $promptId);
+		[$systemPrompt, $promptName, $promptVersion, $traceName] = $this->resolvePrompt($userId, $bookId, $promptKey, $promptId);
 		$context = $this->contextService->build(
 			$userId,
 			$bookId,
@@ -160,11 +160,14 @@ class AiChatService {
 			$reply = 'I could not produce a response. Please try again.';
 		}
 
+		$traceInput = "## Selected prompt\n\n" . $systemPrompt
+			. "\n\n## User message\n\n" . $message
+			. "\n\n## Book context\n\n" . $context['text'];
 		$traceId = $this->langfuseService->traceGeneration(
 			$userId,
-			$promptName ?? 'booktailor-chat',
+			$traceName,
 			$model,
-			$message,
+			$traceInput,
 			$lastOutput !== '' ? $lastOutput : $reply,
 			$promptName,
 			$promptVersion,
@@ -182,7 +185,7 @@ class AiChatService {
 	}
 
 	/**
-	 * @return array{0: string, 1: ?string, 2: ?int}
+	 * @return array{0: string, 1: ?string, 2: ?int, 3: string}
 	 */
 	private function resolvePrompt(string $userId, int $bookId, ?string $promptKey, ?int $promptId): array {
 		if ($promptId !== null) {
@@ -191,7 +194,7 @@ class AiChatService {
 				throw new ValidationException('The selected prompt belongs to another book');
 			}
 
-			return [$prompt->getText(), null, null];
+			return [$prompt->getText(), null, null, 'booktailor-saved-prompt'];
 		}
 
 		$key = $promptKey !== null && trim($promptKey) !== '' ? trim($promptKey) : PromptCatalog::KEY_CHAT;
@@ -202,10 +205,10 @@ class AiChatService {
 		$name = $this->promptCatalog->langfuseName($key);
 		$fetched = $this->langfuseService->fetchPrompt($name);
 		if ($fetched !== null) {
-			return [$fetched['text'], $name, $fetched['version']];
+			return [$fetched['text'], $name, $fetched['version'], $name];
 		}
 
-		return [$this->promptCatalog->systemPrompt($key), $name, null];
+		return [$this->promptCatalog->systemPrompt($key), null, null, 'booktailor-' . $key];
 	}
 
 	private function protocolInstructions(): string {

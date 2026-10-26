@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace OCA\BookTailor\Tests\Unit\Service;
 
 use OCA\BookTailor\Service\Ai\LangfuseService;
+use OCP\Http\Client\IClient;
 use OCP\Http\Client\IClientService;
+use OCP\Http\Client\IResponse;
 use OCP\IConfig;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -99,6 +101,60 @@ final class LangfuseServiceTest extends TestCase {
 			putenv('LANGFUSE_PUBLIC_KEY');
 			putenv('LANGFUSE_SECRET_KEY');
 		}
+	}
+
+	public function testTracePayloadContainsRootSpanAndChildGeneration(): void {
+		$response = $this->createMock(IResponse::class);
+		$response->method('getStatusCode')->willReturn(200);
+		$captured = null;
+		$client = $this->createMock(IClient::class);
+		$client->expects($this->once())
+			->method('post')
+			->willReturnCallback(static function (string $url, array $options) use (&$captured, $response): IResponse {
+				$captured = json_decode((string)$options['body'], true);
+
+				return $response;
+			});
+		$clientService = $this->createMock(IClientService::class);
+		$clientService->method('newClient')->willReturn($client);
+
+		$config = $this->createMock(IConfig::class);
+		$config->method('getAppValue')->willReturnCallback(
+			static fn (string $app, string $key, string $default = ''): string => match ($key) {
+				LangfuseService::CONFIG_URL => 'http://langfuse.test',
+				LangfuseService::CONFIG_PUBLIC_KEY => 'public',
+				LangfuseService::CONFIG_SECRET_KEY => 'secret',
+				default => $default,
+			},
+		);
+
+		$service = new LangfuseService($clientService, $config, $this->createMock(LoggerInterface::class));
+		$traceId = $service->traceGeneration('user', 'booktailor-chat', 'model', 'input', 'output', null, null, ['total' => 1], true);
+
+		$this->assertNotNull($traceId);
+		$this->assertIsArray($captured);
+		$spans = $captured['resourceSpans'][0]['scopeSpans'][0]['spans'];
+		$this->assertCount(2, $spans);
+		$this->assertSame($traceId, $spans[0]['traceId']);
+		$this->assertSame($spans[0]['spanId'], $spans[1]['parentSpanId']);
+		$this->assertSame('span', $this->attribute($spans[0], 'langfuse.observation.type'));
+		$this->assertSame('generation', $this->attribute($spans[1], 'langfuse.observation.type'));
+		$this->assertSame('input', $this->attribute($spans[1], 'langfuse.observation.input'));
+	}
+
+	/**
+	 * @param array<string, mixed> $span
+	 */
+	private function attribute(array $span, string $key): ?string {
+		foreach ($span['attributes'] as $attribute) {
+			if (($attribute['key'] ?? null) === $key) {
+				$value = $attribute['value'] ?? [];
+
+				return $value['stringValue'] ?? $value['intValue'] ?? null;
+			}
+		}
+
+		return null;
 	}
 
 	public function testLangfuseOutageFallsBackWithoutThrowing(): void {

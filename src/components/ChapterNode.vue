@@ -147,10 +147,9 @@ function openAsset(asset: Asset): void {
 					<button
 						type="button"
 						class="asset-chip-name"
-						:title="asset.fileName"
 						:disabled="!fileUrl(asset)"
 						@click="openAsset(asset)">
-						📄 {{ asset.fileName }}
+						<span :title="asset.fileName">📄</span> .md
 					</button>
 				</div>
 			</div>

@@ -127,30 +127,36 @@ class LangfuseService {
 		}
 
 		$traceId = bin2hex(random_bytes(16));
-		$spanId = bin2hex(random_bytes(8));
+		$rootSpanId = bin2hex(random_bytes(8));
+		$generationSpanId = bin2hex(random_bytes(8));
 		$start = (int)round(microtime(true) * 1000000000.0);
 		$end = $start;
 
-		$attributes = [
+		$traceAttributes = [
+			['key' => 'langfuse.trace.name', 'value' => ['stringValue' => $traceName]],
+			['key' => 'langfuse.user.id', 'value' => ['stringValue' => $userId]],
+			['key' => 'langfuse.observation.type', 'value' => ['stringValue' => 'span']],
+		];
+		$generationAttributes = [
 			['key' => 'langfuse.trace.name', 'value' => ['stringValue' => $traceName]],
 			['key' => 'langfuse.user.id', 'value' => ['stringValue' => $userId]],
 			['key' => 'langfuse.observation.type', 'value' => ['stringValue' => 'generation']],
 			['key' => 'langfuse.observation.model.name', 'value' => ['stringValue' => $model]],
 		];
 		if ($contentLogging) {
-			$attributes[] = ['key' => 'langfuse.observation.input', 'value' => ['stringValue' => $this->truncate($input)]];
-			$attributes[] = ['key' => 'langfuse.observation.output', 'value' => ['stringValue' => $this->truncate($output)]];
+			$generationAttributes[] = ['key' => 'langfuse.observation.input', 'value' => ['stringValue' => $this->truncate($input)]];
+			$generationAttributes[] = ['key' => 'langfuse.observation.output', 'value' => ['stringValue' => $this->truncate($output)]];
 		}
 		if ($usage !== []) {
-			$attributes[] = [
+			$generationAttributes[] = [
 				'key' => 'langfuse.observation.usage_details',
 				'value' => ['stringValue' => (string)json_encode($usage, JSON_UNESCAPED_SLASHES)],
 			];
 		}
 		if ($promptName !== null && $promptName !== '') {
-			$attributes[] = ['key' => 'langfuse.observation.prompt.name', 'value' => ['stringValue' => $promptName]];
+			$generationAttributes[] = ['key' => 'langfuse.observation.prompt.name', 'value' => ['stringValue' => $promptName]];
 			if ($promptVersion !== null) {
-				$attributes[] = ['key' => 'langfuse.observation.prompt.version', 'value' => ['intValue' => (string)$promptVersion]];
+				$generationAttributes[] = ['key' => 'langfuse.observation.prompt.version', 'value' => ['intValue' => (string)$promptVersion]];
 			}
 		}
 
@@ -163,15 +169,27 @@ class LangfuseService {
 				],
 				'scopeSpans' => [[
 					'scope' => ['name' => 'booktailor-ai'],
-					'spans' => [[
-						'traceId' => $traceId,
-						'spanId' => $spanId,
-						'name' => $traceName,
-						'kind' => 1,
-						'startTimeUnixNano' => (string)$start,
-						'endTimeUnixNano' => (string)$end,
-						'attributes' => $attributes,
-					]],
+					'spans' => [
+						[
+							'traceId' => $traceId,
+							'spanId' => $rootSpanId,
+							'name' => $traceName,
+							'kind' => 1,
+							'startTimeUnixNano' => (string)$start,
+							'endTimeUnixNano' => (string)$end,
+							'attributes' => $traceAttributes,
+						],
+						[
+							'traceId' => $traceId,
+							'spanId' => $generationSpanId,
+							'parentSpanId' => $rootSpanId,
+							'name' => $traceName . ' generation',
+							'kind' => 1,
+							'startTimeUnixNano' => (string)$start,
+							'endTimeUnixNano' => (string)$end,
+							'attributes' => $generationAttributes,
+						],
+					],
 				]],
 			]],
 		];

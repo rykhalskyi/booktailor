@@ -26,7 +26,7 @@ final class AiChatServiceTest extends TestCase {
 	/**
 	 * @param array<string, mixed> $payload
 	 */
-	private function service(AiProviderInterface $provider, array $payload = []): AiChatService {
+	private function service(AiProviderInterface $provider, array $payload = [], ?LangfuseService $langfuse = null): AiChatService {
 		$books = $this->createMock(BookService::class);
 		$books->method('get')->willReturn($this->createMock(Book::class));
 
@@ -48,7 +48,7 @@ final class AiChatServiceTest extends TestCase {
 		$catalog->method('langfuseName')->willReturn('booktailor-chat');
 		$catalog->method('systemPrompt')->willReturn('You are a test assistant.');
 
-		$langfuse = $this->createMock(LangfuseService::class);
+		$langfuse ??= $this->createMock(LangfuseService::class);
 		$langfuse->method('fetchPrompt')->willReturn(null);
 		$langfuse->method('traceGeneration')->willReturn('trace-1');
 
@@ -117,6 +117,36 @@ final class AiChatServiceTest extends TestCase {
 		$this->assertSame('trace-1', $result['traceId']);
 		$this->assertCount(1, $result['proposedActions']);
 		$this->assertSame('create_asset', $result['proposedActions'][0]['action']);
+	}
+
+	public function testTraceInputContainsTheSelectedPromptAndUserMessage(): void {
+		$provider = new class implements AiProviderInterface {
+			public function complete(string $apiKey, string $model, array $messages, array $options = []): AiCompletion {
+				return new AiCompletion('{"reply":"ok","toolCalls":[],"proposals":[]}', $model, []);
+			}
+		};
+		$langfuse = $this->createMock(LangfuseService::class);
+		$langfuse->method('traceGeneration')
+			->with(
+				'user',
+				'booktailor-chat',
+				'deepseek-chat',
+				$this->callback(static function (string $input): bool {
+					return str_contains($input, 'You are a test assistant.')
+						&& str_contains($input, 'Hello from the user')
+						&& str_contains($input, 'context');
+				}),
+				'{"reply":"ok","toolCalls":[],"proposals":[]}',
+				null,
+				null,
+				[],
+				false,
+			)
+			->willReturn('trace-2');
+
+		$result = $this->service($provider, [], $langfuse)->chat('user', 1, 'Hello from the user');
+
+		$this->assertSame('trace-2', $result['traceId']);
 	}
 
 	public function testNonJsonProviderResponseFallsBackToPlainText(): void {

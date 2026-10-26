@@ -4,6 +4,14 @@ import NcSelect from '@nextcloud/vue/components/NcSelect'
 import { useLibrary } from '../stores/useLibrary'
 import type { Structure } from '../types'
 
+const props = defineProps<{
+	chatOpen: boolean
+}>()
+
+const emit = defineEmits<{
+	(event: 'update-chat-open', value: boolean): void
+}>()
+
 const { loading, openStructureManager, selectedStructure, selectStructure, structures } = useLibrary()
 
 function onStructureChange(structure: Structure | null): void {
@@ -24,9 +32,16 @@ function onStructureChange(structure: Structure | null): void {
 				:searchable="false"
 				@update:model-value="onStructureChange" />
 		</div>
-		<NcButton :disabled="loading.mutation" @click="openStructureManager">
-			Manage structures
-		</NcButton>
+		<div class="library-toolbar-actions">
+			<NcButton :disabled="loading.mutation" @click="openStructureManager">
+				Manage structures
+			</NcButton>
+			<NcButton
+				:variant="'secondary'"
+				@click="emit('update-chat-open', !props.chatOpen)">
+				{{ props.chatOpen ? 'Hide AI assistant' : 'AI assistant' }}
+			</NcButton>
+		</div>
 	</div>
 </template>
 
@@ -34,13 +49,19 @@ function onStructureChange(structure: Structure | null): void {
 .library-toolbar {
 	display: flex;
 	align-items: center;
-	justify-content: flex-start;
 	gap: 12px;
 	flex-wrap: wrap;
 }
 
 .structure-selector {
 	min-width: 220px;
-	flex: 0 1 320px;
+	flex: 1 1 320px;
+}
+
+.library-toolbar-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-inline-start: auto;
 }
 </style>
