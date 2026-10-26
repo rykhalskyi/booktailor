@@ -163,3 +163,90 @@ describe('API client', () => {
 		expect(updateOptions.body).toBe(JSON.stringify({ color: '#b91c1c' }))
 	})
 })
+
+describe('composition API', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals()
+	})
+
+	it('lists, creates, retries, and deletes compositions', async () => {
+		const composition = {
+			id: 9,
+			bookId: 1,
+			structureId: 3,
+			structureName: 'Default',
+			status: 'queued',
+			rules: [{ tagId: 4, priority: 1, fallback: false }],
+			outputFileId: null,
+			outputPath: null,
+			error: null,
+			stale: false,
+			createdAt: '2026-01-01T00:00:00+00:00',
+			startedAt: null,
+			completedAt: null,
+		}
+		const fetchMock = vi.fn()
+			.mockResolvedValueOnce(response({ ocs: { meta: { statuscode: 200 }, data: [composition] } }))
+			.mockResolvedValueOnce(response({ ocs: { meta: { statuscode: 202 }, data: composition } }, 202))
+			.mockResolvedValueOnce(response({ ocs: { meta: { statuscode: 202 }, data: composition } }, 202))
+			.mockResolvedValueOnce(response({ ocs: { meta: { statuscode: 204 }, data: [] } }, 204))
+		vi.stubGlobal('fetch', fetchMock)
+
+		expect(await api.compositions.list(1)).toEqual([composition])
+		expect(await api.compositions.create(1, 3, composition.rules, 'Final')).toEqual(composition)
+		expect(await api.compositions.retry(9)).toEqual(composition)
+		await api.compositions.remove(9)
+
+		const [listUrl] = fetchMock.mock.calls[0]
+		expect(listUrl).toContain('/books/1/compositions')
+
+		const [createUrl, createOptions] = fetchMock.mock.calls[1]
+		expect(createUrl).toContain('/books/1/compositions')
+		expect(createOptions.method).toBe('POST')
+		expect(createOptions.body).toBe(JSON.stringify({
+			structureId: 3,
+			rules: composition.rules,
+			name: 'Final',
+		}))
+
+		const [retryUrl, retryOptions] = fetchMock.mock.calls[2]
+		expect(retryUrl).toContain('/compositions/9/retry')
+		expect(retryOptions.method).toBe('POST')
+
+		const [deleteUrl, deleteOptions] = fetchMock.mock.calls[3]
+		expect(deleteUrl).toContain('/compositions/9')
+		expect(deleteOptions.method).toBe('DELETE')
+	})
+
+	it('downloads a composition as a blob', async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			statusText: 'OK',
+			blob: async () => new Blob(['# Book'], { type: 'text/markdown' }),
+		})
+		vi.stubGlobal('fetch', fetchMock)
+
+		const blob = await api.compositions.download(9)
+
+		expect(blob).toBeInstanceOf(Blob)
+		expect(await blob.text()).toBe('# Book')
+		const [url, options] = fetchMock.mock.calls[0]
+		expect(url).toContain('/compositions/9/download')
+		expect(options.headers.Accept).toBe('text/markdown')
+	})
+
+	it('reports a composition download error', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+			ok: false,
+			status: 409,
+			statusText: 'Conflict',
+			text: async () => JSON.stringify({
+				ocs: { meta: { statuscode: 409 }, data: { message: 'The composition output is not ready' } },
+			}),
+			blob: async () => new Blob([]),
+		}))
+
+		await expect(api.compositions.download(9)).rejects.toThrow('The composition output is not ready')
+	})
+})

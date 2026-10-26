@@ -71,6 +71,30 @@ export interface StructureEntry {
 	effectiveParentId: number | null
 }
 
+export type CompositionStatus = 'queued' | 'running' | 'succeeded' | 'failed'
+
+export interface CompositionRule {
+	tagId: number
+	priority: number
+	fallback: boolean
+}
+
+export interface Composition {
+	id: number
+	bookId: number
+	structureId: number | null
+	structureName: string
+	status: CompositionStatus
+	rules: CompositionRule[]
+	outputFileId: number | null
+	outputPath: string | null
+	error: string | null
+	stale: boolean
+	createdAt: string
+	startedAt: string | null
+	completedAt: string | null
+}
+
 export type DialogState =
 	| { type: 'book-create' }
 	| { type: 'chapter-create'; parentId: number | null }

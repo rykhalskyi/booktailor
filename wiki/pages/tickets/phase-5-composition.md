@@ -1,7 +1,7 @@
 ---
 created: 2026-10-22
 type: ticket
-status: in-progress
+status: implemented
 summary: Build asynchronous Markdown composition driven by tag rules, with output management and a compose-service contract.
 ---
 
@@ -185,7 +185,7 @@ Dependencies:
 
 ## Outcome
 
-Slices 0–3 are implemented on `feature/t5-composition`; slices 4–5 remain.
+Implemented on `feature/t5-composition`.
 
 - Decisions D-56–D-61 freeze rule precedence, no-match/empty-rule behavior, heading
   layout, image copying, output naming, and retry/delete semantics.
@@ -196,10 +196,17 @@ Slices 0–3 are implemented on `feature/t5-composition`; slices 4–5 remain.
   transaction.
 - Added `Version1002Date20261026` for the optional `output_name` hint and bumped the
   app to 1.3.0.
+- Frontend: composition types and API client methods, a Compose view with an ordered
+  tag-rule editor (fallback, reordering, duplicate validation), and a Compositions
+  view with status polling, Files open, download, retry, and confirmed delete.
 - Backend verification: 50 PHPUnit tests (215 assertions), Psalm clean, PHP-CS-Fixer
   clean, full PHP lint clean.
+- Frontend verification: 85 Vitest tests in 20 files, ESLint/stylelint/vue-tsc clean,
+  production build succeeds.
 - HTTP smoke on the dev stack: create book/chapter/asset → create composition →
   execute `ComposeJob` → `succeeded` with output path → download returned the merged
   Markdown.
-- Remaining: Compose/Compositions Vue screens, API client/types, Vitest coverage, and
-  final wiki verification.
+
+Known limitation: a downloaded Markdown file does not include the shared
+`compositions/images/` folder; opening the output in Files keeps it self-contained.
+No automated browser smoke was added in this slice.
