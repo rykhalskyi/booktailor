@@ -83,9 +83,11 @@ class AssetService {
 	}
 
 	/**
+	 * Create an asset with Markdown content. Used by AI confirmations and uploads.
+	 *
 	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
 	 */
-	private function createWithContent(string $userId, int $chapterId, string $name, string $content): array {
+	public function createWithContent(string $userId, int $chapterId, string $name, string $content): array {
 		$chapter = $this->chapterService->get($userId, $chapterId);
 		$name = $this->validateName($name);
 

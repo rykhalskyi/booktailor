@@ -25,7 +25,7 @@ actual Markdown assembly logic is not implemented yet.
 | Build | Vite via `@nextcloud/vite-config` |
 | PHP tooling | PHPUnit, Psalm, php-cs-fixer, Rector, `nextcloud/ocp` stubs |
 | Frontend tooling | ESLint (`@nextcloud/eslint-config`), Stylelint, TypeScript, Vitest + `@vue/test-utils` |
-| AI observability | Langfuse 4 via OTLP (planned, D-22) |
+| AI observability | Langfuse 4 via OTLP (D-22), best-effort and opt-in |
 
 ## Architecture
 
@@ -35,14 +35,17 @@ actual Markdown assembly logic is not implemented yet.
   route `/` (`booktailor.page.index`) and renders `templates/index.php`.
 - **API controllers** — `lib/Controller/ApiController.php` is the legacy hello-world
   route. The domain controllers (`BookController`, `ChapterController`,
-  `StructureController`, `AssetController`, `TagController`, `VersionController`) expose
-  the owner-scoped OCS API under `/ocs/v2.php/apps/booktailor/api/v1` (D-26).
+  `StructureController`, `AssetController`, `TagController`, `VersionController`,
+  `AiSettingsController`, `AiChatController`, `AiActionController`, and
+  `AiPromptController`) expose the owner-scoped OCS API under
+  `/ocs/v2.php/apps/booktailor/api/v1` (D-26).
   `openapi.draft.yaml` is the reviewed contract; `openapi.json` is still the generated
   skeleton until full route docblocks are added.
 - **Frontend shell** — `src/main.ts` mounts `src/App.vue` into `#booktailor`.
   `App.vue` renders the book navigation, structure selector, recursive chapter tree,
-  asset panel, and dialogs. State lives in `src/stores/useLibrary.ts`; API calls go
-  through `src/api/client.ts`.
+  asset panel, settings view, optional AI chat panel, and dialogs. State lives in
+  `src/stores/useLibrary.ts`; AI chat session state lives in `src/composables/useAiChat.ts`;
+  API calls go through `src/api/client.ts`.
 - **Asset wiring** — `templates/index.php` loads the Vite-built `main` script and style
   through `Util::addScript` / `Util::addStyle`, and provides the `#booktailor` mount
   point.
@@ -59,12 +62,14 @@ lib/Db/                   Query-builder mappers
 lib/Entity/               Book, chapter, structure, asset, and tag entities
 lib/Exception/            API exceptions mapped to OCS status codes
 lib/Migration/            Database schema migrations
-lib/Service/              Storage, domain, tag, and version services
+lib/Service/              Storage, domain, tag, version, and AI services
+lib/Service/Ai/           Providers, context, chat, proposals, Langfuse, prompts
 templates/index.php       Server-rendered page shell / asset loading
 src/main.ts               Vue entry point
 src/App.vue               App shell, book navigation, and main layout
 src/api/                  OCS API client
-src/components/           Chapter tree, asset list, toolbar, and dialogs
+src/components/           Chapter tree, asset list, toolbar, settings, AI chat, and dialogs
+src/components/settings/  AI profile and saved-prompt cards/dialogs
 src/stores/               Module-level library state composable
 src/utils/                Tree helpers
 tests/unit/               PHPUnit tests (controller-level)

@@ -55,3 +55,6 @@
 ## [2026-10-26] update | T5 plan refined: frozen rule, merge, image, naming, retry semantics and sliced implementation
 ## [2026-10-26] update | T5 backend: composition entities, API, resolver, merge, image copy, ComposeJob, migration, and tests
 ## [2026-10-26] ticket | T5 — Markdown composition
+## [2026-10-26] plan | T6 implementation plan: Settings-first BYOK profiles, provider adapter, Langfuse, chat/tools, proposal confirmation and audit
+## [2026-10-26] update | T6 implemented: AI settings with BYOK profiles, Langfuse, chat/tools, proposal confirmation, audit, saved prompts, and tests
+## [2026-10-26] update | T6 verification: 69 PHP tests, 94 JS tests, psalm, cs, lint, build, migration, and HTTP smoke pass

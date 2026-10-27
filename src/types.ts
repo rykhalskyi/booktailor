@@ -104,3 +104,108 @@ export type DialogState =
 	| { type: 'asset-create'; chapterId: number }
 	| { type: 'asset-delete'; asset: Asset }
 	| { type: 'asset-tags'; asset: Asset }
+
+export type AiProvider = 'deepseek' | 'siliconflow'
+
+export interface AiProviderOption {
+	id: AiProvider
+	label: string
+	defaultModel: string
+	supported: boolean
+}
+
+export interface AiProfile {
+	id: number
+	name: string
+	provider: AiProvider
+	apiKeyMasked: string
+	model: string | null
+	connectTimeoutSeconds: number
+	readTimeoutSeconds: number
+	maxTokens: number
+	isActive: boolean
+	createdAt: string
+	updatedAt?: string | null
+}
+
+export interface AiProfilePayload {
+	name: string
+	provider: AiProvider
+	apiKey?: string
+	model?: string | null
+	connectTimeoutSeconds?: number
+	readTimeoutSeconds?: number
+	maxTokens?: number
+	isActive?: boolean
+}
+
+export interface LangfuseStatus {
+	configured: boolean
+	url: string | null
+}
+
+export interface AiSettings {
+	profiles: AiProfile[]
+	contentLogging: boolean
+	langfuse: LangfuseStatus
+	providers: AiProviderOption[]
+}
+
+export type AiActionStatus = 'proposed' | 'applied' | 'rejected' | 'failed'
+
+export type AiActionName =
+	| 'create_asset'
+	| 'update_asset'
+	| 'delete_asset'
+	| 'create_chapter'
+	| 'rename_chapter'
+	| 'delete_chapter'
+	| 'create_structure'
+	| 'rename_structure'
+	| 'delete_structure'
+
+export interface AiAction {
+	id: number
+	userId: string
+	bookId: number | null
+	action: AiActionName | string
+	payload: Record<string, unknown>
+	status: AiActionStatus
+	createdAt: string
+	decidedAt: string | null
+	result: string | null
+}
+
+export interface AiChatHistoryMessage {
+	role: 'user' | 'assistant'
+	content: string
+}
+
+export interface AiChatRequest {
+	bookId: number
+	message: string
+	structureId?: number | null
+	chapterId?: number | null
+	contextAssetIds?: number[]
+	promptKey?: string | null
+	promptId?: number | null
+	history?: AiChatHistoryMessage[]
+}
+
+export interface AiChatResponse {
+	message: string
+	proposedActions: AiAction[]
+	traceId: string | null
+	warnings: string[]
+	usage: Record<string, unknown>
+}
+
+export interface AiPrompt {
+	id: number
+	bookId: number
+	name: string
+	text: string
+	source: 'user'
+	createdAt: string
+	updatedAt: string
+}

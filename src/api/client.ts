@@ -1,5 +1,5 @@
 import { generateOcsUrl } from '@nextcloud/router'
-import type { Asset, Book, Capabilities, Chapter, Composition, CompositionRule, Structure, StructureEntry, Tag, Version } from '../types'
+import type { AiAction, AiChatRequest, AiChatResponse, AiProfile, AiProfilePayload, AiPrompt, AiSettings, Asset, Book, Capabilities, Chapter, Composition, CompositionRule, Structure, StructureEntry, Tag, Version } from '../types'
 
 declare global {
 	interface Window {
@@ -39,6 +39,7 @@ interface RequestOptions {
 	body?: unknown
 	formData?: FormData
 	query?: Record<string, string | number | boolean | null | undefined>
+	signal?: AbortSignal
 }
 
 function buildUrl(path: string, query?: RequestOptions['query']): string {
@@ -79,6 +80,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 		credentials: 'same-origin',
 		headers,
 		body,
+		signal: options.signal,
 	})
 
 	const raw = await response.text()
@@ -241,6 +243,65 @@ export const api = {
 			method: 'POST',
 		}),
 		download: (compositionId: number): Promise<Blob> => requestBlob(`/compositions/${compositionId}/download`),
+	},
+	ai: {
+		settings: (): Promise<AiSettings> => request<AiSettings>('/ai/settings'),
+		updateSettings: (contentLogging: boolean): Promise<{ contentLogging: boolean }> => request<{ contentLogging: boolean }>('/ai/settings', {
+			method: 'PATCH',
+			body: { contentLogging },
+		}),
+		profiles: {
+			list: (): Promise<AiSettings> => request<AiSettings>('/ai/settings'),
+			create: (payload: AiProfilePayload): Promise<AiProfile> => request<AiProfile>('/ai/profiles', {
+				method: 'POST',
+				body: payload,
+			}),
+			update: (profileId: number, payload: AiProfilePayload): Promise<AiProfile> => request<AiProfile>(`/ai/profiles/${profileId}`, {
+				method: 'PATCH',
+				body: payload,
+			}),
+			remove: (profileId: number): Promise<void> => request<void>(`/ai/profiles/${profileId}`, {
+				method: 'DELETE',
+			}),
+			activate: (profileId: number, active = true): Promise<AiProfile[]> => request<AiProfile[]>(`/ai/profiles/${profileId}/activate`, {
+				method: 'POST',
+				body: { active },
+			}),
+			test: (profileId: number): Promise<{ ok: boolean, model: string, message: string }> => request<{ ok: boolean, model: string, message: string }>(`/ai/profiles/${profileId}/test`, {
+				method: 'POST',
+			}),
+		},
+		chat: (payload: AiChatRequest, signal?: AbortSignal): Promise<AiChatResponse> => request<AiChatResponse>('/ai/chat', {
+			method: 'POST',
+			body: payload,
+			signal,
+		}),
+		actions: {
+			list: (bookId: number, status?: string): Promise<AiAction[]> => request<AiAction[]>(`/books/${bookId}/ai-actions`, {
+				query: { status },
+			}),
+			get: (actionId: number): Promise<AiAction> => request<AiAction>(`/ai-actions/${actionId}`),
+			confirm: (actionId: number): Promise<AiAction> => request<AiAction>(`/ai-actions/${actionId}/confirm`, {
+				method: 'POST',
+			}),
+			reject: (actionId: number): Promise<AiAction> => request<AiAction>(`/ai-actions/${actionId}/reject`, {
+				method: 'POST',
+			}),
+		},
+		prompts: {
+			list: (bookId: number): Promise<AiPrompt[]> => request<AiPrompt[]>(`/books/${bookId}/prompts`),
+			create: (bookId: number, name: string, text: string): Promise<AiPrompt> => request<AiPrompt>(`/books/${bookId}/prompts`, {
+				method: 'POST',
+				body: { name, text },
+			}),
+			update: (promptId: number, name?: string, text?: string): Promise<AiPrompt> => request<AiPrompt>(`/prompts/${promptId}`, {
+				method: 'PATCH',
+				body: { name, text },
+			}),
+			remove: (promptId: number): Promise<void> => request<void>(`/prompts/${promptId}`, {
+				method: 'DELETE',
+			}),
+		},
 	},
 	versions: {
 		list: (assetId: number): Promise<Version[]> => request<Version[]>(`/assets/${assetId}/versions`),
