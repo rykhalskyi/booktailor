@@ -10,15 +10,11 @@ import { api } from '../api/client'
 import { createAiChat } from '../composables/useAiChat'
 import { useLibrary } from '../stores/useLibrary'
 
-const emit = defineEmits<{
-	close: []
-}>()
-
 const {
 	loadAssets,
+	assetsByChapter,
 	loadTags,
 	loadTree,
-	openSettings,
 	selectedAssets,
 	selectedBook,
 	selectedBookId,
@@ -73,8 +69,13 @@ async function loadPrompts(): Promise<void> {
 onMounted(loadPrompts)
 
 watch(selectedBookId, () => {
+	chat.reset()
 	loadPrompts()
 	selectedPrompt.value = { key: 'chat', label: 'Free-form chat', promptText: '' }
+})
+
+watch(selectedStructureId, () => {
+	chat.reset()
 })
 
 const contextLabel = computed(() => {
@@ -119,26 +120,6 @@ async function send(): Promise<void> {
 	})
 }
 
-async function quickPrompt(key: string, message: string, needsChapter = true): Promise<void> {
-	if (selectedBookId.value === null) {
-		localError.value = 'Open a book before using the assistant.'
-		return
-	}
-	if (needsChapter && selectedChapterId.value === null) {
-		localError.value = 'Select a chapter first, or open a book with at least one chapter.'
-		return
-	}
-	localError.value = null
-	await chat.send({
-		bookId: selectedBookId.value,
-		message,
-		structureId: selectedStructureId.value,
-		chapterId: selectedChapterId.value,
-		promptKey: key,
-		contextAssetIds: [],
-	})
-}
-
 async function onDecided(action: AiAction): Promise<void> {
 	chat.updateAction(action)
 	if (action.status !== 'applied' || selectedBookId.value === null) {
@@ -146,9 +127,22 @@ async function onDecided(action: AiAction): Promise<void> {
 	}
 	await loadTree(selectedBookId.value, selectedStructureId.value)
 	await loadTags(selectedBookId.value)
+
+	const chapterIds = new Set<number>()
 	if (selectedChapterId.value !== null) {
-		await loadAssets(selectedChapterId.value)
+		chapterIds.add(selectedChapterId.value)
 	}
+	const targetChapterId = Number(action.payload.chapterId ?? 0)
+	if (targetChapterId > 0) {
+		chapterIds.add(targetChapterId)
+	}
+	for (const chapterId of Object.keys(assetsByChapter.value)) {
+		const parsed = Number(chapterId)
+		if (parsed > 0) {
+			chapterIds.add(parsed)
+		}
+	}
+	await Promise.all([...chapterIds].map((chapterId) => loadAssets(chapterId)))
 }
 
 function onKeydown(event: KeyboardEvent): void {
@@ -173,7 +167,6 @@ function onKeydown(event: KeyboardEvent): void {
 		</header>
 
 		<div ref="messagesEl" :class="$style.messages">
-
 			<div
 				v-for="message in chat.messages.value"
 				:key="message.id"
@@ -220,8 +213,6 @@ function onKeydown(event: KeyboardEvent): void {
 			Retry
 		</NcButton>
 
-		
-
 		<div :class="$style.composer">
 			<textarea
 				v-model="input"
@@ -232,14 +223,14 @@ function onKeydown(event: KeyboardEvent): void {
 				@keydown="onKeydown" />
 			<div :class="$style.composerActions">
 				<div :class="$style.promptPicker">
-				<NcSelect
-					:model-value="selectedPrompt"
-					:options="promptOptions"
-					label="label"
-					input-label="Prompt"
-					:clearable="false"
-					:disabled="chat.loading.value"
-					@update:model-value="onPromptChange" />
+					<NcSelect
+						:model-value="selectedPrompt"
+						:options="promptOptions"
+						label="label"
+						input-label="Prompt"
+						:clearable="false"
+						:disabled="chat.loading.value"
+						@update:model-value="onPromptChange" />
 				</div>
 				<NcButton variant="primary" :disabled="chat.loading.value || input.trim() === ''" @click="send">
 					Send

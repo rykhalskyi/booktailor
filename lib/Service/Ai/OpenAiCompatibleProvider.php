@@ -72,16 +72,22 @@ class OpenAiCompatibleProvider implements AiProviderInterface {
 				throw new AiProviderException('The AI provider returned an invalid response');
 			}
 
-			/** @var array{choices?: list<array{message?: array{content?: string}}>, model?: string, usage?: array<string, mixed>} $decoded */
+			/** @var array{choices?: list<array{message?: array{content?: string}, finish_reason?: string}>, model?: string, usage?: array<string, mixed>} $decoded */
 			$content = $decoded['choices'][0]['message']['content'] ?? null;
 			if (!is_string($content) || trim($content) === '') {
 				throw new AiProviderException('The AI provider returned an empty response');
 			}
 
+			$finishReason = $decoded['choices'][0]['finish_reason'] ?? null;
 			$resolvedModel = $decoded['model'] ?? $model;
 			$usage = $decoded['usage'] ?? [];
 
-			return new AiCompletion($content, $resolvedModel, $usage);
+			return new AiCompletion(
+				$content,
+				$resolvedModel,
+				$usage,
+				is_string($finishReason) ? $finishReason : null,
+			);
 		} catch (AiProviderException $e) {
 			throw $e;
 		} catch (\Throwable $e) {

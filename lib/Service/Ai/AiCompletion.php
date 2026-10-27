@@ -12,6 +12,7 @@ class AiCompletion {
 		public readonly string $content,
 		public readonly string $model,
 		public readonly array $usage = [],
+		public readonly ?string $finishReason = null,
 	) {
 	}
 }

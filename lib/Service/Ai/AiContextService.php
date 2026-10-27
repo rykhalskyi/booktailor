@@ -9,6 +9,7 @@ use OCA\BookTailor\Exception\NotFoundException;
 use OCA\BookTailor\Exception\ValidationException;
 use OCA\BookTailor\Service\AssetService;
 use OCA\BookTailor\Service\BookService;
+use OCA\BookTailor\Service\ChapterReferenceService;
 use OCA\BookTailor\Service\ChapterService;
 use OCA\BookTailor\Service\StructureService;
 use OCA\BookTailor\Service\TagService;
@@ -22,6 +23,7 @@ class AiContextService {
 		private readonly BookService $bookService,
 		private readonly StructureService $structureService,
 		private readonly ChapterService $chapterService,
+		private readonly ChapterReferenceService $chapterReferenceService,
 		private readonly TagService $tagService,
 		private readonly AssetService $assetService,
 	) {
@@ -41,7 +43,11 @@ class AiContextService {
 	): array {
 		$book = $this->bookService->get($userId, $bookId);
 		$structures = $this->structureService->listForBook($userId, $bookId);
-		$tree = $this->chapterService->tree($userId, $bookId, $structureId);
+		$tree = $this->chapterReferenceService->tree($userId, $bookId, $structureId);
+		$chapterReferences = [];
+		foreach ($this->chapterReferenceService->flatten($tree) as $node) {
+			$chapterReferences[$node['chapter']->getId()] = $node;
+		}
 
 		$parts = [];
 		$parts[] = "## Book\n\nName: " . $book->getName()
@@ -59,7 +65,7 @@ class AiContextService {
 
 		$tagLines = ["\n## Tags\n"];
 		foreach ($this->tagService->listForBook($userId, $bookId) as $tag) {
-			$tagLines[] = '- id=' . $tag->getId() . ' "' . $tag->getName() . '"';
+			$tagLines[] = '- id=' . $tag->getId() . ' "' . $tag->getName() . '" (slug=' . $tag->getSlug() . ')';
 		}
 		$parts[] = implode("\n", $tagLines);
 
@@ -103,8 +109,14 @@ class AiContextService {
 			if ($truncated) {
 				$content = mb_substr($content, 0, self::MAX_ASSET_CHARS) . "\n\n[asset truncated]";
 			}
+			$tagNames = array_map(static fn (array $tag): string => $tag['name'], $assetContext['tags'] ?? []);
+			$chapterReference = $chapterReferences[$chapter->getId()] ?? null;
+			$chapterLabel = $chapterReference !== null
+				? $chapterReference['number'] . ' "' . $chapterReference['path'] . '"'
+				: '"' . $chapter->getName() . '"';
 			$assetSection[] = '### Asset id=' . $asset->getId() . ' "' . $asset->getName() . '"'
-				. ' in chapter id=' . $chapter->getId() . ' "' . $chapter->getName() . "\"\n\n"
+				. ' tags=[' . ($tagNames === [] ? 'none' : implode(', ', $tagNames)) . ']'
+				. ' in chapter id=' . $chapter->getId() . ' ' . $chapterLabel . "\n\n"
 				. "```markdown\n" . $content . "\n```";
 		}
 		if ($assets === []) {
@@ -126,7 +138,7 @@ class AiContextService {
 
 	/**
 	 * @param array<array-key, mixed> $nodes
-	 * @psalm-suppress MixedAssignment
+	 * @psalm-suppress MixedAssignment, MixedArgument
 	 */
 	private function renderTree(array $nodes, int $depth = 0): string {
 		$lines = [];
@@ -135,8 +147,13 @@ class AiContextService {
 				continue;
 			}
 			$chapter = $node['chapter'];
-			$lines[] = str_repeat('  ', $depth) . '- id=' . $chapter->getId()
-				. ' "' . $chapter->getName() . '"';
+			$number = $node['number'] ?? null;
+			$nodePath = $node['path'] ?? null;
+			$number = is_string($number) ? $number : '';
+			$path = is_string($nodePath) ? $nodePath : $chapter->getName();
+			$lines[] = str_repeat('  ', $depth) . '- '
+				. ($number === '' ? '' : $number . ' ')
+				. '"' . $path . '" (id=' . $chapter->getId() . ')';
 			$children = $node['children'] ?? [];
 			if (is_array($children) && $children !== []) {
 				$lines[] = $this->renderTree($children, $depth + 1);

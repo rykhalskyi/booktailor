@@ -119,6 +119,105 @@ final class AiChatServiceTest extends TestCase {
 		$this->assertSame('create_asset', $result['proposedActions'][0]['action']);
 	}
 
+	public function testTruncatedResponseIsRetriedWithMoreTokens(): void {
+		$provider = new class implements AiProviderInterface {
+			/** @var list<int> */
+			public array $maxTokens = [];
+			private int $calls = 0;
+
+			public function complete(string $apiKey, string $model, array $messages, array $options = []): AiCompletion {
+				$this->maxTokens[] = (int)($options['maxTokens'] ?? 0);
+				$this->calls++;
+				if ($this->calls === 1) {
+					return new AiCompletion('{"reply":"cut off', $model, [], 'length');
+				}
+
+				return new AiCompletion('{"reply":"Recovered.","toolCalls":[],"proposals":[]}', $model, [], 'stop');
+			}
+		};
+
+		$result = $this->service($provider)->chat('user', 1, 'Build a glossary');
+
+		$this->assertSame([2048, 4096], $provider->maxTokens);
+		$this->assertSame('Recovered.', $result['message']);
+		$this->assertSame([], $result['warnings']);
+	}
+
+	public function testTruncatedResponseReportsAnActionableWarning(): void {
+		$provider = new class implements AiProviderInterface {
+			/** @var list<int> */
+			public array $maxTokens = [];
+
+			public function complete(string $apiKey, string $model, array $messages, array $options = []): AiCompletion {
+				$this->maxTokens[] = (int)($options['maxTokens'] ?? 0);
+
+				return new AiCompletion('{"reply":"cut off', $model, [], 'length');
+			}
+		};
+
+		$result = $this->service($provider)->chat('user', 1, 'Build a glossary');
+
+		$this->assertSame([2048, 4096, 8192, 16384], $provider->maxTokens);
+		$this->assertStringContainsString('Max tokens', $result['message']);
+		$this->assertCount(1, $result['warnings']);
+	}
+
+	public function testHistoryIsSentBeforeTheCurrentUserMessage(): void {
+		$provider = new class implements AiProviderInterface {
+			/** @var list<array{role: string, content: string}> */
+			public array $messages = [];
+
+			public function complete(string $apiKey, string $model, array $messages, array $options = []): AiCompletion {
+				$this->messages = $messages;
+
+				return new AiCompletion('{"reply":"ok","toolCalls":[],"proposals":[]}', $model, []);
+			}
+		};
+
+		$this->service($provider)->chat('user', 1, 'The one on fractions', null, null, [], null, null, [
+			['role' => 'user', 'content' => 'Build a glossary from chapter 1.2'],
+			['role' => 'assistant', 'content' => 'Which chapter did you mean?'],
+			['role' => 'system', 'content' => 'ignored'],
+			['role' => 'user', 'content' => 'The one on fractions'],
+		]);
+
+		$this->assertSame(['system', 'user', 'assistant', 'user'], array_column($provider->messages, 'role'));
+		$this->assertSame('Build a glossary from chapter 1.2', $provider->messages[1]['content']);
+		$this->assertSame('Which chapter did you mean?', $provider->messages[2]['content']);
+		$this->assertSame('The one on fractions', $provider->messages[3]['content']);
+	}
+
+	public function testTraceInputContainsTheConversationHistory(): void {
+		$provider = new class implements AiProviderInterface {
+			public function complete(string $apiKey, string $model, array $messages, array $options = []): AiCompletion {
+				return new AiCompletion('{"reply":"ok","toolCalls":[],"proposals":[]}', $model, []);
+			}
+		};
+		$langfuse = $this->createMock(LangfuseService::class);
+		$langfuse->method('traceGeneration')
+			->with(
+				'user',
+				'booktailor-chat',
+				'deepseek-chat',
+				$this->callback(static function (string $input): bool {
+					return str_contains($input, 'Which chapter did you mean?')
+						&& str_contains($input, 'The one on fractions');
+				}),
+				'{"reply":"ok","toolCalls":[],"proposals":[]}',
+				null,
+				null,
+				[],
+				false,
+			)
+			->willReturn('trace-3');
+
+		$result = $this->service($provider, [], $langfuse)->chat('user', 1, 'The one on fractions', null, null, [], null, null, [
+			['role' => 'assistant', 'content' => 'Which chapter did you mean?'],
+		]);
+
+		$this->assertSame('trace-3', $result['traceId']);
+	}
+
 	public function testTraceInputContainsTheSelectedPromptAndUserMessage(): void {
 		$provider = new class implements AiProviderInterface {
 			public function complete(string $apiKey, string $model, array $messages, array $options = []): AiCompletion {

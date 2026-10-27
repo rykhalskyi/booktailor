@@ -27,6 +27,7 @@ class AiChatController extends AbstractApiController {
 
 	/**
 	 * @param list<int> $contextAssetIds
+	 * @param list<array{role: string, content: string}> $history
 	 */
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'POST', url: '/api/v1/ai/chat')]
@@ -38,8 +39,9 @@ class AiChatController extends AbstractApiController {
 		array $contextAssetIds = [],
 		?string $promptKey = null,
 		?int $promptId = null,
+		array $history = [],
 	): DataResponse {
-		return $this->handle(function () use ($bookId, $message, $structureId, $chapterId, $contextAssetIds, $promptKey, $promptId): DataResponse {
+		return $this->handle(function () use ($bookId, $message, $structureId, $chapterId, $contextAssetIds, $promptKey, $promptId, $history): DataResponse {
 			return new DataResponse($this->chatService->chat(
 				$this->currentUserId(),
 				$bookId,
@@ -49,6 +51,7 @@ class AiChatController extends AbstractApiController {
 				$contextAssetIds,
 				$promptKey,
 				$promptId,
+				$history,
 			));
 		});
 	}

@@ -1,6 +1,9 @@
-import type { AiAction, AiChatRequest } from '../types'
+import type { AiAction, AiChatHistoryMessage, AiChatRequest } from '../types'
 import { ref } from 'vue'
 import { api, ApiError } from '../api/client'
+
+const MAX_HISTORY_MESSAGES = 20
+const MAX_HISTORY_CHARS = 20000
 
 export interface AiChatMessage {
 	id: number
@@ -25,12 +28,36 @@ export function createAiChat() {
 			: fallback
 	}
 
+	function historySnapshot(): AiChatHistoryMessage[] {
+		const history: AiChatHistoryMessage[] = []
+		let chars = 0
+		const recent = messages.value.slice(-MAX_HISTORY_MESSAGES)
+
+		for (let index = recent.length - 1; index >= 0; index--) {
+			const message = recent[index]
+			const content = message.content.trim()
+			if (content === '') {
+				continue
+			}
+			if (chars + content.length > MAX_HISTORY_CHARS) {
+				break
+			}
+			history.unshift({ role: message.role, content })
+			chars += content.length
+		}
+
+		return history
+	}
+
 	async function send(request: AiChatRequest, appendUser = true): Promise<void> {
 		if (loading.value) {
 			return
 		}
 		error.value = null
-		lastRequest.value = request
+		const outgoing = appendUser
+			? { ...request, history: historySnapshot() }
+			: request
+		lastRequest.value = outgoing
 		if (appendUser) {
 			messages.value.push({
 				id: ++counter,
@@ -45,7 +72,7 @@ export function createAiChat() {
 		loading.value = true
 		controller = new AbortController()
 		try {
-			const response = await api.ai.chat(request, controller.signal)
+			const response = await api.ai.chat(outgoing, controller.signal)
 			messages.value.push({
 				id: ++counter,
 				role: 'assistant',

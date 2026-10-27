@@ -14,6 +14,10 @@ class AiChatService {
 	private const MAX_TOOL_ROUNDS = 3;
 	private const MAX_TOOL_CALLS = 8;
 	private const MAX_PROPOSALS = 5;
+	private const MAX_HISTORY_MESSAGES = 20;
+	private const MAX_HISTORY_CHARS = 20000;
+	private const MAX_OUTPUT_TOKENS = 16384;
+	private const MAX_COMPLETION_ATTEMPTS = 4;
 
 	/** @psalm-suppress PossiblyUnusedMethod */
 	public function __construct(
@@ -32,6 +36,7 @@ class AiChatService {
 
 	/**
 	 * @param list<int> $contextAssetIds
+	 * @param list<array{role: string, content: string}> $history
 	 * @return array{message: string, proposedActions: list<array<string, mixed>>, traceId: ?string, warnings: list<string>, usage: array<string, mixed>}
 	 */
 	public function chat(
@@ -43,6 +48,7 @@ class AiChatService {
 		array $contextAssetIds = [],
 		?string $promptKey = null,
 		?int $promptId = null,
+		array $history = [],
 	): array {
 		$this->bookService->get($userId, $bookId);
 		$message = trim($message);
@@ -65,13 +71,21 @@ class AiChatService {
 			$contextAssetIds,
 		);
 
+		$normalizedHistory = $this->normalizeHistory($history, $message);
+
 		$messages = [
 			[
 				'role' => 'system',
 				'content' => $systemPrompt . "\n\n" . $this->protocolInstructions() . "\n\n## Book context\n\n" . $context['text'],
 			],
-			['role' => 'user', 'content' => $message],
 		];
+		foreach ($normalizedHistory as $historyMessage) {
+			$messages[] = [
+				'role' => $historyMessage['role'],
+				'content' => $historyMessage['content'],
+			];
+		}
+		$messages[] = ['role' => 'user', 'content' => $message];
 
 		$provider = $this->providerRegistry->provider($profile->getProvider());
 		$model = $profile->getModel();
@@ -95,13 +109,19 @@ class AiChatService {
 
 		try {
 			for ($round = 0; $round <= self::MAX_TOOL_ROUNDS; $round++) {
-				$completion = $provider->complete($credentials['apiKey'], $model, $messages, $options);
+				$completion = $this->completeWithBudget($provider, $credentials['apiKey'], $model, $messages, $options);
 				$lastOutput = $completion->content;
 				$usage = $completion->usage;
 				$parsed = $this->parseJsonObject($completion->content);
 
 				if ($parsed === null) {
-					$reply = trim($completion->content);
+					if ($completion->finishReason === 'length') {
+						$reply = 'The AI response was too long and was cut off before it could create a proposal. '
+							. 'Increase "Max tokens" in the AI profile settings, or ask for a smaller batch.';
+						$warnings[] = 'The model reached its output token limit.';
+					} else {
+						$reply = trim($completion->content);
+					}
 					break;
 				}
 
@@ -117,7 +137,7 @@ class AiChatService {
 						try {
 							$toolResults[] = [
 								'name' => $call['name'],
-								'result' => $this->toolDispatcher->read($userId, $bookId, $call['name'], $call['arguments']),
+								'result' => $this->toolDispatcher->read($userId, $bookId, $call['name'], $call['arguments'], $structureId),
 							];
 						} catch (ApiException $e) {
 							$toolResults[] = ['name' => $call['name'], 'error' => $e->getMessage()];
@@ -161,6 +181,7 @@ class AiChatService {
 		}
 
 		$traceInput = "## Selected prompt\n\n" . $systemPrompt
+			. ($normalizedHistory === [] ? '' : "\n\n## Conversation history\n\n" . $this->renderHistory($normalizedHistory))
 			. "\n\n## User message\n\n" . $message
 			. "\n\n## Book context\n\n" . $context['text'];
 		$traceId = $this->langfuseService->traceGeneration(
@@ -182,6 +203,36 @@ class AiChatService {
 			'warnings' => $warnings,
 			'usage' => $usage,
 		];
+	}
+
+	/**
+	 * Retry a truncated completion with a larger output budget. Providers often
+	 * cut JSON output at max_tokens, which makes the final object unparseable.
+	 *
+	 * @param array<string, mixed> $options
+	 * @param list<array{role: string, content: string}> $messages
+	 */
+	private function completeWithBudget(
+		AiProviderInterface $provider,
+		string $apiKey,
+		string $model,
+		array $messages,
+		array $options,
+	): AiCompletion {
+		$maxTokens = max(1, (int)($options['maxTokens'] ?? 2048));
+		$ceiling = max(self::MAX_OUTPUT_TOKENS, $maxTokens);
+		$completion = $provider->complete($apiKey, $model, $messages, $options);
+
+		for ($attempt = 1; $attempt < self::MAX_COMPLETION_ATTEMPTS; $attempt++) {
+			if ($completion->finishReason !== 'length' || $maxTokens >= $ceiling) {
+				return $completion;
+			}
+			$maxTokens = min($ceiling, $maxTokens * 2);
+			$options['maxTokens'] = $maxTokens;
+			$completion = $provider->complete($apiKey, $model, $messages, $options);
+		}
+
+		return $completion;
 	}
 
 	/**
@@ -226,6 +277,12 @@ Rules:
 - Use toolCalls only when you need more book context. Never invent content that a tool could provide.
 - Allowed read tools: {$this->toolDispatcher->describe()}.
 - Allowed proposal actions: {$this->proposalService->describeActions()}.
+- The chapter tree exposes each chapter's number, path, name, and id. A user may reference a chapter by number (1.2), name, or path.
+- If a chapter or tag reference is ambiguous or required information is missing, ask the user in "reply" and return no toolCalls or proposals. Never guess.
+- Do not include descendant chapters unless the user explicitly asks; use includeDescendants=true only in that case.
+- Tags are free-form. Any tag the user names is valid if it exists in the book. If it does not exist, list the available tags and ask which one to use. Never assume a specific tag name.
+- To gather assets across chapters and tags, call collect_assets with {chapterNumbers, chapterNames, chapterIds, tagNames, tagIds, includeDescendants, tagMode}. Use tagMode "any" unless the user requires assets with all listed tags.
+- For merge/glossary requests: collect the source assets, inspect the target chapter with list_assets, and ask whether to update an existing matching asset or create a new one. Curate and deduplicate the content; do not concatenate raw content. Include source chapter references in the generated Markdown.
 - A proposal is not applied until the user confirms it. Never say that a change has been made.
 - For create_asset use payload {chapterId, name, content, optional tagIds}.
 - For update_asset use payload {assetId, optional name, optional content}.
@@ -239,6 +296,59 @@ Rules:
 - Never include API keys or secrets in any output.
 - Keep reply concise. Put full generated Markdown only inside a proposal payload.
 PROMPT;
+	}
+
+	/**
+	 * @param array<array-key, mixed> $history
+	 * @return list<array{role: 'user'|'assistant', content: string}>
+	 * @psalm-suppress MixedAssignment, MixedArgument, MixedReturnTypeCoercion
+	 */
+	private function normalizeHistory(array $history, string $currentMessage): array {
+		$result = [];
+		$chars = 0;
+		$items = array_slice(array_values($history), -self::MAX_HISTORY_MESSAGES);
+
+		foreach (array_reverse($items) as $item) {
+			if (!is_array($item)) {
+				continue;
+			}
+			$role = $item['role'] ?? null;
+			$content = $item['content'] ?? null;
+			if (!is_string($role) || !is_string($content)) {
+				continue;
+			}
+			$role = mb_strtolower(trim($role));
+			if (!in_array($role, ['user', 'assistant'], true)) {
+				continue;
+			}
+			$content = trim($content);
+			if ($content === '') {
+				continue;
+			}
+			if ($result === [] && $role === 'user' && $content === $currentMessage) {
+				continue;
+			}
+			$length = mb_strlen($content);
+			if ($chars + $length > self::MAX_HISTORY_CHARS) {
+				break;
+			}
+			array_unshift($result, ['role' => $role, 'content' => $content]);
+			$chars += $length;
+		}
+
+		return $result;
+	}
+
+	/**
+	 * @param list<array{role: 'user'|'assistant', content: string}> $history
+	 */
+	private function renderHistory(array $history): string {
+		$parts = [];
+		foreach ($history as $message) {
+			$parts[] = '### ' . ucfirst($message['role']) . "\n\n" . $message['content'];
+		}
+
+		return implode("\n\n", $parts);
 	}
 
 	/**
@@ -314,7 +424,11 @@ PROMPT;
 			if (!is_array($proposal) || !is_string($proposal['action'] ?? null)) {
 				continue;
 			}
-			$payload = $proposal['payload'] ?? [];
+			$payload = $proposal['payload'] ?? $proposal['arguments'] ?? [];
+			if (is_string($payload)) {
+				$decoded = json_decode($payload, true);
+				$payload = is_array($decoded) ? $decoded : [];
+			}
 			if (!is_array($payload)) {
 				continue;
 			}

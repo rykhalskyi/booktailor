@@ -18,7 +18,7 @@ final class OpenAiCompatibleProviderTest extends TestCase {
 		$response->method('getStatusCode')->willReturn(200);
 		$response->method('getBody')->willReturn((string)json_encode([
 			'model' => 'deepseek-chat',
-			'choices' => [['message' => ['content' => '{"reply":"ok"}']]],
+			'choices' => [['message' => ['content' => '{"reply":"ok"}'], 'finish_reason' => 'stop']],
 			'usage' => ['total_tokens' => 5],
 		]));
 
@@ -49,6 +49,7 @@ final class OpenAiCompatibleProviderTest extends TestCase {
 		$this->assertSame('{"reply":"ok"}', $completion->content);
 		$this->assertSame('deepseek-chat', $completion->model);
 		$this->assertSame(['total_tokens' => 5], $completion->usage);
+		$this->assertSame('stop', $completion->finishReason);
 	}
 
 	public function testProviderErrorDoesNotLeakTheKey(): void {

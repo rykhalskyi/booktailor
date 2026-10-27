@@ -41,12 +41,43 @@ describe('useAiChat', () => {
 
 		await chat.send({ bookId: 1, message: 'Hello' })
 
-		expect(api.ai.chat).toHaveBeenCalledWith({ bookId: 1, message: 'Hello' }, expect.any(AbortSignal))
+		expect(api.ai.chat).toHaveBeenCalledWith({ bookId: 1, message: 'Hello', history: [] }, expect.any(AbortSignal))
 		expect(chat.messages.value).toHaveLength(2)
 		expect(chat.messages.value[0].role).toBe('user')
 		expect(chat.messages.value[1].content).toBe('Here is the answer.')
 		expect(chat.messages.value[1].traceId).toBe('trace-1')
 		expect(chat.loading.value).toBe(false)
+	})
+
+	it('sends prior messages as history and excludes the current message', async () => {
+		vi.mocked(api.ai.chat)
+			.mockResolvedValueOnce({
+				message: 'First answer.',
+				proposedActions: [],
+				traceId: null,
+				warnings: [],
+				usage: {},
+			})
+			.mockResolvedValueOnce({
+				message: 'Second answer.',
+				proposedActions: [],
+				traceId: null,
+				warnings: [],
+				usage: {},
+			})
+		const chat = createAiChat()
+
+		await chat.send({ bookId: 1, message: 'First question' })
+		await chat.send({ bookId: 1, message: 'Follow up' })
+
+		expect(api.ai.chat).toHaveBeenNthCalledWith(2, {
+			bookId: 1,
+			message: 'Follow up',
+			history: [
+				{ role: 'user', content: 'First question' },
+				{ role: 'assistant', content: 'First answer.' },
+			],
+		}, expect.any(AbortSignal))
 	})
 
 	it('records an error and retries without duplicating the user message', async () => {

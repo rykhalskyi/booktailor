@@ -176,6 +176,11 @@ export interface AiAction {
 	result: string | null
 }
 
+export interface AiChatHistoryMessage {
+	role: 'user' | 'assistant'
+	content: string
+}
+
 export interface AiChatRequest {
 	bookId: number
 	message: string
@@ -184,6 +189,7 @@ export interface AiChatRequest {
 	contextAssetIds?: number[]
 	promptKey?: string | null
 	promptId?: number | null
+	history?: AiChatHistoryMessage[]
 }
 
 export interface AiChatResponse {
