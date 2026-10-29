@@ -1,5 +1,5 @@
 import { generateOcsUrl } from '@nextcloud/router'
-import type { AiAction, AiChatRequest, AiChatResponse, AiProfile, AiProfilePayload, AiPrompt, AiSettings, Asset, Book, Capabilities, Chapter, Composition, CompositionRule, Structure, StructureEntry, Tag, Version } from '../types'
+import type { AiAction, AiChatRequest, AiChatResponse, AiProfile, AiProfilePayload, AiPrompt, AiSettings, Asset, Book, Capabilities, Chapter, ChapterImage, Composition, CompositionRule, SettingsInfo, Structure, StructureEntry, Tag, Version } from '../types'
 
 declare global {
 	interface Window {
@@ -138,6 +138,7 @@ async function requestBlob(path: string): Promise<Blob> {
 
 export const api = {
 	capabilities: (): Promise<Capabilities> => request<Capabilities>('/capabilities'),
+	settings: (): Promise<SettingsInfo> => request<SettingsInfo>('/settings'),
 	books: {
 		list: (): Promise<Book[]> => request<Book[]>('/books'),
 		create: (name: string, description?: string): Promise<Book> => request<Book>('/books', {
@@ -206,6 +207,30 @@ export const api = {
 		updateContent: (assetId: number, content: string): Promise<{ content: string }> => request<{ content: string }>(`/assets/${assetId}/content`, {
 			method: 'PUT',
 			body: { content },
+		}),
+	},
+	images: {
+		list: (chapterId: number): Promise<ChapterImage[]> => request<ChapterImage[]>(`/chapters/${chapterId}/images`),
+		upload: (chapterId: number, file: File): Promise<ChapterImage> => {
+			const formData = new FormData()
+			formData.append('file', file)
+
+			return request<ChapterImage>(`/chapters/${chapterId}/images`, {
+				method: 'POST',
+				formData,
+			})
+		},
+		replace: (chapterId: number, fileId: number, file: File): Promise<ChapterImage> => {
+			const formData = new FormData()
+			formData.append('file', file)
+
+			return request<ChapterImage>(`/chapters/${chapterId}/images/${fileId}`, {
+				method: 'PUT',
+				formData,
+			})
+		},
+		remove: (chapterId: number, fileId: number): Promise<void> => request<void>(`/chapters/${chapterId}/images/${fileId}`, {
+			method: 'DELETE',
 		}),
 	},
 	tags: {

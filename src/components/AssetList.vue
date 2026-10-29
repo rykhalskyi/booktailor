@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { t } from '@nextcloud/l10n'
 import NcActionButton from '@nextcloud/vue/components/NcActionButton'
 import NcActions from '@nextcloud/vue/components/NcActions'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -7,6 +8,7 @@ import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcSelect from '@nextcloud/vue/components/NcSelect'
 import { useLibrary } from '../stores/useLibrary'
+import ChapterImages from './ChapterImages.vue'
 import type { Asset, Tag } from '../types'
 import { filterAssetsByTag } from '../utils/assets'
 import { assetEditorUrl, assetFileUrl } from '../utils/files'
@@ -82,20 +84,20 @@ function openAsset(asset: Asset): void {
 		<header class="asset-header">
 			<div class="asset-header-main">
 				<NcButton v-if="showBack" @click="emit('back')">
-					Back to chapters
+					{{ t('booktailor', 'Back to chapters') }}
 				</NcButton>
 				<h2 class="asset-title">
-					{{ selectedChapter?.name ?? 'Assets' }}
+					{{ selectedChapter?.name ?? t('booktailor', 'Assets') }}
 				</h2>
 			</div>
 			<div v-if="selectedChapter" class="asset-header-actions">
 				<NcButton
 					:disabled="loading.mutation"
 					@click="openDialog({ type: 'asset-create', chapterId: selectedChapter.id })">
-					New asset
+					{{ t('booktailor', 'New asset') }}
 				</NcButton>
 				<NcButton :disabled="loading.mutation" @click="chooseFile">
-					Upload
+					{{ t('booktailor', 'Upload') }}
 				</NcButton>
 			</div>
 		</header>
@@ -106,42 +108,42 @@ function openAsset(asset: Asset): void {
 				class="asset-filter"
 				:options="tags"
 				label="name"
-				input-label="Filter by tag"
-				aria-label="Filter assets by tag"
+				:input-label="t('booktailor', 'Filter by tag')"
+				:aria-label="t('booktailor', 'Filter assets by tag')"
 				:clearable="true"
 				:searchable="false"
-				placeholder="All tags" />
+				:placeholder="t('booktailor', 'All tags')" />
 		</div>
 
 		<div v-if="!selectedChapter" class="asset-state">
 			<NcEmptyContent
-				name="Select a chapter"
-				description="Choose a chapter in the tree to see its Markdown assets." />
+				:name="t('booktailor', 'Select a chapter')"
+				:description="t('booktailor', 'Choose a chapter in the tree to see its Markdown assets.')" />
 		</div>
 		<div v-else-if="selectedAssetsLoading" class="asset-state">
-			<NcLoadingIcon name="Loading assets" />
+			<NcLoadingIcon :name="t('booktailor', 'Loading assets')" />
 		</div>
 		<NcEmptyContent
 			v-else-if="selectedAssets.length === 0"
 			class="asset-state"
-			name="No assets yet"
-			description="Create an empty Markdown asset or upload an existing file.">
+			:name="t('booktailor', 'No assets yet')"
+			:description="t('booktailor', 'Create an empty Markdown asset or upload an existing file.')">
 			<template #action>
 				<NcButton
 					variant="primary"
 					@click="openDialog({ type: 'asset-create', chapterId: selectedChapter.id })">
-					New asset
+					{{ t('booktailor', 'New asset') }}
 				</NcButton>
 			</template>
 		</NcEmptyContent>
 		<NcEmptyContent
 			v-else-if="filteredAssets.length === 0"
 			class="asset-state"
-			name="No assets match this tag"
-			description="Clear the tag filter to see all assets in this chapter.">
+			:name="t('booktailor', 'No assets match this tag')"
+			:description="t('booktailor', 'Clear the tag filter to see all assets in this chapter.')">
 			<template #action>
 				<NcButton @click="selectedTag = null">
-					Clear filter
+					{{ t('booktailor', 'Clear filter') }}
 				</NcButton>
 			</template>
 		</NcEmptyContent>
@@ -164,7 +166,7 @@ function openAsset(asset: Asset): void {
 							type="button"
 							class="asset-tag"
 							:style="tagChipStyle(tag.color)"
-							:title="`Filter by ${tag.name}`"
+							:title="t('booktailor', 'Filter by {tag}', { tag: tag.name })"
 							@click="selectedTag = tag">
 							{{ tag.name }}
 						</button>
@@ -174,26 +176,28 @@ function openAsset(asset: Asset): void {
 					<NcButton
 						:disabled="loading.mutation"
 						@click="openDialog({ type: 'asset-tags', asset })">
-						Tags
+						{{ t('booktailor', 'Tags') }}
 					</NcButton>
-					<NcActions :aria-label="`Actions for ${asset.fileName}`" :force-menu="true">
+					<NcActions :aria-label="t('booktailor', 'Actions for {name}', { name: asset.fileName })" :force-menu="true">
 						<NcActionButton v-if="fileUrl(asset)" @click="openAsset(asset)">
-							Open in editor
+							{{ t('booktailor', 'Open in editor') }}
 						</NcActionButton>
 						<NcActionButton
 							:disabled="!capabilities.versions"
 							@click="openHistory(asset)">
-							History
+							{{ t('booktailor', 'History') }}
 						</NcActionButton>
 						<NcActionButton
 							:disabled="loading.mutation"
 							@click="openDialog({ type: 'asset-delete', asset })">
-							Delete
+							{{ t('booktailor', 'Delete') }}
 						</NcActionButton>
 					</NcActions>
 				</div>
 			</li>
 		</ul>
+
+		<ChapterImages v-if="selectedChapter" />
 
 		<input
 			ref="fileInput"
@@ -256,6 +260,7 @@ function openAsset(asset: Asset): void {
 	margin: 0;
 	padding: 0;
 	overflow: auto;
+	flex: 1;
 }
 
 .asset-row {

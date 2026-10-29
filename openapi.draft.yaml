@@ -39,7 +39,7 @@ tags:
   - name: ai
     description: Chat, prompt management, and proposed action audit.
   - name: settings
-    description: AI provider and BYOK configuration.
+    description: Application, storage, and AI configuration.
 paths:
   /capabilities:
     get:
@@ -409,6 +409,121 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+  /chapters/{chapterId}/images:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/ChapterId'
+    get:
+      tags: [assets]
+      operationId: listChapterImages
+      summary: List the chapter's images
+      responses:
+        '200':
+          description: Images returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsChapterImageListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [assets]
+      operationId: uploadChapterImage
+      summary: Upload an image to the chapter's images folder
+      description: |
+        PNG, JPEG, GIF, and WebP are accepted after MIME sniffing. SVG, path
+        separators, mismatched extensions, and images above the upload limit are
+        rejected with 422.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Image uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsChapterImageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /chapters/{chapterId}/images/{fileId}:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/ChapterId'
+      - $ref: '#/components/parameters/ChapterImageFileId'
+    put:
+      tags: [assets]
+      operationId: replaceChapterImage
+      summary: Replace an image under its existing name
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Image replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsChapterImageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [assets]
+      operationId: deleteChapterImage
+      summary: Delete an image that is not referenced by a Markdown asset
+      responses:
+        '204':
+          description: Image deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /settings:
+    get:
+      tags: [settings]
+      operationId: getSettings
+      summary: Get storage, limits, effective defaults, and version information
+      parameters:
+        - $ref: '#/components/parameters/OCS-APIRequest'
+      responses:
+        '200':
+          description: Settings returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /chapters/{chapterId}/assets:
     parameters:
       - $ref: '#/components/parameters/OCS-APIRequest'
@@ -1346,6 +1461,14 @@ components:
       schema:
         type: integer
         format: int64
+    ChapterImageFileId:
+      name: fileId
+      in: path
+      required: true
+      description: Nextcloud file id of an image in the chapter's images folder
+      schema:
+        type: integer
+        format: int64
     AssetId:
       name: assetId
       in: path
@@ -1640,6 +1763,70 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/StructureEntry'
+    ChapterImage:
+      type: object
+      required: [fileId, name, mime, size, path, references]
+      properties:
+        fileId:
+          type: integer
+          format: int64
+        name:
+          type: string
+        mime:
+          type: string
+          enum: [image/png, image/jpeg, image/gif, image/webp]
+        size:
+          type: integer
+        path:
+          type: string
+          description: Relative Markdown path, for example images/cover.png
+        references:
+          type: integer
+          description: Number of assets in the chapter that reference this image
+    Settings:
+      type: object
+      required: [storage, limits, defaults, app]
+      properties:
+        storage:
+          type: object
+          required: [root]
+          properties:
+            root:
+              type: string
+              description: Visible folder name below the user's files
+        limits:
+          type: object
+          required: [uploadBytes, imageUploadBytes, imageTypes]
+          properties:
+            uploadBytes:
+              type: integer
+            imageUploadBytes:
+              type: integer
+            imageTypes:
+              type: array
+              items:
+                type: string
+        defaults:
+          type: object
+          required: [editor, compositionFormat, aiTransport]
+          properties:
+            editor:
+              type: string
+              enum: [text]
+            compositionFormat:
+              type: string
+              enum: [markdown]
+            aiTransport:
+              type: string
+              enum: [json]
+        app:
+          type: object
+          required: [version, nextcloudVersion]
+          properties:
+            version:
+              type: string
+            nextcloudVersion:
+              type: string
     Asset:
       type: object
       required: [id, bookId, chapterId, name, fileName, fileId, tags, createdAt, updatedAt]
@@ -2249,6 +2436,38 @@ components:
               properties:
                 data:
                   $ref: '#/components/schemas/Asset'
+    OcsChapterImageListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ChapterImage'
+    OcsChapterImageResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/ChapterImage'
+    OcsSettingsResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/Settings'
     OcsAssetListResponse:
       allOf:
         - $ref: '#/components/schemas/OcsEnvelope'

@@ -58,3 +58,7 @@
 ## [2026-10-26] plan | T6 implementation plan: Settings-first BYOK profiles, provider adapter, Langfuse, chat/tools, proposal confirmation and audit
 ## [2026-10-26] update | T6 implemented: AI settings with BYOK profiles, Langfuse, chat/tools, proposal confirmation, audit, saved prompts, and tests
 ## [2026-10-26] update | T6 verification: 69 PHP tests, 94 JS tests, psalm, cs, lint, build, migration, and HTTP smoke pass
+## [2026-10-29] plan | T7 implementation plan: image backend/UI, settings, i18n, accessibility, Playwright E2E, performance/security review, release
+## [2026-10-29] decision | Approved D-70 through D-76 for T7: chapter images, raster uploads, reference-safe replace/delete, read-only Settings defaults, Playwright E2E, i18n scope, and release 1.5.0
+## [2026-10-29] update | T7 implemented: images, settings, i18n scaffolding, accessibility, Playwright E2E, release 1.5.0, and verification
+## [2026-10-29] update | T7 verification: 97 PHP tests, 100 JS tests, 4 Playwright tests, psalm/cs/lint/build pass, package 1.5.0 created

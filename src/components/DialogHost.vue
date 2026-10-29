@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@nextcloud/l10n'
 import { useLibrary } from '../stores/useLibrary'
 import ChapterHistoryDialog from './ChapterHistoryDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
@@ -78,55 +79,55 @@ async function submitAssetDelete(): Promise<void> {
 <template>
 	<TextInputDialog
 		v-if="dialog?.type === 'book-create'"
-		title="New book"
-		label="Book name"
-		confirm-label="Create book"
+		:title="t('booktailor', 'New book')"
+		:label="t('booktailor', 'Book name')"
+		:confirm-label="t('booktailor', 'Create book')"
 		:busy="loading.mutation"
 		:error="error"
 		@confirm="submitBook"
 		@close="closeDialog" />
 	<TextInputDialog
 		v-else-if="dialog?.type === 'chapter-create'"
-		:title="dialog.parentId === null ? 'New chapter' : 'New subchapter'"
-		label="Chapter name"
-		confirm-label="Create chapter"
+		:title="dialog.parentId === null ? t('booktailor', 'New chapter') : t('booktailor', 'New subchapter')"
+		:label="t('booktailor', 'Chapter name')"
+		:confirm-label="t('booktailor', 'Create chapter')"
 		:busy="loading.mutation"
 		:error="error"
 		@confirm="submitChapter"
 		@close="closeDialog" />
 	<TextInputDialog
 		v-else-if="dialog?.type === 'chapter-rename'"
-		title="Rename chapter"
-		label="Chapter name"
+		:title="t('booktailor', 'Rename chapter')"
+		:label="t('booktailor', 'Chapter name')"
 		:initial-value="dialog.chapter.name"
-		confirm-label="Rename chapter"
+		:confirm-label="t('booktailor', 'Rename chapter')"
 		:busy="loading.mutation"
 		:error="error"
 		@confirm="submitChapterRename"
 		@close="closeDialog" />
 	<ConfirmDialog
 		v-else-if="dialog?.type === 'chapter-delete'"
-		title="Delete chapter"
-		:message="`Delete “${dialog.chapter.name}” and all its subchapters and assets?`"
-		confirm-label="Delete chapter"
+		:title="t('booktailor', 'Delete chapter')"
+		:message="t('booktailor', 'Delete “{name}” and all its subchapters and assets?', { name: dialog.chapter.name })"
+		:confirm-label="t('booktailor', 'Delete chapter')"
 		:busy="loading.mutation"
 		:error="error"
 		@confirm="submitChapterDelete"
 		@close="closeDialog" />
 	<TextInputDialog
 		v-else-if="dialog?.type === 'asset-create'"
-		title="New asset"
-		label="File name"
-		confirm-label="Create asset"
+		:title="t('booktailor', 'New asset')"
+		:label="t('booktailor', 'File name')"
+		:confirm-label="t('booktailor', 'Create asset')"
 		:busy="loading.mutation"
 		:error="error"
 		@confirm="submitAsset"
 		@close="closeDialog" />
 	<ConfirmDialog
 		v-else-if="dialog?.type === 'asset-delete'"
-		title="Delete asset"
-		:message="`Delete “${dialog.asset.fileName}”?`"
-		confirm-label="Delete file"
+		:title="t('booktailor', 'Delete asset')"
+		:message="t('booktailor', 'Delete “{name}”?', { name: dialog.asset.fileName })"
+		:confirm-label="t('booktailor', 'Delete file')"
 		:busy="loading.mutation"
 		:error="error"
 		@confirm="submitAssetDelete"

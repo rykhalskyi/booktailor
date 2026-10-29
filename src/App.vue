@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { t } from '@nextcloud/l10n'
 import NcAppContent from '@nextcloud/vue/components/NcAppContent'
 import NcAppNavigation from '@nextcloud/vue/components/NcAppNavigation'
 import NcAppNavigationCaption from '@nextcloud/vue/components/NcAppNavigationCaption'
@@ -56,9 +57,9 @@ onMounted(() => {
 
 <template>
 	<NcContent app-name="booktailor">
-		<NcAppNavigation aria-label="BookTailor books">
+		<NcAppNavigation :aria-label="t('booktailor', 'BookTailor books')">
 			<NcAppNavigationNew
-				text="New book"
+				:text="t('booktailor', 'New book')"
 				:disabled="loading.mutation"
 				@click="openDialog({ type: 'book-create' })" />
 			<NcAppNavigationList>
@@ -71,28 +72,28 @@ onMounted(() => {
 					icon="icon-folder"
 					@click="selectBook(book)" />
 			</NcAppNavigationList>
-			<NcAppNavigationCaption name="Book tools" />
+			<NcAppNavigationCaption :name="t('booktailor', 'Book tools')" />
 			<NcAppNavigationItem
-				name="Tags"
+				:name="t('booktailor', 'Tags')"
 				icon="icon-tag"
 				:active="tagsManagerOpen"
 				:disabled="selectedBook === null"
 				@click="openTagsManager" />
 			<NcAppNavigationItem
-				name="Compose"
+				:name="t('booktailor', 'Compose')"
 				icon="icon-add"
 				:active="composeOpen"
 				:disabled="selectedBook === null"
 				@click="openCompose" />
 			<NcAppNavigationItem
-				name="Compositions"
+				:name="t('booktailor', 'Compositions')"
 				icon="icon-file"
 				:active="compositionsOpen"
 				:disabled="selectedBook === null"
 				@click="openCompositions" />
-			<NcAppNavigationCaption name="Application" />
+			<NcAppNavigationCaption :name="t('booktailor', 'Application')" />
 			<NcAppNavigationItem
-				name="Settings"
+				:name="t('booktailor', 'Settings')"
 				icon="icon-settings"
 				:active="settingsOpen"
 				@click="openSettings" />
@@ -116,18 +117,18 @@ onMounted(() => {
 						class="library-error" />
 
 					<div v-if="loading.books" class="library-loading">
-						<NcLoadingIcon name="Loading books" :size="32" />
+						<NcLoadingIcon :name="t('booktailor', 'Loading books')" :size="32" />
 					</div>
 
 					<NcEmptyContent
 						v-else-if="books.length === 0"
-						name="No books yet"
-						description="Create a book to start organizing chapters and Markdown assets.">
+						:name="t('booktailor', 'No books yet')"
+						:description="t('booktailor', 'Create a book to start organizing chapters and Markdown assets.')">
 						<template #action>
 							<NcButton
 								variant="primary"
 								@click="openDialog({ type: 'book-create' })">
-								Create book
+								{{ t('booktailor', 'Create book') }}
 							</NcButton>
 						</template>
 					</NcEmptyContent>
@@ -137,17 +138,17 @@ onMounted(() => {
 							:chat-open="chatOpen"
 							@update-chat-open="chatOpen = $event" />
 						<div class="library-workspace">
-							<section class="library-pane" aria-label="Chapters">
+							<section class="library-pane" :aria-label="t('booktailor', 'Chapters')">
 								<div class="pane-header">
 									<h2 class="pane-title">
-										Chapters
+										{{ t('booktailor', 'Chapters') }}
 									</h2>
 									<div class="pane-actions">
 										<NcButton
 											variant="primary"
 											:disabled="loading.mutation"
 											@click="openDialog({ type: 'chapter-create', parentId: null })">
-											Add chapter
+											{{ t('booktailor', 'Add chapter') }}
 										</NcButton>
 									</div>
 								</div>

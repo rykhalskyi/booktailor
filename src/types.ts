@@ -41,6 +41,15 @@ export interface Asset {
 	updatedAt: string
 }
 
+export interface ChapterImage {
+	fileId: number
+	name: string
+	mime: string
+	size: number
+	path: string
+	references: number
+}
+
 export interface Version {
 	revisionId: string
 	author: string | null
@@ -142,6 +151,26 @@ export interface AiProfilePayload {
 export interface LangfuseStatus {
 	configured: boolean
 	url: string | null
+}
+
+export interface SettingsInfo {
+	storage: {
+		root: string
+	}
+	limits: {
+		uploadBytes: number
+		imageUploadBytes: number
+		imageTypes: string[]
+	}
+	defaults: {
+		editor: string
+		compositionFormat: string
+		aiTransport: string
+	}
+	app: {
+		version: string
+		nextcloudVersion: string
+	}
 }
 
 export interface AiSettings {
