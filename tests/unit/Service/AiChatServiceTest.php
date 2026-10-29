@@ -162,6 +162,79 @@ final class AiChatServiceTest extends TestCase {
 		$this->assertCount(1, $result['warnings']);
 	}
 
+	public function testEmptyTruncatedResponseIsRetriedWithMoreTokens(): void {
+		$provider = new class implements AiProviderInterface {
+			/** @var list<int> */
+			public array $maxTokens = [];
+			private int $calls = 0;
+
+			public function complete(string $apiKey, string $model, array $messages, array $options = []): AiCompletion {
+				$this->maxTokens[] = (int)($options['maxTokens'] ?? 0);
+				$this->calls++;
+				if ($this->calls === 1) {
+					return new AiCompletion('', $model, [], 'length');
+				}
+
+				return new AiCompletion('{"reply":"Recovered.","toolCalls":[],"proposals":[]}', $model, [], 'stop');
+			}
+		};
+
+		$result = $this->service($provider)->chat('user', 1, 'Build a glossary');
+
+		$this->assertSame([2048, 4096], $provider->maxTokens);
+		$this->assertSame('Recovered.', $result['message']);
+		$this->assertSame([], $result['warnings']);
+	}
+
+	public function testEmptyResponseIsRetriedOnce(): void {
+		$provider = new class implements AiProviderInterface {
+			/** @var list<int> */
+			public array $maxTokens = [];
+			private int $calls = 0;
+
+			public function complete(string $apiKey, string $model, array $messages, array $options = []): AiCompletion {
+				$this->maxTokens[] = (int)($options['maxTokens'] ?? 0);
+				$this->calls++;
+				if ($this->calls === 1) {
+					return new AiCompletion('', $model, [], 'stop');
+				}
+
+				return new AiCompletion('{"reply":"Recovered.","toolCalls":[],"proposals":[]}', $model, [], 'stop');
+			}
+		};
+
+		$result = $this->service($provider)->chat('user', 1, 'Hello');
+
+		$this->assertSame([2048, 2048], $provider->maxTokens);
+		$this->assertSame('Recovered.', $result['message']);
+	}
+
+	public function testPersistentEmptyResponseIsReported(): void {
+		$provider = new class implements AiProviderInterface {
+			public function complete(string $apiKey, string $model, array $messages, array $options = []): AiCompletion {
+				return new AiCompletion('', $model, [], 'stop');
+			}
+		};
+
+		$result = $this->service($provider)->chat('user', 1, 'Hello');
+
+		$this->assertStringContainsString('empty response', $result['message']);
+		$this->assertCount(1, $result['warnings']);
+	}
+
+	public function testPersistentEmptyTruncatedResponseReportsMaxTokens(): void {
+		$provider = new class implements AiProviderInterface {
+			public function complete(string $apiKey, string $model, array $messages, array $options = []): AiCompletion {
+				return new AiCompletion('', $model, [], 'length');
+			}
+		};
+
+		$result = $this->service($provider)->chat('user', 1, 'Hello');
+
+		$this->assertStringContainsString('Max tokens', $result['message']);
+		$this->assertCount(1, $result['warnings']);
+	}
+
 	public function testHistoryIsSentBeforeTheCurrentUserMessage(): void {
 		$provider = new class implements AiProviderInterface {
 			/** @var list<array{role: string, content: string}> */
