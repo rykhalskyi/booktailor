@@ -61,7 +61,7 @@ composer run lint       # php -l on all non-vendor PHP files
 composer run cs:check   # php-cs-fixer dry run
 composer run cs:fix     # apply code style fixes
 composer run psalm      # static analysis
-composer run test:unit  # PHPUnit, tests/phpunit.xml
+composer run test:unit  # PHPUnit, tests/phpunit.xml (1G memory limit)
 composer run rector     # Rector + cs:fix
 composer run openapi    # regenerate openapi.json from route docblocks
 ```
@@ -82,7 +82,8 @@ The PHPUnit bootstrap expects the app to be loadable by a Nextcloud instance (se
 mounted. It sets `TEST_DONT_LOAD_APPS=1` and loads only BookTailor and `files_versions`
 so unrelated apps with incomplete schemas do not break the suite.
 
-`composer run test:unit` includes integration tests that create temporary Nextcloud users,
+`composer run test:unit` runs with a 1G PHP memory limit because the full integration suite
+exceeds PHP's default 512M. It includes tests that create temporary Nextcloud users,
 exercise the real DB and file tree, and delete the users afterwards. The app tables must
 be migrated first (`occ upgrade` or `occ migrations:migrate booktailor`). The version
 tests skip themselves if `files_versions` is unavailable.
@@ -132,6 +133,22 @@ container, from the app directory (`/var/www/html/apps-extra/booktailor`), e.g.:
 docker exec master-nextcloud-1 bash -c \
   'cd /var/www/html/apps-extra/booktailor && composer run test:unit'
 ```
+
+## Translations
+
+UI strings use `t('booktailor', '...')` and PHP user-facing messages use `IL10N`.
+`l10n/` holds generated translation files; do not hand-edit them. Extract the source
+catalog with the Nextcloud translation tool, translate through Transifex/Weblate, then
+convert the downloaded catalogs back into `l10n/*.json` and `l10n/*.js`:
+
+```bash
+php translationtool.phar create-pot-files
+# after downloading translations:
+php translationtool.phar convert-po-files
+```
+
+English is the source fallback, so missing translations render the source string.
+Technical logs and internal exception messages stay English.
 
 ## AI configuration
 
@@ -229,6 +246,9 @@ supports abort/retry.
 - Bump `<version>` in `appinfo/info.xml` (and `package.json` / `composer.json` version
   where relevant) and update `CHANGELOG.md`.
 - Build frontend assets with `npm run build`; they must ship with the app.
-- Package the app directory (without `node_modules`, `vendor-bin/*/vendor`,
-  `tests` caches) and install it into Nextcloud, or publish via the Nextcloud App
-  Store flow described in `README.md`.
+- Run `scripts/package.sh` to build `build/booktailor-<version>.tar.gz` with only the
+  runtime files (`appinfo`, `lib`, `l10n`, `img`, `templates`, `js`, `css`, docs, and
+  `openapi.json`). Install that tarball into Nextcloud or publish it through the
+  Nextcloud App Store flow described in `README.md`.
+- Do not include `node_modules`, `vendor-bin/*/vendor`, tests, caches, `src`, or local
+  env files in a release archive.

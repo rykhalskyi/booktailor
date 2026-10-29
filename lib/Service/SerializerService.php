@@ -87,6 +87,20 @@ class SerializerService {
 		];
 	}
 
+	/**
+	 * @param array{fileId: int, name: string, mime: string, size: int, referenceCount: int} $image
+	 */
+	public function chapterImage(array $image): array {
+		return [
+			'fileId' => $image['fileId'],
+			'name' => $image['name'],
+			'mime' => $image['mime'],
+			'size' => $image['size'],
+			'path' => 'images/' . $image['name'],
+			'references' => $image['referenceCount'],
+		];
+	}
+
 	public function composition(Composition $composition, array $rules = [], bool $stale = false): array {
 		return [
 			'id' => $composition->getId(),

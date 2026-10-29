@@ -25,6 +25,10 @@ class StorageService {
 	) {
 	}
 
+	public function getBooksRootPath(): string {
+		return self::BOOKS_ROOT;
+	}
+
 	public function getUserFolder(string $userId): Folder {
 		$folder = $this->rootFolder->getUserFolder($userId);
 		if (!$folder instanceof Folder) {
@@ -80,6 +84,20 @@ class StorageService {
 		}
 
 		return $folder;
+	}
+
+	public function getChapterImagesFolder(string $userId, Chapter $chapter, bool $create = false): ?Folder {
+		$chapterFolder = $this->getChapterFolderForUser($userId, $chapter);
+		if ($chapterFolder->nodeExists('images')) {
+			$folder = $chapterFolder->get('images');
+			if (!$folder instanceof Folder) {
+				throw new ConflictException('The chapter images path is not a folder');
+			}
+
+			return $folder;
+		}
+
+		return $create ? $chapterFolder->newFolder('images') : null;
 	}
 
 	public function getAssetFile(string $userId, Asset $asset): File {

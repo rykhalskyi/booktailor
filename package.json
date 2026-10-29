@@ -1,6 +1,6 @@
 {
   "name": "booktailor",
-  "version": "1.0.0",
+  "version": "1.5.0",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
@@ -10,6 +10,8 @@
     "stylelint": "stylelint src/**/*.vue src/**/*.scss src/**/*.css",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
     "typecheck": "vue-tsc --noEmit",
     "check": "npm run lint && npm run stylelint && npm run typecheck && npm test",
     "watch": "vite --mode development build --watch",
@@ -19,6 +21,7 @@
     "extends @nextcloud/browserslist-config"
   ],
   "dependencies": {
+    "@nextcloud/l10n": "^3.4.1",
     "@nextcloud/router": "^3.2.0",
     "@nextcloud/vue": "^9.8.2",
     "vue": "^3.5.35"
@@ -28,6 +31,7 @@
     "@nextcloud/eslint-config": "^8.4.2",
     "@nextcloud/stylelint-config": "^3.1.1",
     "@nextcloud/vite-config": "^2.5.2",
+    "@playwright/test": "^1.64.1",
     "@vitejs/plugin-vue": "^6.0.10",
     "@vue/test-utils": "^2.5.1",
     "@vue/tsconfig": "^0.9.1",

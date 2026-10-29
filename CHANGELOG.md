@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-29
+
+### Added
+
+- Chapter image manager: upload, preview, replace, copy Markdown snippets, and reference-safe deletion for PNG, JPEG, GIF, and WebP images.
+- Settings sections for storage location, upload limits, effective editor/composition defaults, and app/Nextcloud versions.
+- Playwright end-to-end coverage for authoring, images, and Settings.
+- Translation foundation with `@nextcloud/l10n`; the image gallery, Settings, navigation, structure manager, AI chat, and shared dialogs are translated, with the remaining screens to follow.
+
+### Changed
+
+- Images now validate MIME types and size limits before writing, reject SVG and path separators, and keep referenced files protected.
+- Accessibility improvements across the image gallery, Settings, dialogs, and navigation.
+
+## [1.4.0] - 2026-10-26
+
 ### Added
 
 - AI assistant with per-user DeepSeek/SiliconFlow profiles, encrypted write-only BYOK keys, in-app AI settings, saved prompts, a foldable chat panel, read tools, proposal confirmation, and an audit log.

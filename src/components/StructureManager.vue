@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { t } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -275,10 +276,10 @@ function closeMoveChapter(): void {
 	<div class="structure-manager">
 		<header class="manager-header">
 			<NcButton @click="closeStructureManager">
-				Back to book
+				{{ t('booktailor', 'Back to book') }}
 			</NcButton>
 			<h2 class="manager-title">
-				Structures
+				{{ t('booktailor', 'Structures') }}
 			</h2>
 		</header>
 
@@ -294,48 +295,48 @@ function closeMoveChapter(): void {
 					:model-value="selectedStructure"
 					:options="structures"
 					label="name"
-					input-label="Structure"
-					aria-label="Structure"
+					:input-label="t('booktailor', 'Structure')"
+					:aria-label="t('booktailor', 'Structure')"
 					:clearable="false"
 					:searchable="false"
 					@update:model-value="onStructureChange" />
 			</div>
 			<NcButton :disabled="loading.mutation" @click="managerDialog = { type: 'create' }">
-				New structure
+				{{ t('booktailor', 'New structure') }}
 			</NcButton>
 			<NcButton
 				:disabled="loading.mutation || selectedStructure === null"
 				@click="openRename">
-				Rename
+				{{ t('booktailor', 'Rename') }}
 			</NcButton>
 			<NcButton
 				variant="error"
 				:disabled="loading.mutation || selectedStructure === null || selectedStructure.isDefault"
 				@click="openDelete">
-				Delete
+				{{ t('booktailor', 'Delete') }}
 			</NcButton>
 		</div>
 
 		<div v-if="editorLoading.chapters || editorLoading.entries" class="manager-loading">
-			<NcLoadingIcon name="Loading structure" :size="32" />
+			<NcLoadingIcon :name="t('booktailor', 'Loading structure')" :size="32" />
 		</div>
 
 		<div v-else-if="editorFailed" class="manager-loading manager-loading--failed">
 			<NcNoteCard
 				type="error"
-				text="The structure could not be loaded. No changes can be saved until it loads." />
+				:text="t('booktailor', 'The structure could not be loaded. No changes can be saved until it loads.')" />
 			<NcButton @click="retryEditor">
-				Retry
+				{{ t('booktailor', 'Retry') }}
 			</NcButton>
 		</div>
 
 		<div v-else class="manager-layout">
-			<section class="manager-panel" aria-label="Structure chapters">
+			<section class="manager-panel" :aria-label="t('booktailor', 'Structure chapters')">
 				<h3 class="panel-title">
-					Chapters
+					{{ t('booktailor', 'Chapters') }}
 				</h3>
 				<p v-if="selectedStructure?.isDefault" class="panel-hint">
-					The default structure always includes every chapter.
+					{{ t('booktailor', 'The default structure always includes every chapter.') }}
 				</p>
 				<ul class="entry-list">
 					<li
@@ -348,7 +349,7 @@ function closeMoveChapter(): void {
 							class="entry-toggle"
 							:checked="row.included"
 							:disabled="loading.mutation || !editorReady || selectedStructure?.isDefault"
-							:aria-label="`Include ${row.chapter.name}`"
+							:aria-label="t('booktailor', 'Include {name}', { name: row.chapter.name })"
 							@change="toggleIncluded(row.chapter.id, $event)">
 						<span v-if="numbersByChapter.get(row.chapter.id)" class="entry-number">
 							{{ numbersByChapter.get(row.chapter.id) }}
@@ -359,28 +360,28 @@ function closeMoveChapter(): void {
 								variant="tertiary"
 								:disabled="loading.mutation || !editorReady || !canMoveChapter(row.chapter)"
 								@click="openMoveChapter(row.chapter)">
-								Move
+								{{ t('booktailor', 'Move') }}
 							</NcButton>
 							<NcButton
 								variant="tertiary"
 								:disabled="loading.mutation || !editorReady || !canMove(row.chapter.id, -1)"
 								@click="moveSibling(row.chapter.id, -1)">
-								Up
+								{{ t('booktailor', 'Up') }}
 							</NcButton>
 							<NcButton
 								variant="tertiary"
 								:disabled="loading.mutation || !editorReady || !canMove(row.chapter.id, 1)"
 								@click="moveSibling(row.chapter.id, 1)">
-								Down
+								{{ t('booktailor', 'Down') }}
 							</NcButton>
 						</div>
 					</li>
 				</ul>
 			</section>
 
-			<section class="manager-panel manager-panel--preview" aria-label="Structure preview">
+			<section class="manager-panel manager-panel--preview" :aria-label="t('booktailor', 'Structure preview')">
 				<h3 class="panel-title">
-					Numbering preview
+					{{ t('booktailor', 'Numbering preview') }}
 				</h3>
 				<ul class="preview-list">
 					<li
@@ -397,28 +398,28 @@ function closeMoveChapter(): void {
 
 		<TextInputDialog
 			v-if="managerDialog?.type === 'create'"
-			title="New structure"
-			label="Structure name"
-			confirm-label="Create structure"
+			:title="t('booktailor', 'New structure')"
+			:label="t('booktailor', 'Structure name')"
+			:confirm-label="t('booktailor', 'Create structure')"
 			:busy="loading.mutation"
 			:error="error"
 			@confirm="submitCreate"
 			@close="closeManagerDialog" />
 		<TextInputDialog
 			v-else-if="managerDialog?.type === 'rename'"
-			title="Rename structure"
-			label="Structure name"
+			:title="t('booktailor', 'Rename structure')"
+			:label="t('booktailor', 'Structure name')"
 			:initial-value="managerDialog.structure.name"
-			confirm-label="Rename structure"
+			:confirm-label="t('booktailor', 'Rename structure')"
 			:busy="loading.mutation"
 			:error="error"
 			@confirm="submitRename"
 			@close="closeManagerDialog" />
 		<ConfirmDialog
 			v-else-if="managerDialog?.type === 'delete'"
-			title="Delete structure"
-			:message="`Delete the “${managerDialog.structure.name}” structure? Chapters and assets are not deleted.`"
-			confirm-label="Delete structure"
+			:title="t('booktailor', 'Delete structure')"
+			:message="t('booktailor', 'Delete the “{name}” structure? Chapters and assets are not deleted.', { name: managerDialog.structure.name })"
+			:confirm-label="t('booktailor', 'Delete structure')"
 			:busy="loading.mutation"
 			:error="error"
 			@confirm="submitDelete"

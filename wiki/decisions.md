@@ -70,3 +70,10 @@ Append-only decision record. The "why" lives here; the full change history lives
 - [2026-10-26] D-67 — Persist every AI proposal in booktailor_ai_action_log and apply it only through existing domain services after confirmation — because nothing may mutate before approval and ownership/default-structure rules must remain authoritative
 - [2026-10-26] D-68 — Store Langfuse project credentials in app-level config, make tracing best-effort, and make content logging per-user opt-in — because Langfuse must never block chat and prompt content is private by default
 - [2026-10-26] D-69 — Keep predefined prompts in a server-side catalog with local fallbacks and store user prompts per book — because Langfuse may be unavailable while user-authored prompts must persist
+- [2026-10-29] D-70 — Keep the chapter-level images/ layout with no image metadata table; address images by chapter plus Nextcloud file id — because D-16 already defines storage and file ids survive renames
+- [2026-10-29] D-71 — Accept raster images only after MIME sniffing, reject SVG, and enforce the lower of Nextcloud's upload limit and 10 MiB — because untrusted SVG and oversized uploads are XSS and storage risks
+- [2026-10-29] D-72 — Replace images in place under the same filename and refuse deletion while referenced — because Markdown references must stay valid and the app must not silently rewrite content
+- [2026-10-29] D-73 — Extend the existing Settings screen with storage, limits, and read-only effective defaults without adding preference storage in T7 — because editable settings need a real consumer
+- [2026-10-29] D-74 — Use Playwright against a running Nextcloud with E2E outside npm run check and an env-gated AI stub provider — because critical flows need a real server while default checks stay hermetic
+- [2026-10-29] D-75 — Translate frontend strings and user-facing API messages while keeping logs and internal exception text in English — because support and tests need stable technical messages
+- [2026-10-29] D-76 — Release T7 as version 1.5.0 — because the phase adds user-facing images, settings, and accessibility on top of 1.4.0

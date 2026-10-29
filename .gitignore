@@ -11,3 +11,7 @@
 /js/
 /css/
 /deploy/nextcloud-langfuse.env
+/test-results/
+/playwright-report/
+/blob-report/
+/build/booktailor-*.tar.gz

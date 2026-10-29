@@ -67,6 +67,7 @@ function mountList(showBack = false) {
 				NcEmptyContent: NcEmptyContentStub,
 				NcLoadingIcon: true,
 				NcSelect: true,
+				ChapterImages: true,
 			},
 		},
 	})

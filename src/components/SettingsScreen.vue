@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import type { AiAction, AiProfile, AiPrompt, AiSettings } from '../types'
+import type { AiAction, AiProfile, AiPrompt, AiSettings, SettingsInfo } from '../types'
 import { computed, onMounted, ref, watch } from 'vue'
+import { t } from '@nextcloud/l10n'
+import { generateUrl } from '@nextcloud/router'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
@@ -10,11 +12,13 @@ import AiProfileCard from './settings/AiProfileCard.vue'
 import AiProfileDialog from './settings/AiProfileDialog.vue'
 import AiPromptDialog from './settings/AiPromptDialog.vue'
 import { api, ApiError } from '../api/client'
+import { formatFileSize } from '../utils/images'
 import { useLibrary } from '../stores/useLibrary'
 
 const { selectedBook, selectedBookId } = useLibrary()
 
 const settings = ref<AiSettings | null>(null)
+const general = ref<SettingsInfo | null>(null)
 const actions = ref<AiAction[]>([])
 const prompts = ref<AiPrompt[]>([])
 const promptsLoading = ref(false)
@@ -36,12 +40,24 @@ function messageFor(errorValue: unknown, fallback: string): string {
 async function load(): Promise<void> {
 	loading.value = true
 	error.value = null
-	try {
-		settings.value = await api.ai.settings()
-	} catch (errorValue) {
-		error.value = messageFor(errorValue, 'Could not load AI settings.')
-	} finally {
-		loading.value = false
+	const [ai, info] = await Promise.allSettled([api.ai.settings(), api.settings()])
+	if (ai.status === 'fulfilled') {
+		settings.value = ai.value
+	}
+	if (info.status === 'fulfilled') {
+		general.value = info.value
+	}
+	const failure = ai.status === 'rejected' ? ai.reason : (info.status === 'rejected' ? info.reason : null)
+	if (failure !== null) {
+		error.value = messageFor(failure, t('booktailor', 'Could not load settings.'))
+	}
+	loading.value = false
+}
+
+function openStorageFolder(): void {
+	const root = general.value?.storage.root
+	if (root) {
+		window.open(`${generateUrl('/apps/files/')}?dir=${encodeURIComponent(`/${root}`)}`, '_blank', 'noopener')
 	}
 }
 
@@ -124,7 +140,7 @@ async function selectProfile(profile: AiProfile): Promise<void> {
 			settings.value = { ...settings.value, profiles: updated }
 		}
 	} catch (errorValue) {
-		error.value = messageFor(errorValue, 'Could not update the active profile.')
+		error.value = messageFor(errorValue, t('booktailor', 'Could not update the active profile.'))
 	} finally {
 		busy.value = false
 	}
@@ -151,7 +167,7 @@ async function onContentLoggingChange(value: boolean | string): Promise<void> {
 		const updated = await api.ai.updateSettings(enabled)
 		settings.value = { ...settings.value, contentLogging: updated.contentLogging }
 	} catch (errorValue) {
-		error.value = messageFor(errorValue, 'Could not update AI privacy settings.')
+		error.value = messageFor(errorValue, t('booktailor', 'Could not update AI privacy settings.'))
 	} finally {
 		busy.value = false
 	}
@@ -176,10 +192,10 @@ function actionDate(action: AiAction): string {
 			<header :class="$style.header">
 				<div>
 					<h2 :class="$style.title">
-						Settings
+						{{ t('booktailor', 'Settings') }}
 					</h2>
 					<p :class="$style.subtitle">
-						Manage AI providers, privacy, and observability for BookTailor.
+						{{ t('booktailor', 'Manage storage, defaults, AI providers, privacy, and observability for BookTailor.') }}
 					</p>
 				</div>
 			</header>
@@ -188,7 +204,7 @@ function actionDate(action: AiAction): string {
 
 			<div v-if="loading" :class="$style.loading">
 				<NcLoadingIcon :size="32" />
-				<span>Loading AI settings…</span>
+				<span>{{ t('booktailor', 'Loading AI settings…') }}</span>
 			</div>
 
 			<template v-else>
@@ -196,24 +212,126 @@ function actionDate(action: AiAction): string {
 					<div :class="$style.sectionHeader">
 						<div>
 							<h3 :class="$style.sectionTitle">
-								AI provider profiles
+								{{ t('booktailor', 'Storage') }}
 							</h3>
 							<p :class="$style.sectionDesc">
-								Add a DeepSeek or SiliconFlow key and choose one active profile.
+								{{ t('booktailor', 'Books, chapters, assets, images, and compositions live in your Nextcloud files.') }}
+							</p>
+						</div>
+						<NcButton :disabled="general === null" @click="openStorageFolder">
+							{{ t('booktailor', 'Open in Files') }}
+						</NcButton>
+					</div>
+
+					<dl :class="$style.infoGrid">
+						<div :class="$style.infoItem">
+							<dt :class="$style.infoLabel">
+								{{ t('booktailor', 'Storage location') }}
+							</dt>
+							<dd :class="$style.infoValue">
+								{{ t('booktailor', '{root}/ (in your files)', { root: general?.storage.root ?? 'BookTailor' }) }}
+							</dd>
+						</div>
+						<div :class="$style.infoItem">
+							<dt :class="$style.infoLabel">
+								{{ t('booktailor', 'Upload limit') }}
+							</dt>
+							<dd :class="$style.infoValue">
+								{{ general ? formatFileSize(general.limits.uploadBytes) : '—' }}
+							</dd>
+						</div>
+						<div :class="$style.infoItem">
+							<dt :class="$style.infoLabel">
+								{{ t('booktailor', 'Image limit') }}
+							</dt>
+							<dd :class="$style.infoValue">
+								{{ general ? formatFileSize(general.limits.imageUploadBytes) : '—' }}
+								<span v-if="general" :class="$style.infoDetail">
+									{{ general.limits.imageTypes.map((type) => type.replace('image/', '')).join(', ') }}
+								</span>
+							</dd>
+						</div>
+					</dl>
+				</section>
+
+				<section :class="$style.section">
+					<div :class="$style.sectionHeader">
+						<div>
+							<h3 :class="$style.sectionTitle">
+								{{ t('booktailor', 'Defaults and about') }}
+							</h3>
+							<p :class="$style.sectionDesc">
+								{{ t('booktailor', 'These are the effective defaults in this release. No separate preference is stored.') }}
+							</p>
+						</div>
+					</div>
+
+					<dl :class="$style.infoGrid">
+						<div :class="$style.infoItem">
+							<dt :class="$style.infoLabel">
+								{{ t('booktailor', 'Editor') }}
+							</dt>
+							<dd :class="$style.infoValue">
+								{{ general?.defaults.editor === 'text' ? t('booktailor', 'Nextcloud Text') : (general?.defaults.editor ?? t('booktailor', 'Nextcloud Text')) }}
+							</dd>
+						</div>
+						<div :class="$style.infoItem">
+							<dt :class="$style.infoLabel">
+								{{ t('booktailor', 'Composition') }}
+							</dt>
+							<dd :class="$style.infoValue">
+								{{ general?.defaults.compositionFormat === 'markdown' ? t('booktailor', 'Markdown in compositions/') : (general?.defaults.compositionFormat ?? t('booktailor', 'Markdown')) }}
+							</dd>
+						</div>
+						<div :class="$style.infoItem">
+							<dt :class="$style.infoLabel">
+								{{ t('booktailor', 'AI transport') }}
+							</dt>
+							<dd :class="$style.infoValue">
+								{{ general?.defaults.aiTransport === 'json' ? t('booktailor', 'Synchronous JSON') : (general?.defaults.aiTransport ?? t('booktailor', 'JSON')) }}
+							</dd>
+						</div>
+						<div :class="$style.infoItem">
+							<dt :class="$style.infoLabel">
+								{{ t('booktailor', 'BookTailor') }}
+							</dt>
+							<dd :class="$style.infoValue">
+								{{ general?.app.version ?? '—' }}
+							</dd>
+						</div>
+						<div :class="$style.infoItem">
+							<dt :class="$style.infoLabel">
+								{{ t('booktailor', 'Nextcloud') }}
+							</dt>
+							<dd :class="$style.infoValue">
+								{{ general?.app.nextcloudVersion ?? '—' }}
+							</dd>
+						</div>
+					</dl>
+				</section>
+
+				<section :class="$style.section">
+					<div :class="$style.sectionHeader">
+						<div>
+							<h3 :class="$style.sectionTitle">
+								{{ t('booktailor', 'AI provider profiles') }}
+							</h3>
+							<p :class="$style.sectionDesc">
+								{{ t('booktailor', 'Add a DeepSeek or SiliconFlow key and choose one active profile.') }}
 							</p>
 						</div>
 						<NcButton variant="primary" :disabled="busy" @click="addProfile">
-							Add AI profile
+							{{ t('booktailor', 'Add AI profile') }}
 						</NcButton>
 					</div>
 
 					<NcEmptyContent
 						v-if="profiles.length === 0"
-						name="No AI profiles configured"
-						description="Add an API key to enable the assistant. Keys are encrypted and never returned to the browser.">
+						:name="t('booktailor', 'No AI profiles configured')"
+						:description="t('booktailor', 'Add an API key to enable the assistant. Keys are encrypted and never returned to the browser.')">
 						<template #action>
 							<NcButton variant="primary" :disabled="busy" @click="addProfile">
-								Add AI profile
+								{{ t('booktailor', 'Add AI profile') }}
 							</NcButton>
 						</template>
 					</NcEmptyContent>
@@ -233,28 +351,28 @@ function actionDate(action: AiAction): string {
 					<div :class="$style.sectionHeader">
 						<div>
 							<h3 :class="$style.sectionTitle">
-								Saved prompts
+								{{ t('booktailor', 'Saved prompts') }}
 							</h3>
 							<p :class="$style.sectionDesc">
-								Reusable instructions for {{ selectedBook?.name ?? 'the selected book' }}.
+								{{ t('booktailor', 'Reusable instructions for {book}.', { book: selectedBook?.name ?? t('booktailor', 'the selected book') }) }}
 							</p>
 						</div>
 						<NcButton variant="primary" :disabled="selectedBookId === null || promptsLoading" @click="addPrompt">
-							Add prompt
+							{{ t('booktailor', 'Add prompt') }}
 						</NcButton>
 					</div>
 
 					<p v-if="selectedBookId === null" :class="$style.hint">
-						Select a book to manage saved prompts.
+						{{ t('booktailor', 'Select a book to manage saved prompts.') }}
 					</p>
 					<div v-else-if="promptsLoading" :class="$style.loading">
 						<NcLoadingIcon :size="24" />
-						<span>Loading prompts…</span>
+						<span>{{ t('booktailor', 'Loading prompts…') }}</span>
 					</div>
 					<NcEmptyContent
 						v-else-if="prompts.length === 0"
-						name="No saved prompts"
-						description="Save a reusable instruction for this book." />
+						:name="t('booktailor', 'No saved prompts')"
+						:description="t('booktailor', 'Save a reusable instruction for this book.')" />
 					<ul v-else :class="$style.promptList">
 						<li v-for="prompt in prompts" :key="prompt.id" :class="$style.promptItem">
 							<div :class="$style.promptMain">
@@ -262,7 +380,7 @@ function actionDate(action: AiAction): string {
 								<span :class="$style.promptText">{{ prompt.text }}</span>
 							</div>
 							<NcButton variant="secondary" @click="editPrompt(prompt)">
-								Edit
+								{{ t('booktailor', 'Edit') }}
 							</NcButton>
 						</li>
 					</ul>
@@ -272,10 +390,10 @@ function actionDate(action: AiAction): string {
 					<div :class="$style.sectionHeader">
 						<div>
 							<h3 :class="$style.sectionTitle">
-								Privacy and observability
+								{{ t('booktailor', 'Privacy and observability') }}
 							</h3>
 							<p :class="$style.sectionDesc">
-								Langfuse traces are best-effort. Prompt and response content is sent only when you opt in.
+								{{ t('booktailor', 'Langfuse traces are best-effort. Prompt and response content is sent only when you opt in.') }}
 							</p>
 						</div>
 					</div>
@@ -285,14 +403,14 @@ function actionDate(action: AiAction): string {
 						type="switch"
 						:disabled="busy"
 						@update:model-value="onContentLoggingChange">
-						Send prompt and response content to Langfuse
+						{{ t('booktailor', 'Send prompt and response content to Langfuse') }}
 					</NcCheckboxRadioSwitch>
 
 					<NcNoteCard
 						:type="settings?.langfuse.configured ? 'success' : 'info'"
 						:text="settings?.langfuse.configured
-							? 'Langfuse is configured for this app. Trace ids appear in chat responses.'
-							: 'Langfuse is not configured. Set the app-level URL, public key, and secret key in Nextcloud app config.'" />
+							? t('booktailor', 'Langfuse is configured for this app. Trace ids appear in chat responses.')
+							: t('booktailor', 'Langfuse is not configured. Set the app-level URL, public key, and secret key in Nextcloud app config.')" />
 					<p v-if="settings?.langfuse.url" :class="$style.hint">
 						Langfuse: <a :href="settings.langfuse.url" target="_blank" rel="noopener noreferrer">{{ settings.langfuse.url }}</a>
 					</p>
@@ -302,26 +420,25 @@ function actionDate(action: AiAction): string {
 					<div :class="$style.sectionHeader">
 						<div>
 							<h3 :class="$style.sectionTitle">
-								AI action history
+								{{ t('booktailor', 'AI action history') }}
 							</h3>
 							<p :class="$style.sectionDesc">
-								Proposed, applied, rejected, and failed actions for
-								{{ selectedBook?.name ?? 'the selected book' }}.
+								{{ t('booktailor', 'Proposed, applied, rejected, and failed actions for {book}.', { book: selectedBook?.name ?? t('booktailor', 'the selected book') }) }}
 							</p>
 						</div>
 					</div>
 
 					<p v-if="selectedBookId === null" :class="$style.hint">
-						Select a book to view its AI action history.
+						{{ t('booktailor', 'Select a book to view its AI action history.') }}
 					</p>
 					<div v-else-if="actionsLoading" :class="$style.loading">
 						<NcLoadingIcon :size="24" />
-						<span>Loading history…</span>
+						<span>{{ t('booktailor', 'Loading history…') }}</span>
 					</div>
 					<NcEmptyContent
 						v-else-if="actions.length === 0"
-						name="No AI actions yet"
-						description="Approved, rejected, and proposed AI changes will appear here." />
+						:name="t('booktailor', 'No AI actions yet')"
+						:description="t('booktailor', 'Approved, rejected, and proposed AI changes will appear here.')" />
 					<ul v-else :class="$style.actionList">
 						<li v-for="action in actions" :key="action.id" :class="$style.actionItem">
 							<span :class="[$style.actionStatus, $style[`status${action.status}`]]">{{ action.status }}</span>
@@ -421,6 +538,41 @@ function actionDate(action: AiAction): string {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+}
+
+.infoGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+	gap: 12px;
+	margin: 0;
+}
+
+.infoItem {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	padding: 10px 12px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius);
+	background: var(--color-background-hover);
+}
+
+.infoLabel {
+	color: var(--color-text-maxcontrast);
+	font-size: var(--font-size-small, 12px);
+}
+
+.infoValue {
+	margin: 0;
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+.infoDetail {
+	display: block;
+	color: var(--color-text-maxcontrast);
+	font-size: var(--font-size-small, 12px);
+	font-weight: 400;
 }
 
 .loading {
