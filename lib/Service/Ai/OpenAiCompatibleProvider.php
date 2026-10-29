@@ -72,15 +72,25 @@ class OpenAiCompatibleProvider implements AiProviderInterface {
 				throw new AiProviderException('The AI provider returned an invalid response');
 			}
 
-			/** @var array{choices?: list<array{message?: array{content?: string}, finish_reason?: string}>, model?: string, usage?: array<string, mixed>} $decoded */
-			$content = $decoded['choices'][0]['message']['content'] ?? null;
-			if (!is_string($content) || trim($content) === '') {
-				throw new AiProviderException('The AI provider returned an empty response');
-			}
+			/** @var array{choices?: list<array{message?: array{content?: string, reasoning_content?: string}, finish_reason?: string}>, model?: string, usage?: array<string, mixed>} $decoded */
+			$choice = $decoded['choices'][0] ?? [];
+			$message = $choice['message'] ?? [];
+			$content = $message['content'] ?? null;
+			$content = is_string($content) ? $content : '';
+			$reasoningContent = $message['reasoning_content'] ?? null;
 
-			$finishReason = $decoded['choices'][0]['finish_reason'] ?? null;
+			$finishReason = $choice['finish_reason'] ?? null;
 			$resolvedModel = $decoded['model'] ?? $model;
 			$usage = $decoded['usage'] ?? [];
+
+			if (trim($content) === '') {
+				$this->logger->warning('BookTailor AI provider returned an empty response', [
+					'provider' => $provider,
+					'model' => $resolvedModel,
+					'finishReason' => $finishReason,
+					'hasReasoningContent' => is_string($reasoningContent) && trim($reasoningContent) !== '',
+				]);
+			}
 
 			return new AiCompletion(
 				$content,

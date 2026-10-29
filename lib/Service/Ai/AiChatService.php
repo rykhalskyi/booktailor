@@ -112,6 +112,20 @@ class AiChatService {
 				$completion = $this->completeWithBudget($provider, $credentials['apiKey'], $model, $messages, $options);
 				$lastOutput = $completion->content;
 				$usage = $completion->usage;
+
+				if (trim($completion->content) === '') {
+					if ($completion->finishReason === 'length') {
+						$reply = 'The AI response was too long and was cut off before it could answer. '
+							. 'Increase "Max tokens" in the AI profile settings, or ask for a smaller batch.';
+						$warnings[] = 'The model reached its output token limit.';
+					} else {
+						$reply = 'The AI provider returned an empty response. Please try again, '
+							. 'or check the model and "Max tokens" in the AI profile settings.';
+						$warnings[] = 'The AI provider returned an empty response.';
+					}
+					break;
+				}
+
 				$parsed = $this->parseJsonObject($completion->content);
 
 				if ($parsed === null) {
@@ -224,10 +238,19 @@ class AiChatService {
 		$completion = $provider->complete($apiKey, $model, $messages, $options);
 
 		for ($attempt = 1; $attempt < self::MAX_COMPLETION_ATTEMPTS; $attempt++) {
-			if ($completion->finishReason !== 'length' || $maxTokens >= $ceiling) {
+			$isEmpty = trim($completion->content) === '';
+			if ($completion->finishReason === 'length' && $maxTokens >= $ceiling) {
 				return $completion;
 			}
-			$maxTokens = min($ceiling, $maxTokens * 2);
+			if (!$isEmpty && $completion->finishReason !== 'length') {
+				return $completion;
+			}
+			if ($completion->finishReason === 'length') {
+				$maxTokens = min($ceiling, $maxTokens * 2);
+			} elseif ($attempt > 1) {
+				return $completion;
+			}
+
 			$options['maxTokens'] = $maxTokens;
 			$completion = $provider->complete($apiKey, $model, $messages, $options);
 		}

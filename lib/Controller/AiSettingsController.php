@@ -180,6 +180,13 @@ class AiSettingsController extends AbstractApiController {
 				throw new ApiException($e->getMessage(), 502);
 			}
 
+			if (trim($completion->content) === '') {
+				throw new ApiException(
+					'The AI provider returned an empty response. Check the model and "Max tokens" in the AI profile settings.',
+					502,
+				);
+			}
+
 			return new DataResponse([
 				'ok' => true,
 				'model' => $completion->model,

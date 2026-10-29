@@ -52,6 +52,30 @@ final class OpenAiCompatibleProviderTest extends TestCase {
 		$this->assertSame('stop', $completion->finishReason);
 	}
 
+	public function testEmptyContentIsReturnedWithFinishReason(): void {
+		$response = $this->createMock(IResponse::class);
+		$response->method('getStatusCode')->willReturn(200);
+		$response->method('getBody')->willReturn((string)json_encode([
+			'model' => 'deepseek-reasoner',
+			'choices' => [['message' => ['content' => '', 'reasoning_content' => 'Thinking...'], 'finish_reason' => 'length']],
+			'usage' => ['total_tokens' => 5],
+		]));
+
+		$client = $this->createMock(IClient::class);
+		$client->method('post')->willReturn($response);
+
+		$clientService = $this->createMock(IClientService::class);
+		$clientService->method('newClient')->willReturn($client);
+		$provider = new OpenAiCompatibleProvider($clientService, $this->createMock(LoggerInterface::class));
+
+		$completion = $provider->complete('sk-secret', 'deepseek-reasoner', [
+			['role' => 'user', 'content' => 'Hi'],
+		], ['provider' => 'deepseek']);
+
+		$this->assertSame('', $completion->content);
+		$this->assertSame('length', $completion->finishReason);
+	}
+
 	public function testProviderErrorDoesNotLeakTheKey(): void {
 		$response = $this->createMock(IResponse::class);
 		$response->method('getStatusCode')->willReturn(401);
