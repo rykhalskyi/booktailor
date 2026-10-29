@@ -109,6 +109,10 @@ class LangfuseService {
 	/**
 	 * Send one generation to Langfuse through OTLP. Best-effort: never throws.
 	 *
+	 * Langfuse v4 has no separate trace input/output: the overall request and
+	 * response belong on the root observation, so they are set on the root span
+	 * as well as on the generation.
+	 *
 	 * @param array<string, mixed> $usage
 	 */
 	public function traceGeneration(
@@ -121,6 +125,8 @@ class LangfuseService {
 		?int $promptVersion = null,
 		array $usage = [],
 		bool $contentLogging = false,
+		?int $startTimeUnixNano = null,
+		?int $endTimeUnixNano = null,
 	): ?string {
 		if (!$this->isConfigured()) {
 			return null;
@@ -129,8 +135,11 @@ class LangfuseService {
 		$traceId = bin2hex(random_bytes(16));
 		$rootSpanId = bin2hex(random_bytes(8));
 		$generationSpanId = bin2hex(random_bytes(8));
-		$start = (int)round(microtime(true) * 1000000000.0);
-		$end = $start;
+		$start = $startTimeUnixNano ?? (int)round(microtime(true) * 1000000000.0);
+		$end = $endTimeUnixNano ?? $start;
+		if ($end < $start) {
+			$end = $start;
+		}
 
 		$traceAttributes = [
 			['key' => 'langfuse.trace.name', 'value' => ['stringValue' => $traceName]],
@@ -144,6 +153,8 @@ class LangfuseService {
 			['key' => 'langfuse.observation.model.name', 'value' => ['stringValue' => $model]],
 		];
 		if ($contentLogging) {
+			$traceAttributes[] = ['key' => 'langfuse.observation.input', 'value' => ['stringValue' => $this->truncate($input)]];
+			$traceAttributes[] = ['key' => 'langfuse.observation.output', 'value' => ['stringValue' => $this->truncate($output)]];
 			$generationAttributes[] = ['key' => 'langfuse.observation.input', 'value' => ['stringValue' => $this->truncate($input)]];
 			$generationAttributes[] = ['key' => 'langfuse.observation.output', 'value' => ['stringValue' => $this->truncate($output)]];
 		}

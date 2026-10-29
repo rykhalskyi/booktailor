@@ -281,6 +281,8 @@ final class AiChatServiceTest extends TestCase {
 				null,
 				[],
 				false,
+				$this->anything(),
+				$this->anything(),
 			)
 			->willReturn('trace-3');
 
@@ -313,6 +315,8 @@ final class AiChatServiceTest extends TestCase {
 				null,
 				[],
 				false,
+				$this->anything(),
+				$this->anything(),
 			)
 			->willReturn('trace-2');
 
