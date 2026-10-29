@@ -15,6 +15,7 @@ class MarkdownComposer {
 	/** @psalm-suppress PossiblyUnusedMethod */
 	public function __construct(
 		private readonly StorageService $storage,
+		private readonly ImageReferenceParser $imageReferences,
 	) {
 	}
 
@@ -124,39 +125,12 @@ class MarkdownComposer {
 	 * @param array<int, string> $copiedImages
 	 */
 	private function rewriteImageUrl(Book $book, Chapter $chapter, Asset $asset, string $url, array &$copiedImages): string {
-		$trimmed = trim($url);
-		$wrapped = false;
-		if (str_starts_with($trimmed, '<') && str_ends_with($trimmed, '>')) {
-			$wrapped = true;
-			$trimmed = substr($trimmed, 1, -1);
-		}
-
-		if ($trimmed === ''
-			|| preg_match('#^[a-z][a-z0-9+.-]*:#i', $trimmed) === 1
-			|| str_starts_with($trimmed, '//')
-			|| str_starts_with($trimmed, '#')) {
+		$parsed = $this->imageReferences->parseUrl($url);
+		if ($parsed === null) {
 			return $url;
 		}
 
-		$suffix = '';
-		if (preg_match('/^([^?#]*)([?#].*)$/', $trimmed, $parts) === 1) {
-			$trimmed = $parts[1];
-			$suffix = $parts[2];
-		}
-
-		if (preg_match('#^\.?/?images/([^/]+)$#i', $trimmed, $parts) !== 1) {
-			return $url;
-		}
-
-		$name = rawurldecode($parts[1]);
-		if ($name === ''
-			|| $name === '.'
-			|| $name === '..'
-			|| str_contains($name, '/')
-			|| str_contains($name, '\\')) {
-			return $url;
-		}
-
+		$name = $parsed['name'];
 		$chapterFolder = $this->storage->getChapterFolderForUser($book->getUserId(), $chapter);
 		if (!$chapterFolder->nodeExists('images')) {
 			throw new ValidationException('Image "' . $name . '" referenced by "' . $asset->getName() . '" is missing');
@@ -177,8 +151,8 @@ class MarkdownComposer {
 			$copiedImages[$fileId] = $this->storage->copyCompositionImage($book, $image);
 		}
 
-		$destination = 'images/' . rawurlencode($copiedImages[$fileId]) . $suffix;
+		$destination = 'images/' . rawurlencode($copiedImages[$fileId]) . $parsed['suffix'];
 
-		return $wrapped ? '<' . $destination . '>' : $destination;
+		return $parsed['wrapped'] ? '<' . $destination . '>' : $destination;
 	}
 }

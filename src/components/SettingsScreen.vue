@@ -40,15 +40,18 @@ function messageFor(errorValue: unknown, fallback: string): string {
 async function load(): Promise<void> {
 	loading.value = true
 	error.value = null
-	try {
-		const [ai, info] = await Promise.all([api.ai.settings(), api.settings()])
-		settings.value = ai
-		general.value = info
-	} catch (errorValue) {
-		error.value = messageFor(errorValue, t('booktailor', 'Could not load settings.'))
-	} finally {
-		loading.value = false
+	const [ai, info] = await Promise.allSettled([api.ai.settings(), api.settings()])
+	if (ai.status === 'fulfilled') {
+		settings.value = ai.value
 	}
+	if (info.status === 'fulfilled') {
+		general.value = info.value
+	}
+	const failure = ai.status === 'rejected' ? ai.reason : (info.status === 'rejected' ? info.reason : null)
+	if (failure !== null) {
+		error.value = messageFor(failure, t('booktailor', 'Could not load settings.'))
+	}
+	loading.value = false
 }
 
 function openStorageFolder(): void {
@@ -192,7 +195,7 @@ function actionDate(action: AiAction): string {
 						{{ t('booktailor', 'Settings') }}
 					</h2>
 					<p :class="$style.subtitle">
-						{{ t('booktailor', 'Manage AI providers, privacy, and observability for BookTailor.') }}
+						{{ t('booktailor', 'Manage storage, defaults, AI providers, privacy, and observability for BookTailor.') }}
 					</p>
 				</div>
 			</header>
@@ -269,7 +272,7 @@ function actionDate(action: AiAction): string {
 								{{ t('booktailor', 'Editor') }}
 							</dt>
 							<dd :class="$style.infoValue">
-								{{ general?.defaults.editor === 'text' ? 'Nextcloud Text' : (general?.defaults.editor ?? 'Nextcloud Text') }}
+								{{ general?.defaults.editor === 'text' ? t('booktailor', 'Nextcloud Text') : (general?.defaults.editor ?? t('booktailor', 'Nextcloud Text')) }}
 							</dd>
 						</div>
 						<div :class="$style.infoItem">
@@ -277,7 +280,7 @@ function actionDate(action: AiAction): string {
 								{{ t('booktailor', 'Composition') }}
 							</dt>
 							<dd :class="$style.infoValue">
-								{{ general?.defaults.compositionFormat === 'markdown' ? 'Markdown in compositions/' : (general?.defaults.compositionFormat ?? 'Markdown') }}
+								{{ general?.defaults.compositionFormat === 'markdown' ? t('booktailor', 'Markdown in compositions/') : (general?.defaults.compositionFormat ?? t('booktailor', 'Markdown')) }}
 							</dd>
 						</div>
 						<div :class="$style.infoItem">
@@ -285,7 +288,7 @@ function actionDate(action: AiAction): string {
 								{{ t('booktailor', 'AI transport') }}
 							</dt>
 							<dd :class="$style.infoValue">
-								{{ general?.defaults.aiTransport === 'json' ? 'Synchronous JSON' : (general?.defaults.aiTransport ?? 'JSON') }}
+								{{ general?.defaults.aiTransport === 'json' ? t('booktailor', 'Synchronous JSON') : (general?.defaults.aiTransport ?? t('booktailor', 'JSON')) }}
 							</dd>
 						</div>
 						<div :class="$style.infoItem">

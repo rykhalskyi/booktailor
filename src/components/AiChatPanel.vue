@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AiAction, AiPrompt } from '../types'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { n, t } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -36,13 +37,13 @@ interface PromptOption {
 }
 
 const prompts = ref<AiPrompt[]>([])
-const selectedPrompt = ref<PromptOption>({ key: 'chat', label: 'Free-form chat', promptText: '' })
+const selectedPrompt = ref<PromptOption>({ key: 'chat', label: t('booktailor', 'Free-form chat'), promptText: '' })
 
 const promptOptions = computed<PromptOption[]>(() => [
-	{ key: 'chat', label: 'Free-form chat', promptText: '' },
-	{ key: 'summarize', label: 'Summarize chapter', promptText: 'Summarize the selected chapter.' },
-	{ key: 'extract-terms', label: 'Extract terms', promptText: 'Extract and define the key terms in the selected chapter.' },
-	{ key: 'ask-book', label: 'Ask the book', promptText: 'Answer my question using the book as context.' },
+	{ key: 'chat', label: t('booktailor', 'Free-form chat'), promptText: '' },
+	{ key: 'summarize', label: t('booktailor', 'Summarize chapter'), promptText: 'Summarize the selected chapter.' },
+	{ key: 'extract-terms', label: t('booktailor', 'Extract terms'), promptText: 'Extract and define the key terms in the selected chapter.' },
+	{ key: 'ask-book', label: t('booktailor', 'Ask the book'), promptText: 'Answer my question using the book as context.' },
 	...prompts.value.map((prompt) => ({ id: prompt.id, label: prompt.name, promptText: prompt.text })),
 ])
 
@@ -71,7 +72,7 @@ onMounted(loadPrompts)
 watch(selectedBookId, () => {
 	chat.reset()
 	loadPrompts()
-	selectedPrompt.value = { key: 'chat', label: 'Free-form chat', promptText: '' }
+	selectedPrompt.value = { key: 'chat', label: t('booktailor', 'Free-form chat'), promptText: '' }
 })
 
 watch(selectedStructureId, () => {
@@ -79,7 +80,7 @@ watch(selectedStructureId, () => {
 })
 
 const contextLabel = computed(() => {
-	const parts = [selectedBook.value?.name ?? 'No book']
+	const parts = [selectedBook.value?.name ?? t('booktailor', 'No book')]
 	if (selectedStructure.value) {
 		parts.push(selectedStructure.value.name)
 	}
@@ -87,7 +88,7 @@ const contextLabel = computed(() => {
 		parts.push(selectedChapter.value.name)
 	}
 	if (selectedAssets.value.length > 0) {
-		parts.push(`${selectedAssets.value.length} asset${selectedAssets.value.length === 1 ? '' : 's'}`)
+		parts.push(n('booktailor', '%n asset', '%n assets', selectedAssets.value.length))
 	}
 	return parts.join(' / ')
 })
@@ -154,11 +155,11 @@ function onKeydown(event: KeyboardEvent): void {
 </script>
 
 <template>
-	<aside :class="$style.panel" aria-label="AI assistant">
+	<aside :class="$style.panel" :aria-label="t('booktailor', 'AI assistant')">
 		<header :class="$style.header">
 			<div>
 				<h2 :class="$style.title">
-					AI assistant
+					{{ t('booktailor', 'AI assistant') }}
 				</h2>
 				<p :class="$style.context">
 					{{ contextLabel }}
@@ -172,7 +173,7 @@ function onKeydown(event: KeyboardEvent): void {
 				:key="message.id"
 				:class="[$style.message, message.role === 'user' ? $style.userMessage : $style.assistantMessage]">
 				<div :class="$style.messageRole">
-					{{ message.role === 'user' ? 'You' : 'BookTailor AI' }}
+					{{ message.role === 'user' ? t('booktailor', 'You') : t('booktailor', 'BookTailor AI') }}
 				</div>
 				<div :class="$style.messageContent">
 					{{ message.content }}
@@ -190,15 +191,15 @@ function onKeydown(event: KeyboardEvent): void {
 						@decided="onDecided" />
 				</div>
 				<div v-if="message.traceId" :class="$style.trace">
-					Langfuse trace: <code>{{ message.traceId }}</code>
+					{{ t('booktailor', 'Langfuse trace:') }} <code>{{ message.traceId }}</code>
 				</div>
 			</div>
 
 			<div v-if="chat.loading.value" :class="$style.loadingRow">
 				<NcLoadingIcon :size="20" />
-				<span>The assistant is thinking…</span>
+				<span>{{ t('booktailor', 'The assistant is thinking…') }}</span>
 				<NcButton variant="tertiary" @click="chat.abort">
-					Cancel
+					{{ t('booktailor', 'Cancel') }}
 				</NcButton>
 			</div>
 		</div>
@@ -210,7 +211,7 @@ function onKeydown(event: KeyboardEvent): void {
 			variant="secondary"
 			:disabled="chat.loading.value || chat.lastRequest.value === null"
 			@click="chat.retry">
-			Retry
+			{{ t('booktailor', 'Retry') }}
 		</NcButton>
 
 		<div :class="$style.composer">
@@ -218,7 +219,7 @@ function onKeydown(event: KeyboardEvent): void {
 				v-model="input"
 				:class="$style.input"
 				rows="3"
-				placeholder="Ask about the book or request a change…"
+				:placeholder="t('booktailor', 'Ask about the book or request a change…')"
 				:disabled="chat.loading.value"
 				@keydown="onKeydown" />
 			<div :class="$style.composerActions">
@@ -227,13 +228,13 @@ function onKeydown(event: KeyboardEvent): void {
 						:model-value="selectedPrompt"
 						:options="promptOptions"
 						label="label"
-						input-label="Prompt"
+						:input-label="t('booktailor', 'Prompt')"
 						:clearable="false"
 						:disabled="chat.loading.value"
 						@update:model-value="onPromptChange" />
 				</div>
 				<NcButton variant="primary" :disabled="chat.loading.value || input.trim() === ''" @click="send">
-					Send
+					{{ t('booktailor', 'Send') }}
 				</NcButton>
 			</div>
 		</div>

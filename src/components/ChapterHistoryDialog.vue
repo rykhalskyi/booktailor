@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
+import { t } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
@@ -40,16 +41,16 @@ async function selectAsset(asset: Asset): Promise<void> {
 <template>
 	<NcDialog
 		:open="chapter !== null"
-		:name="chapter ? `History — ${chapter.name}` : 'History'"
+		:name="chapter ? t('booktailor', 'History — {name}', { name: chapter.name }) : t('booktailor', 'History')"
 		size="small"
 		@closing="closeDialog">
 		<div class="chapter-history">
 			<NcNoteCard v-if="error" type="error" :text="error" />
 			<div v-if="loading" class="chapter-history-state">
-				<NcLoadingIcon name="Loading assets" />
+				<NcLoadingIcon :name="t('booktailor', 'Loading assets')" />
 			</div>
 			<p v-else-if="chapterAssets.length === 0" class="chapter-history-empty">
-				This chapter has no assets yet.
+				{{ t('booktailor', 'This chapter has no assets yet.') }}
 			</p>
 			<ul v-else class="chapter-history-list">
 				<li v-for="asset in chapterAssets" :key="asset.id">
@@ -61,7 +62,7 @@ async function selectAsset(asset: Asset): Promise<void> {
 		</div>
 		<template #actions>
 			<NcButton variant="tertiary" @click="closeDialog">
-				Cancel
+				{{ t('booktailor', 'Cancel') }}
 			</NcButton>
 		</template>
 	</NcDialog>

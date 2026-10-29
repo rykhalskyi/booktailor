@@ -82,8 +82,14 @@ class ImageController extends AbstractApiController {
 	private function uploadedFile(): array {
 		/** @var array{name?: string, tmp_name?: string, error?: int, size?: int, type?: string}|null $upload */
 		$upload = $this->request->getUploadedFile('file');
-		if ($upload === null || ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-			throw new ValidationException($this->l10n->t('An image file is required'));
+		$error = $upload['error'] ?? UPLOAD_ERR_NO_FILE;
+		if ($upload === null || $error !== UPLOAD_ERR_OK) {
+			throw new ValidationException(match ($error) {
+				UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => $this->l10n->t('The image exceeds the server upload limit'),
+				UPLOAD_ERR_PARTIAL => $this->l10n->t('The image upload was incomplete'),
+				UPLOAD_ERR_NO_FILE => $this->l10n->t('An image file is required'),
+				default => $this->l10n->t('The image could not be uploaded'),
+			});
 		}
 
 		$tmpName = $upload['tmp_name'] ?? '';

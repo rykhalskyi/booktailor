@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { provide, ref, watch } from 'vue'
+import { t } from '@nextcloud/l10n'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import { useLibrary } from '../stores/useLibrary'
@@ -101,17 +102,17 @@ function onKeydown(event: KeyboardEvent): void {
 <template>
 	<div ref="treeRoot" class="chapter-tree" @keydown="onKeydown">
 		<div v-if="loading.tree" class="chapter-tree-state">
-			<NcLoadingIcon name="Loading chapters" />
+			<NcLoadingIcon :name="t('booktailor', 'Loading chapters')" />
 		</div>
 		<NcEmptyContent
 			v-else-if="chapters.length === 0"
-			name="No chapters"
-			description="Add a root chapter to start building the book." />
+			:name="t('booktailor', 'No chapters')"
+			:description="t('booktailor', 'Add a root chapter to start building the book.')" />
 		<ul
 			v-else
 			class="chapter-tree-list"
 			role="tree"
-			aria-label="Chapters">
+			:aria-label="t('booktailor', 'Chapters')">
 			<ChapterNode
 				v-for="chapter in chapters"
 				:key="chapter.id"

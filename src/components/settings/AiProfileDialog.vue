@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AiProfile, AiProfilePayload, AiProvider } from '../../types'
 import { computed, ref, watch } from 'vue'
+import { t } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -100,7 +101,7 @@ async function submit(): Promise<void> {
 		}
 		emit('update:open', false)
 	} catch (errorValue) {
-		error.value = errorMessage(errorValue, 'Could not save the AI profile.')
+		error.value = errorMessage(errorValue, t('booktailor', 'Could not save the AI profile.'))
 	} finally {
 		submitting.value = false
 	}
@@ -117,7 +118,7 @@ async function remove(): Promise<void> {
 		emit('deleted', props.entity.id)
 		emit('update:open', false)
 	} catch (errorValue) {
-		error.value = errorMessage(errorValue, 'Could not delete the AI profile.')
+		error.value = errorMessage(errorValue, t('booktailor', 'Could not delete the AI profile.'))
 	} finally {
 		deleting.value = false
 	}
@@ -126,7 +127,7 @@ async function remove(): Promise<void> {
 
 <template>
 	<NcDialog
-		:name="isEditing ? 'Edit AI profile' : 'Add AI profile'"
+		:name="isEditing ? t('booktailor', 'Edit AI profile') : t('booktailor', 'Add AI profile')"
 		:open="props.open"
 		size="normal"
 		is-form
@@ -137,7 +138,7 @@ async function remove(): Promise<void> {
 
 			<NcTextField
 				v-model="name"
-				label="Profile name"
+				:label="t('booktailor', 'Profile name')"
 				placeholder="DeepSeek"
 				:disabled="submitting || deleting" />
 
@@ -146,48 +147,48 @@ async function remove(): Promise<void> {
 					v-model="provider"
 					:options="AI_PROVIDERS"
 					label="label"
-					input-label="Provider"
+					:input-label="t('booktailor', 'Provider')"
 					:clearable="false"
 					:disabled="submitting || deleting" />
 				<p :class="$style.hint">
-					DeepSeek and SiliconFlow are supported through OpenAI-compatible endpoints.
+					{{ t('booktailor', 'DeepSeek and SiliconFlow are supported through OpenAI-compatible endpoints.') }}
 				</p>
 			</div>
 
 			<NcTextField
 				v-model="apiKey"
 				type="password"
-				label="API key"
-				:placeholder="isEditing ? props.entity?.apiKeyMasked : 'Paste your API key'"
+				:label="t('booktailor', 'API key')"
+				:placeholder="isEditing ? props.entity?.apiKeyMasked : t('booktailor', 'Paste your API key')"
 				:disabled="submitting || deleting"
-				:helper-text="isEditing ? 'Leave empty to keep the stored key.' : 'Encrypted before saving and never returned.'" />
+				:helper-text="isEditing ? t('booktailor', 'Leave empty to keep the stored key.') : t('booktailor', 'Encrypted before saving and never returned.')" />
 
 			<NcTextField
 				v-model="model"
-				label="Model"
+				:label="t('booktailor', 'Model')"
 				:placeholder="provider.defaultModel"
 				:disabled="submitting || deleting"
-				:helper-text="`Leave empty to use ${provider.defaultModel}.`" />
+				:helper-text="t('booktailor', 'Leave empty to use {model}.', { model: provider.defaultModel })" />
 
 			<NcButton type="button" variant="tertiary" @click="showAdvanced = !showAdvanced">
-				{{ showAdvanced ? 'Hide advanced options' : 'Show advanced options' }}
+				{{ showAdvanced ? t('booktailor', 'Hide advanced options') : t('booktailor', 'Show advanced options') }}
 			</NcButton>
 
 			<div v-if="showAdvanced" :class="$style.advanced">
 				<NcTextField
 					v-model="connectTimeout"
 					type="number"
-					label="Connect timeout (seconds)"
+					:label="t('booktailor', 'Connect timeout (seconds)')"
 					:disabled="submitting || deleting" />
 				<NcTextField
 					v-model="readTimeout"
 					type="number"
-					label="Read timeout (seconds)"
+					:label="t('booktailor', 'Read timeout (seconds)')"
 					:disabled="submitting || deleting" />
 				<NcTextField
 					v-model="maxTokens"
 					type="number"
-					label="Max tokens"
+					:label="t('booktailor', 'Max tokens')"
 					:disabled="submitting || deleting" />
 			</div>
 		</div>
@@ -199,17 +200,17 @@ async function remove(): Promise<void> {
 				variant="error"
 				:disabled="submitting || deleting"
 				@click="remove">
-				Delete
+				{{ t('booktailor', 'Delete') }}
 			</NcButton>
 			<NcButton
 				type="button"
 				variant="secondary"
 				:disabled="submitting || deleting"
 				@click="emit('update:open', false)">
-				Cancel
+				{{ t('booktailor', 'Cancel') }}
 			</NcButton>
 			<NcButton type="submit" variant="primary" :disabled="!canSubmit">
-				{{ isEditing ? 'Save' : 'Add' }}
+				{{ isEditing ? t('booktailor', 'Save') : t('booktailor', 'Add') }}
 			</NcButton>
 		</template>
 	</NcDialog>

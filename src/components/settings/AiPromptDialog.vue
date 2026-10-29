@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AiPrompt } from '../../types'
 import { computed, ref, watch } from 'vue'
+import { t } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -58,7 +59,7 @@ async function submit(): Promise<void> {
 		}
 		emit('update:open', false)
 	} catch (errorValue) {
-		error.value = messageFor(errorValue, 'Could not save the prompt.')
+		error.value = messageFor(errorValue, t('booktailor', 'Could not save the prompt.'))
 	} finally {
 		busy.value = false
 	}
@@ -75,7 +76,7 @@ async function remove(): Promise<void> {
 		emit('deleted', props.entity.id)
 		emit('update:open', false)
 	} catch (errorValue) {
-		error.value = messageFor(errorValue, 'Could not delete the prompt.')
+		error.value = messageFor(errorValue, t('booktailor', 'Could not delete the prompt.'))
 	} finally {
 		busy.value = false
 	}
@@ -84,7 +85,7 @@ async function remove(): Promise<void> {
 
 <template>
 	<NcDialog
-		:name="isEditing ? 'Edit saved prompt' : 'Save a prompt'"
+		:name="isEditing ? t('booktailor', 'Edit saved prompt') : t('booktailor', 'Save a prompt')"
 		:open="props.open"
 		size="normal"
 		is-form
@@ -92,12 +93,12 @@ async function remove(): Promise<void> {
 		@update:open="emit('update:open', $event)">
 		<div :class="$style.form">
 			<NcNoteCard v-if="error" type="error" :text="error" />
-			<NcTextField v-model="name" label="Prompt name" :disabled="busy" />
+			<NcTextField v-model="name" :label="t('booktailor', 'Prompt name')" :disabled="busy" />
 			<textarea
 				v-model="text"
 				:class="$style.textarea"
 				rows="7"
-				placeholder="Write the instructions for the assistant…"
+				:placeholder="t('booktailor', 'Write the instructions for the assistant…')"
 				:disabled="busy" />
 		</div>
 		<template #actions>
@@ -107,17 +108,17 @@ async function remove(): Promise<void> {
 				variant="error"
 				:disabled="busy"
 				@click="remove">
-				Delete
+				{{ t('booktailor', 'Delete') }}
 			</NcButton>
 			<NcButton
 				type="button"
 				variant="secondary"
 				:disabled="busy"
 				@click="emit('update:open', false)">
-				Cancel
+				{{ t('booktailor', 'Cancel') }}
 			</NcButton>
 			<NcButton type="submit" variant="primary" :disabled="!canSubmit">
-				{{ isEditing ? 'Save' : 'Add' }}
+				{{ isEditing ? t('booktailor', 'Save') : t('booktailor', 'Add') }}
 			</NcButton>
 		</template>
 	</NcDialog>

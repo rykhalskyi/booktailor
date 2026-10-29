@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { t } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -49,37 +50,37 @@ function confirm(): void {
 <template>
 	<NcDialog
 		:open="true"
-		name="Move chapter"
+		:name="t('booktailor', 'Move chapter')"
 		size="small"
 		@closing="close">
 		<NcNoteCard v-if="error" type="error" :text="error" />
 		<p class="move-message">
-			Move “{{ chapter.name }}” to:
+			{{ t('booktailor', 'Move “{name}” to:', { name: chapter.name }) }}
 		</p>
 		<NcSelect
 			v-if="targets.length > 0"
 			:model-value="selected"
 			:options="targets"
 			label="label"
-			input-label="New parent"
-			aria-label="New parent"
-			placeholder="Select a new parent"
+			:input-label="t('booktailor', 'New parent')"
+			:aria-label="t('booktailor', 'New parent')"
+			:placeholder="t('booktailor', 'Select a new parent')"
 			:clearable="false"
 			:searchable="false"
 			@update:model-value="onSelect" />
 		<NcNoteCard
 			v-else
 			type="info"
-			text="This chapter has no allowed movement targets." />
+			:text="t('booktailor', 'This chapter has no allowed movement targets.')" />
 		<template #actions>
 			<NcButton variant="tertiary" :disabled="busy" @click="close">
-				Cancel
+				{{ t('booktailor', 'Cancel') }}
 			</NcButton>
 			<NcButton
 				variant="primary"
 				:disabled="busy || selected === null"
 				@click="confirm">
-				Move chapter
+				{{ t('booktailor', 'Move chapter') }}
 			</NcButton>
 		</template>
 	</NcDialog>

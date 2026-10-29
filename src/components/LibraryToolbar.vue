@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcSelect from '@nextcloud/vue/components/NcSelect'
 import { useLibrary } from '../stores/useLibrary'
@@ -26,20 +27,20 @@ function onStructureChange(structure: Structure | null): void {
 				:model-value="selectedStructure"
 				:options="structures"
 				label="name"
-				input-label="Structure"
-				aria-label="Structure"
+				:input-label="t('booktailor', 'Structure')"
+				:aria-label="t('booktailor', 'Structure')"
 				:clearable="false"
 				:searchable="false"
 				@update:model-value="onStructureChange" />
 		</div>
 		<div class="library-toolbar-actions">
 			<NcButton :disabled="loading.mutation" @click="openStructureManager">
-				Manage structures
+				{{ t('booktailor', 'Manage structures') }}
 			</NcButton>
 			<NcButton
 				:variant="'secondary'"
 				@click="emit('update-chat-open', !props.chatOpen)">
-				{{ props.chatOpen ? 'Hide AI assistant' : 'AI assistant' }}
+				{{ props.chatOpen ? t('booktailor', 'Hide AI assistant') : t('booktailor', 'AI assistant') }}
 			</NcButton>
 		</div>
 	</div>

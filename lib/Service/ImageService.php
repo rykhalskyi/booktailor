@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace OCA\BookTailor\Service;
 
-use OCA\BookTailor\Db\AssetMapper;
-use OCA\BookTailor\Entity\Asset;
 use OCA\BookTailor\Entity\Chapter;
 use OCA\BookTailor\Exception\ConflictException;
 use OCA\BookTailor\Exception\NotFoundException;
@@ -30,9 +28,9 @@ class ImageService {
 
 	/** @psalm-suppress PossiblyUnusedMethod */
 	public function __construct(
-		private readonly AssetMapper $assetMapper,
 		private readonly ChapterService $chapterService,
 		private readonly StorageService $storage,
+		private readonly ImageReferenceParser $imageReferences,
 		private readonly IMimeTypeDetector $mimeTypeDetector,
 		private readonly IL10N $l10n,
 	) {
@@ -215,21 +213,24 @@ class ImageService {
 	 * @return array<string, list<string>>
 	 */
 	private function referencesByName(string $userId, Chapter $chapter): array {
+		$folder = $this->storage->getChapterFolderForUser($userId, $chapter);
 		$references = [];
-		foreach ($this->assetMapper->findByChapter($chapter->getId()) as $asset) {
-			$file = $this->assetFile($userId, $asset);
-			if ($file === null) {
+
+		// One directory listing avoids a per-asset getById lookup while still
+		// scanning every Markdown file that can reference a chapter image.
+		foreach ($folder->getDirectoryListing() as $node) {
+			if (!$node instanceof File || !str_ends_with(strtolower($node->getName()), '.md')) {
 				continue;
 			}
 
 			try {
-				$content = $file->getContent();
+				$content = $node->getContent();
 			} catch (\Throwable) {
 				continue;
 			}
 
-			foreach ($this->referencedNames($content) as $name) {
-				$references[$name][] = $asset->getFileName();
+			foreach ($this->imageReferences->extractNames($content) as $name) {
+				$references[$name][] = $node->getName();
 			}
 		}
 
@@ -239,72 +240,5 @@ class ImageService {
 		}
 
 		return $references;
-	}
-
-	private function assetFile(string $userId, Asset $asset): ?File {
-		$fileId = $asset->getFileId();
-		if ($fileId === null) {
-			return null;
-		}
-
-		$node = $this->storage->findNodeById($userId, $fileId, File::class);
-
-		return $node instanceof File ? $node : null;
-	}
-
-	/**
-	 * @return list<string>
-	 */
-	private function referencedNames(string $content): array {
-		$names = [];
-
-		if (preg_match_all('/!\[[^\]]*\]\(\s*(<[^>]+>|[^)\s]+)/', $content, $matches) > 0) {
-			foreach ($matches[1] as $url) {
-				$name = $this->imageNameFromUrl($url);
-				if ($name !== null) {
-					$names[] = $name;
-				}
-			}
-		}
-
-		if (preg_match_all('/<img\b[^>]*\bsrc=(["\'])([^"\']+)\1/i', $content, $matches) > 0) {
-			foreach ($matches[2] as $url) {
-				$name = $this->imageNameFromUrl($url);
-				if ($name !== null) {
-					$names[] = $name;
-				}
-			}
-		}
-
-		return array_values(array_unique($names));
-	}
-
-	private function imageNameFromUrl(string $url): ?string {
-		$trimmed = trim($url);
-		if (str_starts_with($trimmed, '<') && str_ends_with($trimmed, '>')) {
-			$trimmed = substr($trimmed, 1, -1);
-		}
-
-		if ($trimmed === ''
-			|| preg_match('#^[a-z][a-z0-9+.-]*:#i', $trimmed) === 1
-			|| str_starts_with($trimmed, '//')
-			|| str_starts_with($trimmed, '#')) {
-			return null;
-		}
-
-		if (preg_match('/^([^?#]*)([?#].*)$/', $trimmed, $parts) === 1) {
-			$trimmed = $parts[1];
-		}
-
-		if (preg_match('#^\.?/?images/([^/]+)$#i', $trimmed, $parts) !== 1) {
-			return null;
-		}
-
-		$name = rawurldecode($parts[1]);
-		if ($name === '' || $name === '.' || $name === '..' || str_contains($name, '/') || str_contains($name, '\\')) {
-			return null;
-		}
-
-		return $name;
 	}
 }

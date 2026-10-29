@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Chapter image manager: upload, preview, replace, copy Markdown snippets, and reference-safe deletion for PNG, JPEG, GIF, and WebP images.
 - Settings sections for storage location, upload limits, effective editor/composition defaults, and app/Nextcloud versions.
 - Playwright end-to-end coverage for authoring, images, and Settings.
-- Translation scaffolding with `@nextcloud/l10n` and translated T7/Core UI strings.
+- Translation foundation with `@nextcloud/l10n`; the image gallery, Settings, navigation, structure manager, AI chat, and shared dialogs are translated, with the remaining screens to follow.
 
 ### Changed
 
