@@ -65,6 +65,8 @@ beforeEach(() => {
 	store.capabilities.value = { editor: 'text', versions: true }
 	store.loading.mutation = false
 	store.expandedChapterIds.value = {}
+	store.expandedAssetChapterIds.value = {}
+	store.compositionRules.value = []
 	store.assetsByChapter.value = {
 		1: [
 			asset(10, [tag(1, 'Raw', '#2563eb'), tag(2, 'Summary', '#15803d')]),
@@ -74,19 +76,55 @@ beforeEach(() => {
 	store.loadingAssets.value = {}
 })
 
-describe('ChapterNode asset chips', () => {
-	it('renders one colored dot per tag on an asset chip', () => {
+describe('ChapterNode asset summary', () => {
+	it('shows the asset and tag counts instead of inline chips', () => {
 		const wrapper = mountNode()
 
-		expect(wrapper.findAll('.asset-chip')).toHaveLength(2)
-		expect(wrapper.findAll('.asset-chip-tag')).toHaveLength(2)
-		expect(wrapper.get('.asset-chip-tags').attributes('title')).toBe('Raw, Summary')
+		expect(wrapper.find('.chapter-asset-summary').exists()).toBe(true)
+		expect(wrapper.findAll('.asset-chip')).toHaveLength(0)
+		expect(wrapper.findAll('.summary-tag-dot')).toHaveLength(2)
+		expect(wrapper.get('.chapter-asset-summary').text()).toContain('2')
 	})
 
-	it('does not render dots for an untagged asset', () => {
+	it('toggles the asset table and keeps a single table open', async () => {
+		const store = useLibrary()
 		const wrapper = mountNode()
-		const untagged = wrapper.findAll('.asset-chip')[1]
 
-		expect(untagged.findAll('.asset-chip-tag')).toHaveLength(0)
+		await wrapper.get('.chapter-asset-summary').trigger('click')
+		expect(store.expandedAssetChapterIds.value).toEqual({ 1: true })
+
+		await wrapper.get('.chapter-asset-summary').trigger('click')
+		expect(store.expandedAssetChapterIds.value).toEqual({})
+	})
+})
+
+describe('ChapterNode asset table', () => {
+	it('renders one row per asset with the full file name and named tags', () => {
+		const store = useLibrary()
+		store.expandedAssetChapterIds.value = { 1: true }
+		const wrapper = mountNode()
+
+		const rows = wrapper.findAll('.chapter-asset-table tbody tr')
+		expect(rows).toHaveLength(2)
+		expect(rows[0].text()).toContain('Asset 10')
+		expect(rows[0].text()).toContain('Asset 10.md')
+		expect(rows[0].text()).toContain('Raw')
+		expect(rows[0].text()).toContain('Summary')
+		expect(rows[1].findAll('.asset-tag')).toHaveLength(0)
+	})
+
+	it('marks the asset picked by the highest-priority matching rule', () => {
+		const store = useLibrary()
+		store.expandedAssetChapterIds.value = { 1: true }
+		store.compositionRules.value = [
+			{ tagId: 2, priority: 1, fallback: false },
+			{ tagId: 1, priority: 2, fallback: false },
+		]
+		const wrapper = mountNode()
+
+		const rows = wrapper.findAll('.chapter-asset-table tbody tr')
+		expect(rows[0].text()).toContain('Rule 1')
+		expect(rows[0].findAll('.asset-tag').at(-1)?.text()).toBe('Summary')
+		expect(wrapper.get('.chapter-asset-summary').text()).toContain('1')
 	})
 })

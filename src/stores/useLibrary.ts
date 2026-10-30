@@ -22,6 +22,8 @@ export function createLibraryStore() {
 	const assetsByChapter = ref<Record<number, Asset[]>>({})
 	const loadingAssets = ref<Record<number, boolean>>({})
 	const expandedChapterIds = ref<Record<number, boolean>>({})
+	const expandedAssetChapterIds = ref<Record<number, boolean>>({})
+	const compositionRules = ref<CompositionRule[]>([])
 	const dialog = ref<DialogState | null>(null)
 	const error = ref<string | null>(null)
 	const loading = reactive({
@@ -85,6 +87,8 @@ export function createLibraryStore() {
 		assetsByChapter.value = {}
 		loadingAssets.value = {}
 		expandedChapterIds.value = {}
+		expandedAssetChapterIds.value = {}
+		compositionRules.value = []
 		tags.value = []
 		historyEpoch += 1
 		historyAsset.value = null
@@ -277,6 +281,7 @@ export function createLibraryStore() {
 		selectedChapterId.value = null
 		assetsByChapter.value = {}
 		loadingAssets.value = {}
+		expandedAssetChapterIds.value = {}
 		error.value = null
 		await loadTree(bookId, structureId, epoch)
 		if (epoch !== selectionEpoch) {
@@ -737,6 +742,16 @@ export function createLibraryStore() {
 		}
 	}
 
+	function toggleAssets(chapterId: number, current: boolean): void {
+		expandedAssetChapterIds.value = current
+			? {}
+			: { [chapterId]: true }
+	}
+
+	function setCompositionRules(rules: CompositionRule[]): void {
+		compositionRules.value = rules
+	}
+
 	async function initialize(): Promise<void> {
 		await Promise.all([loadCapabilities(), loadBooks()])
 		if (books.value.length === 0) {
@@ -1139,7 +1154,9 @@ export function createLibraryStore() {
 		editorEntries,
 		editorLoading,
 		editorStructureId,
+		compositionRules,
 		error,
+		expandedAssetChapterIds,
 		expandedChapterIds,
 		loading,
 		loadingAssets,
@@ -1207,6 +1224,8 @@ export function createLibraryStore() {
 		selectBook,
 		selectChapter,
 		selectStructure,
+		setCompositionRules,
+		toggleAssets,
 		toggleChapter,
 		uploadAsset,
 	}

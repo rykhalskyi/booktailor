@@ -7,10 +7,12 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import { mdiChevronDown, mdiChevronRight } from '../icons'
 import { useLibrary } from '../stores/useLibrary'
-import type { Asset, Chapter } from '../types'
-import { assetFileUrl } from '../utils/files'
-import { normalizeTagColor } from '../utils/tags'
+import type { Asset, Chapter, Tag } from '../types'
+import { pickAssetsForChapter } from '../utils/composition'
+import { assetEditorUrl } from '../utils/files'
 import { treeFocusKey } from '../utils/treeFocus'
+import ChapterAssetSummary from './ChapterAssetSummary.vue'
+import ChapterAssetTable from './ChapterAssetTable.vue'
 
 defineOptions({ name: 'ChapterNode' })
 
@@ -22,6 +24,8 @@ const props = defineProps<{
 const {
 	assetsByChapter,
 	capabilities,
+	compositionRules,
+	expandedAssetChapterIds,
 	expandedChapterIds,
 	loading,
 	loadingAssets,
@@ -30,6 +34,7 @@ const {
 	openDialog,
 	selectChapter,
 	selectedChapterId,
+	toggleAssets,
 	toggleChapter,
 	uploadAsset,
 } = useLibrary()
@@ -44,6 +49,20 @@ const tabIndex = computed(() => treeFocus === null || treeFocus.focusedChapterId
 
 const chapterAssets = computed<Asset[]>(() => assetsByChapter.value[props.chapter.id] ?? [])
 const chapterAssetsLoading = computed<boolean>(() => loadingAssets.value[props.chapter.id] ?? false)
+const assetsExpanded = computed<boolean>(() => expandedAssetChapterIds.value[props.chapter.id] ?? false)
+const chapterTags = computed<Tag[]>(() => {
+	const byId = new Map<number, Tag>()
+	for (const asset of chapterAssets.value) {
+		for (const tag of asset.tags) {
+			byId.set(tag.id, tag)
+		}
+	}
+	return [...byId.values()]
+})
+const pickedCount = computed<number>(() => pickAssetsForChapter(
+	chapterAssets.value,
+	compositionRules.value,
+).size)
 
 watch(
 	() => props.chapter.id,
@@ -76,19 +95,19 @@ async function onFileChange(event: Event): Promise<void> {
 	}
 }
 
-function fileUrl(asset: Asset): string | null {
-	return assetFileUrl(asset.fileId)
-}
-
-function assetTagNames(asset: Asset): string {
-	return asset.tags.map((tag) => tag.name).join(', ')
-}
-
 function openAsset(asset: Asset): void {
-	const url = fileUrl(asset)
+	const url = assetEditorUrl(asset)
 	if (url !== null) {
 		window.open(url, '_blank', 'noopener')
 	}
+}
+
+function editAssetTags(asset: Asset): void {
+	openDialog({ type: 'asset-tags', asset })
+}
+
+function deleteAsset(asset: Asset): void {
+	openDialog({ type: 'asset-delete', asset })
 }
 </script>
 
@@ -128,34 +147,17 @@ function openAsset(asset: Asset): void {
 				<span v-if="chapter.number" class="chapter-number">{{ chapter.number }}</span>
 				<span class="chapter-name-text">{{ chapter.name }}</span>
 			</button>
-			<div v-if="chapterAssets.length > 0" class="chapter-asset-chips" @click.stop>
-				<div
-					v-for="asset in chapterAssets"
-					:key="asset.id"
-					class="asset-chip"
-					:class="{ 'asset-chip--missing': !fileUrl(asset) }">
-					<span
-						v-if="asset.tags.length > 0"
-						class="asset-chip-tags"
-						:title="assetTagNames(asset)">
-						<span
-							v-for="tag in asset.tags"
-							:key="tag.id"
-							class="asset-chip-tag"
-							:style="{ backgroundColor: normalizeTagColor(tag.color) }" />
-					</span>
-					<button
-						type="button"
-						class="asset-chip-name"
-						:disabled="!fileUrl(asset)"
-						@click="openAsset(asset)">
-						<span :title="asset.fileName">📄</span> .md
-					</button>
-				</div>
-			</div>
+			<ChapterAssetSummary
+				v-if="chapterAssets.length > 0"
+				:asset-count="chapterAssets.length"
+				:tags="chapterTags"
+				:picked-count="pickedCount"
+				:show-picks="compositionRules.length > 0"
+				:expanded="assetsExpanded"
+				@toggle="toggleAssets(chapter.id, assetsExpanded)" />
 			<NcLoadingIcon
 				v-else-if="chapterAssetsLoading"
-				class="chapter-asset-chips-loading"
+				class="chapter-asset-summary-loading"
 				name="Loading assets"
 				:size="16" />
 			<div class="chapter-actions" @click.stop>
@@ -200,6 +202,13 @@ function openAsset(asset: Asset): void {
 				</NcActions>
 			</div>
 		</div>
+		<ChapterAssetTable
+			v-if="assetsExpanded && chapterAssets.length > 0"
+			:assets="chapterAssets"
+			:rules="compositionRules"
+			@open="openAsset"
+			@tags="editAssetTags"
+			@delete="deleteAsset" />
 		<ul v-if="hasChildren && isExpanded" class="chapter-children" role="group">
 			<ChapterNode
 				v-for="child in chapter.children"
@@ -303,107 +312,7 @@ function openAsset(asset: Asset): void {
 	display: none;
 }
 
-.chapter-asset-chips {
-	display: flex;
-	align-items: center;
-	gap: 4px;
+.chapter-asset-summary-loading {
 	flex-shrink: 0;
-	overflow: hidden;
-	max-width: 50%;
-}
-
-.chapter-asset-chips-loading {
-	flex-shrink: 0;
-}
-
-.asset-chip {
-	display: inline-flex;
-	align-items: center;
-	max-width: 180px;
-	border-radius: 12px;
-	background: var(--color-background-dark);
-	color: var(--color-main-text);
-	font-size: 0.75rem;
-	line-height: 1.6;
-	overflow: hidden;
-}
-
-.asset-chip:hover {
-	background: var(--color-primary-element-light);
-}
-
-.asset-chip-tags {
-		display: inline-flex;
-		align-items: center;
-		gap: 2px;
-		padding-inline-start: 7px;
-		flex-shrink: 0;
-	}
-
-.asset-chip-tag {
-	width: 7px;
-	height: 7px;
-	border-radius: 50%;
-	box-shadow: 0 0 0 1px var(--color-main-background);
-	flex-shrink: 0;
-}
-
-.asset-chip-name {
-	display: inline-flex;
-	align-items: center;
-	padding: 1px 4px 1px 6px;
-		border: none;
-	background: transparent;
-	color: var(--color-main-text);
-	font-size: inherit;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	cursor: pointer;
-}
-
-.asset-chip-name:hover:not(:disabled) {
-	text-decoration: underline;
-}
-
-.asset-chip-name:focus-visible {
-	outline: 2px solid var(--color-primary-element);
-	outline-offset: 1px;
-}
-
-.asset-chip-delete {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 18px;
-	height: 18px;
-	margin-inline-end: 2px;
-	padding: 0;
-	border: none;
-	border-radius: 50%;
-	background: transparent;
-	color: var(--color-text-maxcontrast);
-	font-size: 0.9rem;
-	line-height: 1;
-	cursor: pointer;
-}
-
-.asset-chip-delete:hover:not(:disabled) {
-	background: var(--color-error);
-	color: var(--color-main-background);
-}
-
-.asset-chip-delete:focus-visible {
-	outline: 2px solid var(--color-primary-element);
-	outline-offset: 1px;
-}
-
-.asset-chip--missing {
-	color: var(--color-text-maxcontrast);
-}
-
-.asset-chip--missing .asset-chip-name {
-	cursor: default;
-	color: var(--color-text-maxcontrast);
 }
 </style>

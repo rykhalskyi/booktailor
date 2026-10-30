@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcSelect from '@nextcloud/vue/components/NcSelect'
@@ -14,17 +14,29 @@ interface RuleDraft {
 
 const {
 	closeCompose,
+	compositionRules,
 	createComposition,
 	error,
 	loading,
 	selectedStructureId,
+	setCompositionRules,
 	structures,
 	tags,
 } = useLibrary()
 
 const structureId = ref<number | null>(selectedStructureId.value)
 const outputName = ref('')
-const rules = ref<RuleDraft[]>([])
+const rules = ref<RuleDraft[]>(
+	[...compositionRules.value]
+		.sort((left, right) => left.priority - right.priority)
+		.map((rule) => ({ tagId: rule.tagId, fallback: rule.fallback })),
+)
+
+watch(rules, (value) => {
+	setCompositionRules(value.flatMap((rule, index) => rule.tagId === null
+		? []
+		: [{ tagId: rule.tagId, priority: index + 1, fallback: rule.fallback }]))
+}, { deep: true })
 
 const selectedStructure = computed<Structure | null>(() => (
 	structures.value.find((structure) => structure.id === structureId.value) ?? null

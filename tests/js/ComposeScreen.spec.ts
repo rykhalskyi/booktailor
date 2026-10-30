@@ -101,6 +101,7 @@ function resetStore(): void {
 	const store = useLibrary()
 	store.selectedBookId.value = 1
 	store.selectedStructureId.value = 10
+	store.compositionRules.value = []
 	store.structures.value = [structure(10, 'Default'), structure(20, 'Study')]
 	store.tags.value = [tag(11, 'Summary'), tag(22, 'Raw')]
 	store.composeOpen.value = true
