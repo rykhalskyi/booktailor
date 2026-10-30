@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\BookTailor\Db;
 
+use DateTime;
 use OCA\BookTailor\Entity\AiAction;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\QBMapper;
@@ -33,28 +34,12 @@ class AiActionMapper extends QBMapper {
 		}
 	}
 
-	/**
-	 * @return list<AiAction>
-	 */
-	public function findByBook(string $userId, int $bookId, ?string $status = null, ?int $limit = null, int $offset = 0): array {
+	public function deleteOlderThanForUser(string $userId, DateTime $cutoff): void {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('*')
-			->from($this->tableName)
-			->where($qb->expr()->eq('book_id', $qb->createNamedParameter($bookId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_STR)))
-			->orderBy('created_at', 'DESC')
-			->addOrderBy('id', 'DESC');
+		$qb->delete($this->tableName)
+			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_STR)))
+			->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($cutoff, IQueryBuilder::PARAM_DATETIME_MUTABLE)));
 
-		if ($status !== null) {
-			$qb->andWhere($qb->expr()->eq('status', $qb->createNamedParameter($status, IQueryBuilder::PARAM_STR)));
-		}
-		if ($limit !== null) {
-			$qb->setMaxResults($limit);
-		}
-		if ($offset > 0) {
-			$qb->setFirstResult($offset);
-		}
-
-		return $this->findEntities($qb);
+		$qb->executeStatement();
 	}
 }

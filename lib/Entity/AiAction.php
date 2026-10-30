@@ -23,17 +23,12 @@ use OCP\DB\Types;
  * @method void setStatus(string $status)
  * @method DateTime getCreatedAt()
  * @method void setCreatedAt(DateTime $createdAt)
- * @method ?DateTime getDecidedAt()
- * @method void setDecidedAt(?DateTime $decidedAt)
- * @method ?string getResult()
- * @method void setResult(?string $result)
  * @psalm-suppress PropertyNotSetInConstructor, PossiblyUnusedProperty
  */
 class AiAction extends Entity {
 	public const STATUS_PROPOSED = 'proposed';
 	public const STATUS_APPLIED = 'applied';
 	public const STATUS_REJECTED = 'rejected';
-	public const STATUS_FAILED = 'failed';
 
 	protected ?string $userId = null;
 	protected ?int $bookId = null;
@@ -41,13 +36,10 @@ class AiAction extends Entity {
 	protected ?string $payload = null;
 	protected ?string $status = self::STATUS_PROPOSED;
 	protected ?DateTime $createdAt = null;
-	protected ?DateTime $decidedAt = null;
-	protected ?string $result = null;
 
 	public function __construct() {
 		$this->addType('id', Types::BIGINT);
 		$this->addType('bookId', Types::BIGINT);
 		$this->addType('createdAt', Types::DATETIME);
-		$this->addType('decidedAt', Types::DATETIME);
 	}
 }

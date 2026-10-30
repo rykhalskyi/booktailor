@@ -81,8 +81,6 @@ final class AiChatServiceTest extends TestCase {
 			'payload' => $payload,
 			'status' => 'proposed',
 			'createdAt' => '2026-01-01T00:00:00+00:00',
-			'decidedAt' => null,
-			'result' => null,
 		]);
 
 		return new AiChatService(

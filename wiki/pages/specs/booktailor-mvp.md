@@ -159,7 +159,7 @@ authoring and Markdown-composition product described here.
   - create a summary asset from raw assets;
   - extract terms or lists into a new asset;
   - answer questions about the current book.
-- Record proposed and applied AI actions in an audit log.
+- Keep AI proposals only while they await confirmation; do not retain action history.
 - Provider abstraction supports DeepSeek and SiliconFlow through OpenAI-compatible endpoints (D-63).
 
 ### Images
@@ -345,7 +345,7 @@ Still open:
 - Langfuse uses app-level configuration; the provider list is DeepSeek and SiliconFlow; keys are encrypted per-user profiles (D-62, D-63, D-68).
 - Composition output naming/location is decided in T5.
 - Sharing and permissions are post-MVP.
-- AI provenance is recorded in the AI action audit log and in a frontmatter comment on generated content; no asset schema change in T6.
+- AI provenance is recorded in a frontmatter comment on generated content; no asset schema change in T6.
 
 ## Out of scope for the MVP
 

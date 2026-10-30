@@ -1069,52 +1069,6 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
-  /books/{bookId}/ai-actions:
-    parameters:
-      - $ref: '#/components/parameters/OCS-APIRequest'
-      - $ref: '#/components/parameters/BookId'
-    get:
-      tags: [ai]
-      operationId: listAiActions
-      summary: List the AI action audit log
-      parameters:
-        - name: status
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/AiActionStatus'
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
-      responses:
-        '200':
-          description: AI actions returned
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OcsAiActionListResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /ai-actions/{actionId}:
-    parameters:
-      - $ref: '#/components/parameters/OCS-APIRequest'
-      - $ref: '#/components/parameters/ActionId'
-    get:
-      tags: [ai]
-      operationId: getAiAction
-      summary: Get one AI action audit row
-      responses:
-        '200':
-          description: AI action returned
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OcsAiActionResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
   /ai-actions/{actionId}/confirm:
     parameters:
       - $ref: '#/components/parameters/OCS-APIRequest'
@@ -2087,7 +2041,7 @@ components:
           description: Optional output name hint; T5 finalizes naming
     AiActionStatus:
       type: string
-      enum: [proposed, applied, rejected, failed]
+      enum: [proposed, applied, rejected]
     AiAction:
       type: object
       required: [id, userId, action, payload, status, createdAt]
@@ -2113,14 +2067,6 @@ components:
         createdAt:
           type: string
           format: date-time
-        decidedAt:
-          type: string
-          format: date-time
-          nullable: true
-        result:
-          type: string
-          nullable: true
-          description: JSON result for applied actions, or the validation error for failed ones
     ChatRequest:
       type: object
       required: [bookId, message]
@@ -2568,18 +2514,6 @@ components:
               properties:
                 data:
                   $ref: '#/components/schemas/AiAction'
-    OcsAiActionListResponse:
-      allOf:
-        - $ref: '#/components/schemas/OcsEnvelope'
-        - type: object
-          properties:
-            ocs:
-              type: object
-              properties:
-                data:
-                  type: array
-                  items:
-                    $ref: '#/components/schemas/AiAction'
     OcsChatResponse:
       allOf:
         - $ref: '#/components/schemas/OcsEnvelope'
