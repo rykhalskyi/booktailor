@@ -201,7 +201,7 @@ Unique `(composition_id, priority, tag_id)`.
 | `action` | VARCHAR(64) | e.g. `create_asset`, `update_chapter` |
 | `payload` | TEXT | JSON proposal |
 | `status` | VARCHAR(16) | always `proposed`; the row is deleted after the decision |
-| `created_at` | DATETIME | used to prune abandoned proposals |
+| `created_at` | DATETIME | abandoned proposals older than 24 hours are pruned on the next proposal |
 
 Indexes: `(book_id, created_at)`, `(user_id, created_at)`.
 

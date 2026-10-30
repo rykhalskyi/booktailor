@@ -127,7 +127,8 @@ extractor docblock; `openapi.draft.yaml` is the reviewed T1 contract.
   `usage`, and an optional Langfuse `traceId`.
 - Proposals are stored in `booktailor_ai_action_log` only while pending and applied
   through `/ai-actions/{id}/confirm`; `/reject` discards them. Rows are deleted after
-  the decision, so no action history is retained (D-67, superseded by D-77).
+  a successful or failed decision, so no action history is retained (D-67, superseded
+  by D-77). Abandoned proposals older than 24 hours are pruned on the next proposal.
 - Predefined prompts live in the server prompt catalog; saved prompts are book-scoped
   and CRUD-capable at `/books/{bookId}/prompts` (D-69).
 - Langfuse is app-level configuration and best-effort; content logging is per-user

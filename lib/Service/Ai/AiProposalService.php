@@ -16,6 +16,7 @@ use OCA\BookTailor\Service\BookService;
 use OCA\BookTailor\Service\ChapterService;
 use OCA\BookTailor\Service\StructureService;
 use OCA\BookTailor\Service\TagService;
+use OCP\IDBConnection;
 use Psr\Log\LoggerInterface;
 
 class AiProposalService {
@@ -46,6 +47,7 @@ class AiProposalService {
 	/** @psalm-suppress PossiblyUnusedMethod */
 	public function __construct(
 		private readonly AiActionMapper $actionMapper,
+		private readonly IDBConnection $db,
 		private readonly BookService $bookService,
 		private readonly ChapterService $chapterService,
 		private readonly AssetService $assetService,
@@ -93,25 +95,48 @@ class AiProposalService {
 		$bookId = (int)$action->getBookId();
 		$payload = $this->decodePayload($action);
 
+		$this->db->beginTransaction();
 		try {
 			$normalized = $this->validate($userId, $bookId, $action->getAction(), $payload);
 			$this->apply($userId, $action->getAction(), $normalized);
-		} catch (ApiException $e) {
-			throw $e;
+
+			$action->setStatus(AiAction::STATUS_APPLIED);
+			$serialized = $this->serialize($action);
+			$this->actionMapper->delete($action);
+
+			$this->db->commit();
+
+			return $serialized;
 		} catch (\Throwable $e) {
+			$this->db->rollBack();
+			$this->discardFailed($action);
+
+			if ($e instanceof ApiException) {
+				throw $e;
+			}
+
 			$this->logger->error('BookTailor AI action failed', [
 				'actionId' => $actionId,
 				'action' => $action->getAction(),
 				'exceptionClass' => $e::class,
 			]);
+
 			throw new ApiException('The AI action could not be applied', 422);
 		}
+	}
 
-		$action->setStatus(AiAction::STATUS_APPLIED);
-		$serialized = $this->serialize($action);
-		$this->actionMapper->delete($action);
-
-		return $serialized;
+	/**
+	 * Remove a proposal whose confirmation failed so it cannot linger as pending.
+	 */
+	private function discardFailed(AiAction $action): void {
+		try {
+			$this->actionMapper->delete($action);
+		} catch (\Throwable $e) {
+			$this->logger->error('BookTailor AI action cleanup failed', [
+				'actionId' => $action->getId(),
+				'exceptionClass' => $e::class,
+			]);
+		}
 	}
 
 	/**
