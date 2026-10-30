@@ -60,7 +60,7 @@ and settings.
   profiles with `apiKeyMasked`; profile create/update accepts a write-only `apiKey`;
   `DELETE /ai/profiles/{id}` removes the profile and its key.
 - **AI chat links observability.** `ChatResponse.traceId` is the Langfuse trace id, and
-  `proposedActions` carries the audit rows that require confirmation (D-10).
+  `proposedActions` carries the pending proposals that require confirmation (D-10).
 - **Chapter trees can lazy-load.** Without `structureId`, optional `parentId` and `depth`
   return canonical levels for the T2 tree. With `structureId`, the full included tree is
   returned using effective parents, so structure views stay unambiguous.
@@ -125,15 +125,16 @@ extractor docblock; `openapi.draft.yaml` is the reviewed T1 contract.
 - Chat is `POST /ai/chat` with normal JSON, a bounded JSON tool loop, read tools, and
   proposal-only writes (D-65/D-66). Responses include `proposedActions`, `warnings`,
   `usage`, and an optional Langfuse `traceId`.
-- Proposals are persisted in `booktailor_ai_action_log` and applied only through
-  `/ai-actions/{id}/confirm`; `/reject` records the decision (D-67). The audit row now
-  includes `decidedAt` and `result`.
+- Proposals are stored in `booktailor_ai_action_log` only while pending and applied
+  through `/ai-actions/{id}/confirm`; `/reject` discards them. Rows are deleted after
+  a successful or failed decision, so no action history is retained (D-67, superseded
+  by D-77). Abandoned proposals older than 24 hours are pruned on the next proposal.
 - Predefined prompts live in the server prompt catalog; saved prompts are book-scoped
   and CRUD-capable at `/books/{bookId}/prompts` (D-69).
 - Langfuse is app-level configuration and best-effort; content logging is per-user
   opt-in (D-68).
 - `openapi.draft.yaml` was updated for the profile endpoints, AI settings schemas, prompt
-  keys, chat warnings/usage, and the new audit fields.
+  keys, and chat warnings/usage.
 
 ## Review outcome
 

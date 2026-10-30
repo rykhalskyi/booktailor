@@ -81,8 +81,6 @@ final class AiChatServiceTest extends TestCase {
 			'payload' => $payload,
 			'status' => 'proposed',
 			'createdAt' => '2026-01-01T00:00:00+00:00',
-			'decidedAt' => null,
-			'result' => null,
 		]);
 
 		return new AiChatService(
@@ -281,6 +279,8 @@ final class AiChatServiceTest extends TestCase {
 				null,
 				[],
 				false,
+				$this->anything(),
+				$this->anything(),
 			)
 			->willReturn('trace-3');
 
@@ -313,6 +313,8 @@ final class AiChatServiceTest extends TestCase {
 				null,
 				[],
 				false,
+				$this->anything(),
+				$this->anything(),
 			)
 			->willReturn('trace-2');
 

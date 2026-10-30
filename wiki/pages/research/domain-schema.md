@@ -27,7 +27,7 @@ in [decisions.md](../../decisions.md).
 | **Version ref** | A Nextcloud-native version identifier for an asset file (the revision timestamp). Check-in messages are stored as native version metadata (D-19). |
 | **Composition** | An asynchronous generation of one Markdown document from a structure, using tag rules. |
 | **Composition rule** | An ordered tag-based selection rule belonging to one composition. Exact precedence is frozen in T5. |
-| **AI action** | A proposed or applied AI mutation, recorded for audit and confirmation. |
+| **AI action** | A pending AI mutation awaiting confirmation; discarded after approval or rejection. |
 | **Visible folder** | The human-readable folder under the user's Files that mirrors the canonical chapter tree (D-13). |
 
 ## Entity relationships
@@ -38,7 +38,7 @@ erDiagram
     books ||--o{ structures : defines
     books ||--o{ tags : owns
     books ||--o{ compositions : produces
-    books ||--o{ ai_action_log : audits
+    books ||--o{ ai_action_log : proposes
     chapters ||--o{ chapters : parent_of
     chapters ||--o{ assets : holds
     structures ||--o{ structure_chapters : selects
@@ -197,11 +197,11 @@ Unique `(composition_id, priority, tag_id)`.
 |---|---|---|
 | `id` | BIGINT PK | |
 | `user_id` | VARCHAR(64) | acting user |
-| `book_id` | BIGINT NULL FK → books | `ON DELETE SET NULL`; audit survives book deletion |
+| `book_id` | BIGINT NULL FK → books | `ON DELETE SET NULL` |
 | `action` | VARCHAR(64) | e.g. `create_asset`, `update_chapter` |
-| `payload` | TEXT | JSON request/proposal |
-| `status` | VARCHAR(16) | `proposed`, `applied`, `rejected`, `failed` |
-| `created_at` | DATETIME | |
+| `payload` | TEXT | JSON proposal |
+| `status` | VARCHAR(16) | always `proposed`; the row is deleted after the decision |
+| `created_at` | DATETIME | abandoned proposals older than 24 hours are pruned on the next proposal |
 
 Indexes: `(book_id, created_at)`, `(user_id, created_at)`.
 

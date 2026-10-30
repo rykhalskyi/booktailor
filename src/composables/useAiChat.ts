@@ -21,6 +21,7 @@ export function createAiChat() {
 	const lastRequest = ref<AiChatRequest | null>(null)
 	let counter = 0
 	let controller: AbortController | null = null
+	let session = 0
 
 	function messageFor(errorValue: unknown, fallback: string): string {
 		return errorValue instanceof ApiError || errorValue instanceof Error
@@ -71,8 +72,12 @@ export function createAiChat() {
 
 		loading.value = true
 		controller = new AbortController()
+		const activeSession = session
 		try {
 			const response = await api.ai.chat(outgoing, controller.signal)
+			if (activeSession !== session) {
+				return
+			}
 			messages.value.push({
 				id: ++counter,
 				role: 'assistant',
@@ -82,14 +87,19 @@ export function createAiChat() {
 				traceId: response.traceId,
 			})
 		} catch (errorValue) {
+			if (activeSession !== session) {
+				return
+			}
 			if (errorValue instanceof DOMException && errorValue.name === 'AbortError') {
 				error.value = 'The AI request was cancelled.'
 			} else {
 				error.value = messageFor(errorValue, 'The AI request failed. Please try again.')
 			}
 		} finally {
-			loading.value = false
-			controller = null
+			if (activeSession === session) {
+				loading.value = false
+				controller = null
+			}
 		}
 	}
 
@@ -113,6 +123,7 @@ export function createAiChat() {
 	}
 
 	function reset(): void {
+		session++
 		messages.value = []
 		error.value = null
 		lastRequest.value = null

@@ -21,6 +21,7 @@ vi.mock('../../src/api/client', () => {
 	}
 })
 
+import type { AiChatResponse } from '../../src/types'
 import { api } from '../../src/api/client'
 import { createAiChat } from '../../src/composables/useAiChat'
 
@@ -78,6 +79,33 @@ describe('useAiChat', () => {
 				{ role: 'assistant', content: 'First answer.' },
 			],
 		}, expect.any(AbortSignal))
+	})
+
+	it('ignores an in-flight response after the chat is reset', async () => {
+		let resolveChat!: (value: AiChatResponse) => void
+		vi.mocked(api.ai.chat).mockImplementation(() => new Promise((resolve) => {
+			resolveChat = resolve
+		}))
+		const chat = createAiChat()
+
+		const pending = chat.send({ bookId: 1, message: 'Hello' })
+		expect(chat.loading.value).toBe(true)
+
+		chat.reset()
+		expect(chat.messages.value).toHaveLength(0)
+		expect(chat.loading.value).toBe(false)
+
+		resolveChat({
+			message: 'Stale answer.',
+			proposedActions: [],
+			traceId: null,
+			warnings: [],
+			usage: {},
+		})
+		await pending
+
+		expect(chat.messages.value).toHaveLength(0)
+		expect(chat.error.value).toBeNull()
 	})
 
 	it('records an error and retries without duplicating the user message', async () => {

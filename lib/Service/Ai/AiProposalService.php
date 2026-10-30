@@ -16,6 +16,7 @@ use OCA\BookTailor\Service\BookService;
 use OCA\BookTailor\Service\ChapterService;
 use OCA\BookTailor\Service\StructureService;
 use OCA\BookTailor\Service\TagService;
+use OCP\IDBConnection;
 use Psr\Log\LoggerInterface;
 
 class AiProposalService {
@@ -46,6 +47,7 @@ class AiProposalService {
 	/** @psalm-suppress PossiblyUnusedMethod */
 	public function __construct(
 		private readonly AiActionMapper $actionMapper,
+		private readonly IDBConnection $db,
 		private readonly BookService $bookService,
 		private readonly ChapterService $chapterService,
 		private readonly AssetService $assetService,
@@ -66,6 +68,7 @@ class AiProposalService {
 	 */
 	public function propose(string $userId, int $bookId, string $action, array $payload): AiAction {
 		$normalized = $this->validate($userId, $bookId, $action, $payload);
+		$this->actionMapper->deleteOlderThanForUser($userId, new DateTime('-1 day'));
 
 		$proposal = new AiAction();
 		$proposal->setUserId($userId);
@@ -78,7 +81,12 @@ class AiProposalService {
 		return $this->actionMapper->insert($proposal);
 	}
 
-	public function confirm(string $userId, int $actionId): AiAction {
+	/**
+	 * Apply a pending proposal and discard it. Only the response keeps the decision.
+	 *
+	 * @return array{id: int, userId: string, bookId: ?int, action: string, payload: array<string, mixed>, status: string, createdAt: string}
+	 */
+	public function confirm(string $userId, int $actionId): array {
 		$action = $this->getOwned($userId, $actionId);
 		if ($action->getStatus() !== AiAction::STATUS_PROPOSED) {
 			throw new ConflictException('Only a proposed AI action can be confirmed');
@@ -87,55 +95,66 @@ class AiProposalService {
 		$bookId = (int)$action->getBookId();
 		$payload = $this->decodePayload($action);
 
+		$this->db->beginTransaction();
 		try {
 			$normalized = $this->validate($userId, $bookId, $action->getAction(), $payload);
-			$result = $this->apply($userId, $action->getAction(), $normalized);
-			$action->setStatus(AiAction::STATUS_APPLIED);
-			$action->setDecidedAt(new DateTime());
-			$action->setResult((string)json_encode($result, JSON_UNESCAPED_SLASHES));
+			$this->apply($userId, $action->getAction(), $normalized);
 
-			return $this->actionMapper->update($action);
-		} catch (ApiException $e) {
-			$this->markFailed($action, $e->getMessage());
-			throw $e;
+			$action->setStatus(AiAction::STATUS_APPLIED);
+			$serialized = $this->serialize($action);
+			$this->actionMapper->delete($action);
+
+			$this->db->commit();
+
+			return $serialized;
 		} catch (\Throwable $e) {
+			$this->db->rollBack();
+			$this->discardFailed($action);
+
+			if ($e instanceof ApiException) {
+				throw $e;
+			}
+
 			$this->logger->error('BookTailor AI action failed', [
 				'actionId' => $actionId,
 				'action' => $action->getAction(),
 				'exceptionClass' => $e::class,
 			]);
-			$this->markFailed($action, 'The action could not be applied');
+
 			throw new ApiException('The AI action could not be applied', 422);
 		}
 	}
 
-	public function reject(string $userId, int $actionId): AiAction {
+	/**
+	 * Remove a proposal whose confirmation failed so it cannot linger as pending.
+	 */
+	private function discardFailed(AiAction $action): void {
+		try {
+			$this->actionMapper->delete($action);
+		} catch (\Throwable $e) {
+			$this->logger->error('BookTailor AI action cleanup failed', [
+				'actionId' => $action->getId(),
+				'exceptionClass' => $e::class,
+			]);
+		}
+	}
+
+	/**
+	 * Discard a pending proposal without writing anything.
+	 *
+	 * @return array{id: int, userId: string, bookId: ?int, action: string, payload: array<string, mixed>, status: string, createdAt: string}
+	 */
+	public function reject(string $userId, int $actionId): array {
 		$action = $this->getOwned($userId, $actionId);
 		if ($action->getStatus() !== AiAction::STATUS_PROPOSED) {
 			throw new ConflictException('Only a proposed AI action can be rejected');
 		}
 
 		$action->setStatus(AiAction::STATUS_REJECTED);
-		$action->setDecidedAt(new DateTime());
+		$serialized = $this->serialize($action);
+		$this->actionMapper->delete($action);
 
-		return $this->actionMapper->update($action);
-	}
-
-	/**
-	 * @return list<AiAction>
-	 */
-	public function listForBook(string $userId, int $bookId, ?string $status = null): array {
-		$this->bookService->get($userId, $bookId);
-		if ($status !== null && !in_array($status, [
-			AiAction::STATUS_PROPOSED,
-			AiAction::STATUS_APPLIED,
-			AiAction::STATUS_REJECTED,
-			AiAction::STATUS_FAILED,
-		], true)) {
-			throw new ValidationException('Unknown AI action status');
-		}
-
-		return $this->actionMapper->findByBook($userId, $bookId, $status);
+		return $serialized;
 	}
 
 	public function getOwned(string $userId, int $actionId): AiAction {
@@ -151,7 +170,7 @@ class AiProposalService {
 	}
 
 	/**
-	 * @return array{id: int, userId: string, bookId: ?int, action: string, payload: array<string, mixed>, status: string, createdAt: string, decidedAt: ?string, result: ?string}
+	 * @return array{id: int, userId: string, bookId: ?int, action: string, payload: array<string, mixed>, status: string, createdAt: string}
 	 */
 	public function serialize(AiAction $action): array {
 		return [
@@ -162,8 +181,6 @@ class AiProposalService {
 			'payload' => $this->decodePayload($action),
 			'status' => $action->getStatus(),
 			'createdAt' => $action->getCreatedAt()->format(\DateTimeInterface::ATOM),
-			'decidedAt' => $action->getDecidedAt()?->format(\DateTimeInterface::ATOM),
-			'result' => $action->getResult(),
 		];
 	}
 
@@ -381,10 +398,9 @@ class AiProposalService {
 
 	/**
 	 * @param array<string, mixed> $payload
-	 * @return array<string, mixed>
 	 */
-	private function apply(string $userId, string $action, array $payload): array {
-		return match ($action) {
+	private function apply(string $userId, string $action, array $payload): void {
+		match ($action) {
 			self::ACTION_CREATE_ASSET => $this->applyCreateAsset($userId, $payload),
 			self::ACTION_UPDATE_ASSET => $this->applyUpdateAsset($userId, $payload),
 			self::ACTION_DELETE_ASSET => $this->applyDeleteAsset($userId, $payload),
@@ -399,10 +415,9 @@ class AiProposalService {
 
 	/**
 	 * @param array<string, mixed> $payload
-	 * @return array<string, mixed>
 	 * @psalm-suppress MixedAssignment, MixedArgumentTypeCoercion
 	 */
-	private function applyCreateAsset(string $userId, array $payload): array {
+	private function applyCreateAsset(string $userId, array $payload): void {
 		$created = $this->assetService->createWithContent(
 			$userId,
 			(int)$payload['chapterId'],
@@ -419,15 +434,12 @@ class AiProposalService {
 				throw $e;
 			}
 		}
-
-		return ['assetId' => $assetId];
 	}
 
 	/**
 	 * @param array<string, mixed> $payload
-	 * @return array<string, mixed>
 	 */
-	private function applyUpdateAsset(string $userId, array $payload): array {
+	private function applyUpdateAsset(string $userId, array $payload): void {
 		$assetId = (int)$payload['assetId'];
 		$oldContent = isset($payload['name']) && isset($payload['content'])
 			? $this->assetService->getContent($userId, $assetId)
@@ -445,83 +457,60 @@ class AiProposalService {
 				throw $e;
 			}
 		}
-
-		return ['assetId' => $assetId];
 	}
 
 	/**
 	 * @param array<string, mixed> $payload
-	 * @return array<string, mixed>
 	 */
-	private function applyDeleteAsset(string $userId, array $payload): array {
+	private function applyDeleteAsset(string $userId, array $payload): void {
 		$this->assetService->delete($userId, (int)$payload['assetId']);
-
-		return ['assetId' => (int)$payload['assetId']];
 	}
 
 	/**
 	 * @param array<string, mixed> $payload
-	 * @return array<string, mixed>
 	 */
-	private function applyCreateChapter(string $userId, array $payload): array {
-		$chapter = $this->chapterService->create(
+	private function applyCreateChapter(string $userId, array $payload): void {
+		$this->chapterService->create(
 			$userId,
 			(int)$payload['bookId'],
 			(string)$payload['name'],
 			$payload['parentId'] !== null ? (int)$payload['parentId'] : null,
 		);
-
-		return ['chapterId' => $chapter->getId()];
 	}
 
 	/**
 	 * @param array<string, mixed> $payload
-	 * @return array<string, mixed>
 	 */
-	private function applyRenameChapter(string $userId, array $payload): array {
-		$chapter = $this->chapterService->rename($userId, (int)$payload['chapterId'], (string)$payload['name']);
-
-		return ['chapterId' => $chapter->getId()];
+	private function applyRenameChapter(string $userId, array $payload): void {
+		$this->chapterService->rename($userId, (int)$payload['chapterId'], (string)$payload['name']);
 	}
 
 	/**
 	 * @param array<string, mixed> $payload
-	 * @return array<string, mixed>
 	 */
-	private function applyDeleteChapter(string $userId, array $payload): array {
+	private function applyDeleteChapter(string $userId, array $payload): void {
 		$this->chapterService->delete($userId, (int)$payload['chapterId']);
-
-		return ['chapterId' => (int)$payload['chapterId']];
 	}
 
 	/**
 	 * @param array<string, mixed> $payload
-	 * @return array<string, mixed>
 	 */
-	private function applyCreateStructure(string $userId, array $payload): array {
-		$structure = $this->structureService->create($userId, (int)$payload['bookId'], (string)$payload['name']);
-
-		return ['structureId' => $structure->getId()];
+	private function applyCreateStructure(string $userId, array $payload): void {
+		$this->structureService->create($userId, (int)$payload['bookId'], (string)$payload['name']);
 	}
 
 	/**
 	 * @param array<string, mixed> $payload
-	 * @return array<string, mixed>
 	 */
-	private function applyRenameStructure(string $userId, array $payload): array {
-		$structure = $this->structureService->rename($userId, (int)$payload['structureId'], (string)$payload['name']);
-
-		return ['structureId' => $structure->getId()];
+	private function applyRenameStructure(string $userId, array $payload): void {
+		$this->structureService->rename($userId, (int)$payload['structureId'], (string)$payload['name']);
 	}
 
 	/**
 	 * @param array<string, mixed> $payload
-	 * @return array<string, mixed>
 	 */
-	private function applyDeleteStructure(string $userId, array $payload): array {
+	private function applyDeleteStructure(string $userId, array $payload): void {
 		$this->structureService->delete($userId, (int)$payload['structureId']);
-
-		return ['structureId' => (int)$payload['structureId']];
 	}
 
 	/**
@@ -660,10 +649,4 @@ class AiProposalService {
 		return $decoded;
 	}
 
-	private function markFailed(AiAction $action, string $message): void {
-		$action->setStatus(AiAction::STATUS_FAILED);
-		$action->setDecidedAt(new DateTime());
-		$action->setResult($message);
-		$this->actionMapper->update($action);
-	}
 }

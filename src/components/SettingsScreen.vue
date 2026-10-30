@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AiAction, AiProfile, AiPrompt, AiSettings, SettingsInfo } from '../types'
+import type { AiProfile, AiPrompt, AiSettings, SettingsInfo } from '../types'
 import { computed, onMounted, ref, watch } from 'vue'
 import { t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
@@ -19,11 +19,9 @@ const { selectedBook, selectedBookId } = useLibrary()
 
 const settings = ref<AiSettings | null>(null)
 const general = ref<SettingsInfo | null>(null)
-const actions = ref<AiAction[]>([])
 const prompts = ref<AiPrompt[]>([])
 const promptsLoading = ref(false)
 const loading = ref(true)
-const actionsLoading = ref(false)
 const busy = ref(false)
 const error = ref<string | null>(null)
 const dialogOpen = ref(false)
@@ -61,21 +59,6 @@ function openStorageFolder(): void {
 	}
 }
 
-async function loadActions(): Promise<void> {
-	if (selectedBookId.value === null) {
-		actions.value = []
-		return
-	}
-	actionsLoading.value = true
-	try {
-		actions.value = await api.ai.actions.list(selectedBookId.value)
-	} catch {
-		actions.value = []
-	} finally {
-		actionsLoading.value = false
-	}
-}
-
 async function loadPrompts(): Promise<void> {
 	if (selectedBookId.value === null) {
 		prompts.value = []
@@ -92,11 +75,10 @@ async function loadPrompts(): Promise<void> {
 }
 
 onMounted(async () => {
-	await Promise.all([load(), loadActions(), loadPrompts()])
+	await Promise.all([load(), loadPrompts()])
 })
 
 watch(selectedBookId, () => {
-	loadActions()
 	loadPrompts()
 })
 
@@ -171,18 +153,6 @@ async function onContentLoggingChange(value: boolean | string): Promise<void> {
 	} finally {
 		busy.value = false
 	}
-}
-
-function actionLabel(action: AiAction): string {
-	const summary = action.payload.summary
-	if (typeof summary === 'string' && summary !== '') {
-		return summary
-	}
-	return action.action.replaceAll('_', ' ')
-}
-
-function actionDate(action: AiAction): string {
-	return new Date(action.createdAt).toLocaleString()
 }
 </script>
 
@@ -415,38 +385,6 @@ function actionDate(action: AiAction): string {
 						Langfuse: <a :href="settings.langfuse.url" target="_blank" rel="noopener noreferrer">{{ settings.langfuse.url }}</a>
 					</p>
 				</section>
-
-				<section :class="$style.section">
-					<div :class="$style.sectionHeader">
-						<div>
-							<h3 :class="$style.sectionTitle">
-								{{ t('booktailor', 'AI action history') }}
-							</h3>
-							<p :class="$style.sectionDesc">
-								{{ t('booktailor', 'Proposed, applied, rejected, and failed actions for {book}.', { book: selectedBook?.name ?? t('booktailor', 'the selected book') }) }}
-							</p>
-						</div>
-					</div>
-
-					<p v-if="selectedBookId === null" :class="$style.hint">
-						{{ t('booktailor', 'Select a book to view its AI action history.') }}
-					</p>
-					<div v-else-if="actionsLoading" :class="$style.loading">
-						<NcLoadingIcon :size="24" />
-						<span>{{ t('booktailor', 'Loading history…') }}</span>
-					</div>
-					<NcEmptyContent
-						v-else-if="actions.length === 0"
-						:name="t('booktailor', 'No AI actions yet')"
-						:description="t('booktailor', 'Approved, rejected, and proposed AI changes will appear here.')" />
-					<ul v-else :class="$style.actionList">
-						<li v-for="action in actions" :key="action.id" :class="$style.actionItem">
-							<span :class="[$style.actionStatus, $style[`status${action.status}`]]">{{ action.status }}</span>
-							<span :class="$style.actionLabel">{{ actionLabel(action) }}</span>
-							<span :class="$style.actionDate">{{ actionDate(action) }}</span>
-						</li>
-					</ul>
-				</section>
 			</template>
 		</div>
 
@@ -623,59 +561,4 @@ function actionDate(action: AiAction): string {
 	white-space: nowrap;
 }
 
-.actionList {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-}
-
-.actionItem {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	padding: 8px 10px;
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius);
-}
-
-.actionStatus {
-	text-transform: uppercase;
-	font-size: 11px;
-	font-weight: 700;
-	letter-spacing: 0.04em;
-	padding: 2px 6px;
-	border-radius: 8px;
-	background: var(--color-background-darker);
-}
-
-.statusapplied {
-	background: var(--color-success-background, rgba(45, 194, 107, 0.15));
-	color: var(--color-success);
-}
-
-.statusrejected {
-	background: var(--color-background-darker);
-	color: var(--color-text-maxcontrast);
-}
-
-.statusfailed {
-	background: var(--color-error-background, rgba(233, 59, 59, 0.15));
-	color: var(--color-error);
-}
-
-.actionLabel {
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.actionDate {
-	color: var(--color-text-maxcontrast);
-	font-size: var(--font-size-small, 12px);
-}
 </style>

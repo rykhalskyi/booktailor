@@ -302,10 +302,6 @@ export const api = {
 			signal,
 		}),
 		actions: {
-			list: (bookId: number, status?: string): Promise<AiAction[]> => request<AiAction[]>(`/books/${bookId}/ai-actions`, {
-				query: { status },
-			}),
-			get: (actionId: number): Promise<AiAction> => request<AiAction>(`/ai-actions/${actionId}`),
 			confirm: (actionId: number): Promise<AiAction> => request<AiAction>(`/ai-actions/${actionId}/confirm`, {
 				method: 'POST',
 			}),

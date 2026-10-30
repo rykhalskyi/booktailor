@@ -180,7 +180,7 @@ export interface AiSettings {
 	providers: AiProviderOption[]
 }
 
-export type AiActionStatus = 'proposed' | 'applied' | 'rejected' | 'failed'
+export type AiActionStatus = 'proposed' | 'applied' | 'rejected'
 
 export type AiActionName =
 	| 'create_asset'
@@ -201,8 +201,6 @@ export interface AiAction {
 	payload: Record<string, unknown>
 	status: AiActionStatus
 	createdAt: string
-	decidedAt: string | null
-	result: string | null
 }
 
 export interface AiChatHistoryMessage {

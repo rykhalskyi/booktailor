@@ -77,3 +77,4 @@ Append-only decision record. The "why" lives here; the full change history lives
 - [2026-10-29] D-74 — Use Playwright against a running Nextcloud with E2E outside npm run check and an env-gated AI stub provider — because critical flows need a real server while default checks stay hermetic
 - [2026-10-29] D-75 — Translate frontend strings and user-facing API messages while keeping logs and internal exception text in English — because support and tests need stable technical messages
 - [2026-10-29] D-76 — Release T7 as version 1.5.0 — because the phase adds user-facing images, settings, and accessibility on top of 1.4.0
+- [2026-10-30] D-77 — Keep AI proposals pending-only and delete them after approval or rejection instead of retaining an action audit log — because the user does not want AI action history collected; supersedes D-67

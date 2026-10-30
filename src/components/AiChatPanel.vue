@@ -37,7 +37,12 @@ interface PromptOption {
 }
 
 const prompts = ref<AiPrompt[]>([])
-const selectedPrompt = ref<PromptOption>({ key: 'chat', label: t('booktailor', 'Free-form chat'), promptText: '' })
+
+function defaultPrompt(): PromptOption {
+	return { key: 'chat', label: t('booktailor', 'Free-form chat'), promptText: '' }
+}
+
+const selectedPrompt = ref<PromptOption>(defaultPrompt())
 
 const promptOptions = computed<PromptOption[]>(() => [
 	{ key: 'chat', label: t('booktailor', 'Free-form chat'), promptText: '' },
@@ -72,7 +77,7 @@ onMounted(loadPrompts)
 watch(selectedBookId, () => {
 	chat.reset()
 	loadPrompts()
-	selectedPrompt.value = { key: 'chat', label: t('booktailor', 'Free-form chat'), promptText: '' }
+	selectedPrompt.value = defaultPrompt()
 })
 
 watch(selectedStructureId, () => {
@@ -121,6 +126,13 @@ async function send(): Promise<void> {
 	})
 }
 
+function startNewChat(): void {
+	chat.reset()
+	input.value = ''
+	localError.value = null
+	selectedPrompt.value = defaultPrompt()
+}
+
 async function onDecided(action: AiAction): Promise<void> {
 	chat.updateAction(action)
 	if (action.status !== 'applied' || selectedBookId.value === null) {
@@ -165,6 +177,13 @@ function onKeydown(event: KeyboardEvent): void {
 					{{ contextLabel }}
 				</p>
 			</div>
+			<NcButton
+				variant="tertiary"
+				:disabled="chat.messages.value.length === 0"
+				:aria-label="t('booktailor', 'Start a new chat and clear the current conversation')"
+				@click="startNewChat">
+				{{ t('booktailor', 'New chat') }}
+			</NcButton>
 		</header>
 
 		<div ref="messagesEl" :class="$style.messages">

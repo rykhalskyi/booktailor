@@ -106,12 +106,17 @@ class AiChatService {
 		$warnings = [];
 		$usage = [];
 		$lastOutput = '';
+		$resolvedModel = $model;
+		$traceStart = self::nowNanoseconds();
 
 		try {
 			for ($round = 0; $round <= self::MAX_TOOL_ROUNDS; $round++) {
 				$completion = $this->completeWithBudget($provider, $credentials['apiKey'], $model, $messages, $options);
 				$lastOutput = $completion->content;
 				$usage = $completion->usage;
+				if (trim($completion->model) !== '') {
+					$resolvedModel = $completion->model;
+				}
 
 				if (trim($completion->content) === '') {
 					if ($completion->finishReason === 'length') {
@@ -186,6 +191,7 @@ class AiChatService {
 		} catch (AiProviderException $e) {
 			throw new ApiException($e->getMessage(), 502);
 		}
+		$traceEnd = self::nowNanoseconds();
 
 		if ($reply === '' && $proposals !== []) {
 			$reply = 'I prepared the following changes for your confirmation.';
@@ -201,13 +207,15 @@ class AiChatService {
 		$traceId = $this->langfuseService->traceGeneration(
 			$userId,
 			$traceName,
-			$model,
+			$resolvedModel,
 			$traceInput,
 			$lastOutput !== '' ? $lastOutput : $reply,
 			$promptName,
 			$promptVersion,
 			$usage,
 			$this->aiSettingsService->contentLogging($userId),
+			$traceStart,
+			$traceEnd,
 		);
 
 		return [
@@ -372,6 +380,10 @@ PROMPT;
 		}
 
 		return implode("\n\n", $parts);
+	}
+
+	private static function nowNanoseconds(): int {
+		return (int)round(microtime(true) * 1000000000.0);
 	}
 
 	/**

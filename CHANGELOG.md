@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- AI action history: proposals are now pending-only and are discarded after approval, rejection, or a failed confirmation. The Settings history section and the audit-log endpoints are gone, and existing history rows are purged. Abandoned proposals older than 24 hours are pruned when the user creates a new proposal.
+
 ## [1.5.0] - 2026-10-29
 
 ### Added

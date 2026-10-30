@@ -67,11 +67,6 @@ async function confirm(): Promise<void> {
 		}
 	} catch (errorValue) {
 		error.value = messageFor(errorValue, 'The AI action could not be applied.')
-		try {
-			emit('decided', await api.ai.actions.get(props.action.id))
-		} catch {
-			// Keep the original confirmation error.
-		}
 	} finally {
 		busy.value = false
 	}
@@ -187,11 +182,6 @@ function preview(value: unknown, max = 1600): string {
 
 .statusrejected {
 	color: var(--color-text-maxcontrast);
-}
-
-.statusfailed {
-	background: var(--color-error-background, rgba(233, 59, 59, 0.15));
-	color: var(--color-error);
 }
 
 .preview {

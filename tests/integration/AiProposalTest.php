@@ -6,7 +6,7 @@ namespace OCA\BookTailor\Tests\Integration;
 
 use OCA\BookTailor\AppInfo\Application;
 use OCA\BookTailor\Entity\AiAction;
-use OCA\BookTailor\Exception\ConflictException;
+use OCA\BookTailor\Exception\ApiException;
 use OCA\BookTailor\Exception\NotFoundException;
 use OCA\BookTailor\Exception\ValidationException;
 use OCA\BookTailor\Service\Ai\AiProposalService;
@@ -79,15 +79,14 @@ final class AiProposalTest extends TestCase {
 		$this->assertCount(0, $this->assets->list($this->userId, $this->chapterId)['assets']);
 
 		$applied = $this->proposals->confirm($this->userId, $proposal->getId());
-		$this->assertSame(AiAction::STATUS_APPLIED, $applied->getStatus());
-		$this->assertNotNull($applied->getDecidedAt());
+		$this->assertSame(AiAction::STATUS_APPLIED, $applied['status']);
 
 		$assets = $this->assets->list($this->userId, $this->chapterId)['assets'];
 		$this->assertCount(1, $assets);
 		$this->assertSame('Summary', $assets[0]->getName());
 		$this->assertSame("# Summary\n\nGenerated text.\n", $this->assets->getContent($this->userId, $assets[0]->getId()));
 
-		$this->expectException(ConflictException::class);
+		$this->expectException(NotFoundException::class);
 		$this->proposals->confirm($this->userId, $proposal->getId());
 	}
 
@@ -98,7 +97,7 @@ final class AiProposalTest extends TestCase {
 		]);
 
 		$applied = $this->proposals->confirm($this->userId, $proposal->getId());
-		$this->assertSame(AiAction::STATUS_APPLIED, $applied->getStatus());
+		$this->assertSame(AiAction::STATUS_APPLIED, $applied['status']);
 
 		$tree = $this->chapters->tree($this->userId, $this->bookId);
 		$this->assertSame('AI chapter', $tree[0]['children'][0]['chapter']->getName());
@@ -112,8 +111,31 @@ final class AiProposalTest extends TestCase {
 		]);
 
 		$rejected = $this->proposals->reject($this->userId, $proposal->getId());
-		$this->assertSame(AiAction::STATUS_REJECTED, $rejected->getStatus());
+		$this->assertSame(AiAction::STATUS_REJECTED, $rejected['status']);
 		$this->assertCount(0, $this->assets->list($this->userId, $this->chapterId)['assets']);
+
+		$this->expectException(NotFoundException::class);
+		$this->proposals->getOwned($this->userId, $proposal->getId());
+	}
+
+	public function testFailedConfirmationDiscardsTheProposal(): void {
+		$proposal = $this->proposals->propose($this->userId, $this->bookId, 'create_asset', [
+			'chapterId' => $this->chapterId,
+			'name' => 'Orphan',
+			'content' => 'Orphan',
+		]);
+
+		$this->chapters->delete($this->userId, $this->chapterId);
+
+		try {
+			$this->proposals->confirm($this->userId, $proposal->getId());
+			$this->fail('Confirmation should fail once the chapter is gone');
+		} catch (ApiException) {
+			// Expected: the stale proposal cannot be applied.
+		}
+
+		$this->expectException(NotFoundException::class);
+		$this->proposals->getOwned($this->userId, $proposal->getId());
 	}
 
 	public function testProposalValidationRejectsUnsafePayloads(): void {

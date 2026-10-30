@@ -61,8 +61,6 @@ function action(overrides: Partial<AiAction> = {}): AiAction {
 		},
 		status: 'proposed',
 		createdAt: '2026-01-01T00:00:00+00:00',
-		decidedAt: null,
-		result: null,
 		...overrides,
 	}
 }

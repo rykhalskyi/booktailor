@@ -139,7 +139,93 @@ final class LangfuseServiceTest extends TestCase {
 		$this->assertSame($spans[0]['spanId'], $spans[1]['parentSpanId']);
 		$this->assertSame('span', $this->attribute($spans[0], 'langfuse.observation.type'));
 		$this->assertSame('generation', $this->attribute($spans[1], 'langfuse.observation.type'));
+		$this->assertSame('input', $this->attribute($spans[0], 'langfuse.observation.input'));
+		$this->assertSame('output', $this->attribute($spans[0], 'langfuse.observation.output'));
 		$this->assertSame('input', $this->attribute($spans[1], 'langfuse.observation.input'));
+		$this->assertSame('output', $this->attribute($spans[1], 'langfuse.observation.output'));
+	}
+
+	public function testContentIsNotSentWhenLoggingIsDisabled(): void {
+		$response = $this->createMock(IResponse::class);
+		$response->method('getStatusCode')->willReturn(200);
+		$captured = null;
+		$client = $this->createMock(IClient::class);
+		$client->expects($this->once())
+			->method('post')
+			->willReturnCallback(static function (string $url, array $options) use (&$captured, $response): IResponse {
+				$captured = json_decode((string)$options['body'], true);
+
+				return $response;
+			});
+		$clientService = $this->createMock(IClientService::class);
+		$clientService->method('newClient')->willReturn($client);
+
+		$config = $this->createMock(IConfig::class);
+		$config->method('getAppValue')->willReturnCallback(
+			static fn (string $app, string $key, string $default = ''): string => match ($key) {
+				LangfuseService::CONFIG_URL => 'http://langfuse.test',
+				LangfuseService::CONFIG_PUBLIC_KEY => 'public',
+				LangfuseService::CONFIG_SECRET_KEY => 'secret',
+				default => $default,
+			},
+		);
+
+		$service = new LangfuseService($clientService, $config, $this->createMock(LoggerInterface::class));
+		$service->traceGeneration('user', 'booktailor-chat', 'model', 'input', 'output');
+
+		$this->assertIsArray($captured);
+		$spans = $captured['resourceSpans'][0]['scopeSpans'][0]['spans'];
+		$this->assertNull($this->attribute($spans[0], 'langfuse.observation.input'));
+		$this->assertNull($this->attribute($spans[0], 'langfuse.observation.output'));
+		$this->assertNull($this->attribute($spans[1], 'langfuse.observation.input'));
+		$this->assertNull($this->attribute($spans[1], 'langfuse.observation.output'));
+	}
+
+	public function testTimestampsAreUsedForTheTraceAndGeneration(): void {
+		$response = $this->createMock(IResponse::class);
+		$response->method('getStatusCode')->willReturn(200);
+		$captured = null;
+		$client = $this->createMock(IClient::class);
+		$client->method('post')
+			->willReturnCallback(static function (string $url, array $options) use (&$captured, $response): IResponse {
+				$captured = json_decode((string)$options['body'], true);
+
+				return $response;
+			});
+		$clientService = $this->createMock(IClientService::class);
+		$clientService->method('newClient')->willReturn($client);
+
+		$config = $this->createMock(IConfig::class);
+		$config->method('getAppValue')->willReturnCallback(
+			static fn (string $app, string $key, string $default = ''): string => match ($key) {
+				LangfuseService::CONFIG_URL => 'http://langfuse.test',
+				LangfuseService::CONFIG_PUBLIC_KEY => 'public',
+				LangfuseService::CONFIG_SECRET_KEY => 'secret',
+				default => $default,
+			},
+		);
+
+		$service = new LangfuseService($clientService, $config, $this->createMock(LoggerInterface::class));
+		$service->traceGeneration(
+			'user',
+			'booktailor-chat',
+			'model',
+			'input',
+			'output',
+			null,
+			null,
+			[],
+			false,
+			1000000000,
+			2500000000,
+		);
+
+		$this->assertIsArray($captured);
+		$spans = $captured['resourceSpans'][0]['scopeSpans'][0]['spans'];
+		$this->assertSame('1000000000', $spans[0]['startTimeUnixNano']);
+		$this->assertSame('2500000000', $spans[0]['endTimeUnixNano']);
+		$this->assertSame('1000000000', $spans[1]['startTimeUnixNano']);
+		$this->assertSame('2500000000', $spans[1]['endTimeUnixNano']);
 	}
 
 	/**
