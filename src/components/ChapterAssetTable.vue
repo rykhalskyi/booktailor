@@ -14,6 +14,7 @@ defineOptions({ name: 'ChapterAssetTable' })
 const props = defineProps<{
 	assets: Asset[]
 	rules: CompositionRule[]
+	indent: number
 }>()
 
 const emit = defineEmits<{
@@ -54,7 +55,7 @@ function ruleLabel(asset: Asset): string {
 </script>
 
 <template>
-	<div class="chapter-asset-table-panel">
+	<div class="chapter-asset-table-panel" :style="{ paddingInlineStart: `${indent}px` }">
 		<table class="chapter-asset-table">
 			<caption class="visually-hidden">
 				{{ t('booktailor', 'Assets in this chapter') }}
@@ -143,7 +144,8 @@ function ruleLabel(asset: Asset): string {
 
 <style scoped>
 .chapter-asset-table-panel {
-	padding: 4px 8px 8px;
+	padding-block: 4px 8px;
+	padding-inline-end: 8px;
 }
 
 .chapter-asset-table {

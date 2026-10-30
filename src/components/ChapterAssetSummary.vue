@@ -55,10 +55,14 @@ const ariaLabel = computed<string>(() => t(
 			<NcIconSvgWrapper :path="mdiCheckCircle" :size="16" />
 			{{ pickedCount }}
 		</span>
-		<NcIconSvgWrapper
+		<svg
 			class="summary-chevron"
-			:path="expanded ? mdiChevronDown : mdiChevronRight"
-			:size="16" />
+			viewBox="0 0 24 24"
+			width="20"
+			height="20"
+			aria-hidden="true">
+			<path :d="expanded ? mdiChevronDown : mdiChevronRight" />
+		</svg>
 	</button>
 </template>
 
@@ -68,6 +72,7 @@ const ariaLabel = computed<string>(() => t(
 	align-items: center;
 	gap: 8px;
 	flex-shrink: 0;
+	min-width: 180px;
 	padding: 2px 8px;
 	border: 1px solid var(--color-border-dark);
 	border-radius: 12px;
@@ -111,6 +116,11 @@ const ariaLabel = computed<string>(() => t(
 }
 
 .summary-chevron {
+	display: block;
+	flex-shrink: 0;
+	margin-inline-start: auto;
+	fill: currentColor;
 	opacity: 0.7;
+	pointer-events: none;
 }
 </style>

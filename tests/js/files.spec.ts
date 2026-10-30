@@ -4,7 +4,7 @@ const { generateUrl } = vi.hoisted(() => ({
 	generateUrl: vi.fn((route: string, params?: Record<string, string | number>) => (
 		route === '/f/{fileId}'
 			? `/index.php/f/${params?.fileId}`
-			: `/index.php${route}`
+			: `/index.php${route.replace('{fileId}', String(params?.fileId))}`
 	)),
 }))
 
@@ -44,7 +44,11 @@ describe('assetEditorUrl', () => {
 	it('opens the file in the Files app with its folder and file id', () => {
 		const url = assetEditorUrl(asset('BookTailor/Book/Chapter/Notes.md'))
 
-		expect(url).toBe('/index.php/apps/files/?dir=BookTailor%2FBook%2FChapter&openfile=42')
+		expect(url).toBe('/index.php/apps/files/files/42?dir=%2FBookTailor%2FBook%2FChapter&openfile=true')
+	})
+
+	it('uses the root folder when the asset is at the top level', () => {
+		expect(assetEditorUrl(asset('Notes.md'))).toBe('/index.php/apps/files/files/42?dir=%2F&openfile=true')
 	})
 
 	it('falls back to the file route when the path is unknown', () => {

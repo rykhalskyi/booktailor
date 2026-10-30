@@ -3,7 +3,6 @@ import { computed, inject, ref, watch } from 'vue'
 import NcActionButton from '@nextcloud/vue/components/NcActionButton'
 import NcActionSeparator from '@nextcloud/vue/components/NcActionSeparator'
 import NcActions from '@nextcloud/vue/components/NcActions'
-import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import { mdiChevronDown, mdiChevronRight } from '../icons'
 import { useLibrary } from '../stores/useLibrary'
@@ -63,6 +62,9 @@ const pickedCount = computed<number>(() => pickAssetsForChapter(
 	chapterAssets.value,
 	compositionRules.value,
 ).size)
+const assetTableIndent = computed<number>(() => (
+	8 + props.depth * 16 + 26 + 4 + 2 - 8
+))
 
 watch(
 	() => props.chapter.id,
@@ -130,9 +132,14 @@ function deleteAsset(asset: Asset): void {
 				:aria-label="isExpanded ? `Collapse ${chapter.name}` : `Expand ${chapter.name}`"
 				:aria-expanded="isExpanded"
 				@click.stop="toggle">
-				<NcIconSvgWrapper
-					:path="isExpanded ? mdiChevronDown : mdiChevronRight"
-					:size="20" />
+				<svg
+					class="chapter-chevron-icon"
+					viewBox="0 0 24 24"
+					width="24"
+					height="24"
+					aria-hidden="true">
+					<path :d="isExpanded ? mdiChevronDown : mdiChevronRight" />
+				</svg>
 			</button>
 			<span v-else class="chapter-chevron chapter-chevron--empty" aria-hidden="true" />
 			<button
@@ -206,6 +213,7 @@ function deleteAsset(asset: Asset): void {
 			v-if="assetsExpanded && chapterAssets.length > 0"
 			:assets="chapterAssets"
 			:rules="compositionRules"
+			:indent="assetTableIndent"
 			@open="openAsset"
 			@tags="editAssetTags"
 			@delete="deleteAsset" />
@@ -254,17 +262,25 @@ function deleteAsset(asset: Asset): void {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	flex-shrink: 0;
 	width: 26px;
 	height: 26px;
 	padding: 0;
 	border: none;
 	background: transparent;
 	color: var(--color-main-text);
+	line-height: 0;
 	cursor: pointer;
 }
 
 .chapter-chevron--empty {
 	cursor: default;
+}
+
+.chapter-chevron-icon {
+	display: block;
+	fill: currentColor;
+	pointer-events: none;
 }
 
 .chapter-name {
