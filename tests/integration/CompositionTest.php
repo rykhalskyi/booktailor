@@ -100,6 +100,34 @@ final class CompositionTest extends TestCase {
 		$this->assertMatchesRegularExpression('/default-\d{8}-\d{6}\.md$/', (string)$composition->getOutputPath());
 	}
 
+	public function testPreviewGroupsIncludedAssetsByIncludedChapter(): void {
+		$book = $this->books->create($this->userId, 'Preview');
+		$part = $this->chapters->create($this->userId, $book->getId(), 'Part One');
+		$child = $this->chapters->create($this->userId, $book->getId(), 'Chapter Two', $part->getId());
+		$structure = $this->defaultStructure($book);
+
+		$this->asset($book, $part, 'Zebra', 'ZEBRA', true);
+		$this->asset($book, $part, 'Alpha', 'ALPHA', true);
+		$this->asset($book, $part, 'Draft', 'DRAFT', false);
+		$this->asset($book, $child, 'Child note', 'CHILD', true);
+
+		$groups = $this->compositions->preview($this->userId, $book->getId(), $structure->getId());
+
+		$this->assertCount(2, $groups);
+		$this->assertSame($part->getId(), $groups[0]['chapter']->getId());
+		$this->assertSame('1', $groups[0]['number']);
+		$this->assertSame(
+			['Alpha', 'Zebra'],
+			array_map(static fn (Asset $asset): string => $asset->getName(), $groups[0]['assets']),
+		);
+		$this->assertSame($child->getId(), $groups[1]['chapter']->getId());
+		$this->assertSame('1.1', $groups[1]['number']);
+		$this->assertSame(
+			['Child note'],
+			array_map(static fn (Asset $asset): string => $asset->getName(), $groups[1]['assets']),
+		);
+	}
+
 	public function testIncludedAssetsComposeInNameOrder(): void {
 		$book = $this->books->create($this->userId, 'Everything');
 		$chapter = $this->chapters->create($this->userId, $book->getId(), 'Chapter');

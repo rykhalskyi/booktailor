@@ -126,30 +126,58 @@ class AssetService {
 	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
 	 */
 	public function rename(string $userId, int $assetId, string $name): array {
+		return $this->update($userId, $assetId, $name, null);
+	}
+
+	/**
+	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
+	 */
+	public function setIncludeInComposition(string $userId, int $assetId, bool $includeInComposition): array {
+		return $this->update($userId, $assetId, null, $includeInComposition);
+	}
+
+	/**
+	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
+	 */
+	public function update(string $userId, int $assetId, ?string $name = null, ?bool $includeInComposition = null): array {
+		if ($name === null && $includeInComposition === null) {
+			throw new ValidationException('Provide a name or composition inclusion flag');
+		}
+
 		$context = $this->context($userId, $assetId);
 		$asset = $context['asset'];
 		$chapter = $context['chapter'];
-		$name = $this->validateName($name);
+
+		$file = null;
 		$oldName = $asset->getName();
+		if ($name !== null) {
+			$name = $this->validateName($name);
+			$duplicate = $this->assetMapper->findByChapterAndName($chapter->getId(), $name);
+			if ($duplicate !== null && $duplicate->getId() !== $asset->getId()) {
+				throw new ValidationException('An asset with this name already exists in the chapter');
+			}
 
-		$duplicate = $this->assetMapper->findByChapterAndName($chapter->getId(), $name);
-		if ($duplicate !== null && $duplicate->getId() !== $asset->getId()) {
-			throw new ValidationException('An asset with this name already exists in the chapter');
-		}
-
-		$file = $this->storage->getAssetFile($userId, $asset);
-		$newFileName = $this->storage->renameNode($file, $name, '.md');
-
-		try {
+			$file = $this->storage->getAssetFile($userId, $asset);
+			$newFileName = $this->storage->renameNode($file, $name, '.md');
 			$asset->setName($name);
 			$asset->setFileName($newFileName);
-			$asset->setUpdatedAt(new DateTime());
+		}
+
+		if ($includeInComposition !== null) {
+			$asset->setIncludeInComposition($includeInComposition);
+		}
+
+		$asset->setUpdatedAt(new DateTime());
+
+		try {
 			$asset = $this->assetMapper->update($asset);
 		} catch (\Throwable $e) {
-			try {
-				$this->storage->renameNode($file, $oldName, '.md');
-			} catch (\Throwable) {
-				// Best-effort rollback of the visible name.
+			if ($file !== null) {
+				try {
+					$this->storage->renameNode($file, $oldName, '.md');
+				} catch (\Throwable) {
+					// Best-effort rollback of the visible name.
+				}
 			}
 			throw $e;
 		}
@@ -160,26 +188,6 @@ class AssetService {
 			'asset' => $asset,
 			'bookId' => $chapter->getBookId(),
 			'chapter' => $chapter,
-			'tags' => $tags,
-		];
-	}
-
-	/**
-	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
-	 */
-	public function setIncludeInComposition(string $userId, int $assetId, bool $includeInComposition): array {
-		$context = $this->context($userId, $assetId);
-		$asset = $context['asset'];
-		$asset->setIncludeInComposition($includeInComposition);
-		$asset->setUpdatedAt(new DateTime());
-		$asset = $this->assetMapper->update($asset);
-
-		$tags = $this->assetTagMapper->findTagsByAssetIds([$assetId])[$assetId] ?? [];
-
-		return [
-			'asset' => $asset,
-			'bookId' => $context['chapter']->getBookId(),
-			'chapter' => $context['chapter'],
 			'tags' => $tags,
 		];
 	}

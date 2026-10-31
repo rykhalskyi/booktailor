@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\BookTailor\Controller;
 
+use OCA\BookTailor\Entity\Asset;
 use OCA\BookTailor\Entity\Composition;
 use OCA\BookTailor\Service\CompositionService;
 use OCA\BookTailor\Service\SerializerService;
@@ -62,6 +63,33 @@ class CompositionController extends AbstractApiController {
 				$this->serializer->composition($composition),
 				Http::STATUS_ACCEPTED,
 			);
+		});
+	}
+
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'GET', url: '/api/v1/books/{bookId}/compositions/preview')]
+	public function preview(int $bookId, int $structureId): DataResponse {
+		return $this->handle(function () use ($bookId, $structureId): DataResponse {
+			$groups = $this->compositionService->preview(
+				$this->currentUserId(),
+				$bookId,
+				$structureId,
+			);
+
+			return new DataResponse(array_map(
+				fn (array $group): array => [
+					'chapter' => $this->serializer->chapter($group['chapter'], [], $group['number']),
+					'assets' => array_map(
+						fn (Asset $asset): array => $this->serializer->asset(
+							$asset,
+							$this->currentUserId(),
+							$bookId,
+						),
+						$group['assets'],
+					),
+				],
+				$groups,
+			));
 		});
 	}
 

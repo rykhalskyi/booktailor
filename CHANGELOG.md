@@ -7,9 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Asset composition selection: mark or unmark assets for composition directly in the chapter tree, with a per-chapter table for names, tags, update times, and inclusion state.
+- Composition preview that lists the assets a structure will compose before the composition is created.
+
+### Changed
+
+- Compositions require a name and are listed by that name, falling back to the structure name for older rows.
+- Creating a composition is blocked while the preview is loading or when the selected structure has no included assets.
+- Composition output now sorts included assets by name instead of relying on storage order.
+
 ### Removed
 
 - AI action history: proposals are now pending-only and are discarded after approval, rejection, or a failed confirmation. The Settings history section and the audit-log endpoints are gone, and existing history rows are purged. Abandoned proposals older than 24 hours are pruned when the user creates a new proposal.
+- Tag-based composition rules and the `booktailor_composition_rules` table. Assets are now selected explicitly; existing assets start excluded and must be marked for composition.
 
 ## [1.5.0] - 2026-10-29
 
