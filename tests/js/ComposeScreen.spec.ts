@@ -15,15 +15,10 @@ vi.mock('../../src/api/client', () => {
 	return {
 		ApiError,
 		api: {
-			chapters: {
-				tree: vi.fn(),
-			},
-			assets: {
-				list: vi.fn(),
-			},
 			compositions: {
 				list: vi.fn(),
 				create: vi.fn(),
+				preview: vi.fn(),
 				download: vi.fn(),
 				remove: vi.fn(),
 				retry: vi.fn(),
@@ -162,8 +157,12 @@ function button(wrapper: ReturnType<typeof mountScreen>, text: string) {
 beforeEach(() => {
 	vi.clearAllMocks()
 	resetStore()
-	vi.mocked(api.chapters.tree).mockResolvedValue([])
-	vi.mocked(api.assets.list).mockResolvedValue([])
+	vi.mocked(api.compositions.preview).mockResolvedValue([
+		{
+			chapter: chapter(11, 'Chapter', '1'),
+			assets: [asset(101, 11, 'Asset', true)],
+		},
+	])
 	vi.mocked(api.compositions.list).mockResolvedValue([])
 	vi.mocked(api.compositions.create).mockResolvedValue(composition())
 })
@@ -171,6 +170,7 @@ beforeEach(() => {
 describe('ComposeScreen', () => {
 	it('creates a composition with the generated default name', async () => {
 		const wrapper = mountScreen()
+		await flushPromises()
 
 		expect((wrapper.get('.text-stub').element as HTMLInputElement).value)
 			.toMatch(/^Composition-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}$/)
@@ -188,9 +188,11 @@ describe('ComposeScreen', () => {
 
 	it('submits the chosen structure and composition name', async () => {
 		const wrapper = mountScreen()
+		await flushPromises()
 
 		await wrapper.get('select').setValue('1')
 		await wrapper.get('.text-stub').setValue('Study Notes')
+		await flushPromises()
 
 		await button(wrapper, 'Create composition')?.trigger('click')
 		await flushPromises()
@@ -218,25 +220,17 @@ describe('ComposeScreen', () => {
 		expect(api.compositions.create).not.toHaveBeenCalled()
 	})
 
-	it('lists only selected assets from chapters included in the structure', async () => {
-		const child = chapter(12, 'Details', '1.1')
-		vi.mocked(api.chapters.tree).mockResolvedValue([
-			chapter(11, 'Introduction', '1', [child]),
-			chapter(13, 'Appendix', '2'),
+	it('renders the preview groups returned for the structure', async () => {
+		vi.mocked(api.compositions.preview).mockResolvedValue([
+			{
+				chapter: chapter(11, 'Introduction', '1'),
+				assets: [asset(101, 11, 'Preface', true)],
+			},
+			{
+				chapter: chapter(12, 'Details', '1.1'),
+				assets: [asset(103, 12, 'Background', true)],
+			},
 		])
-		vi.mocked(api.assets.list).mockImplementation(async (chapterId) => {
-			if (chapterId === 11) {
-				return [
-					asset(101, 11, 'Preface', true),
-					asset(102, 11, 'Draft notes', false),
-				]
-			}
-			if (chapterId === 12) {
-				return [asset(103, 12, 'Background', true)]
-			}
-
-			return [asset(104, 13, 'Unused appendix', false)]
-		})
 
 		const wrapper = mountScreen()
 		await flushPromises()
@@ -249,24 +243,21 @@ describe('ComposeScreen', () => {
 		expect(groups[1].text()).toContain('Details')
 		expect(groups[1].text()).toContain('Background')
 		expect(wrapper.text()).toContain('2 assets from 2 chapters')
-		expect(wrapper.text()).not.toContain('Draft notes')
-		expect(wrapper.text()).not.toContain('Unused appendix')
-		expect(api.chapters.tree).toHaveBeenCalledWith(1, 10)
-		expect(api.assets.list).toHaveBeenCalledWith(11)
-		expect(api.assets.list).toHaveBeenCalledWith(12)
-		expect(api.assets.list).toHaveBeenCalledWith(13)
+		expect(api.compositions.preview).toHaveBeenCalledWith(1, 10)
+		expect(api.compositions.preview).toHaveBeenCalledTimes(1)
 	})
 
 	it('reloads the preview when the structure changes', async () => {
-		vi.mocked(api.chapters.tree).mockImplementation(async (_bookId, structureId) => (
+		vi.mocked(api.compositions.preview).mockImplementation(async (_bookId, structureId) => (
 			structureId === 10
-				? [chapter(11, 'Default chapter', '1')]
-				: [chapter(21, 'Study chapter', '1')]
-		))
-		vi.mocked(api.assets.list).mockImplementation(async (chapterId) => (
-			chapterId === 11
-				? [asset(101, 11, 'Default asset', true)]
-				: [asset(201, 21, 'Study asset', true)]
+				? [{
+					chapter: chapter(11, 'Default chapter', '1'),
+					assets: [asset(101, 11, 'Default asset', true)],
+				}]
+				: [{
+					chapter: chapter(21, 'Study chapter', '1'),
+					assets: [asset(201, 21, 'Study asset', true)],
+				}]
 		))
 
 		const wrapper = mountScreen()
@@ -276,18 +267,18 @@ describe('ComposeScreen', () => {
 		await wrapper.get('select').setValue('1')
 		await flushPromises()
 
-		expect(api.chapters.tree).toHaveBeenCalledWith(1, 20)
+		expect(api.compositions.preview).toHaveBeenCalledWith(1, 20)
 		expect(wrapper.text()).toContain('Study asset')
 		expect(wrapper.text()).not.toContain('Default asset')
 	})
 
-	it('shows an empty state when the structure has no selected assets', async () => {
-		vi.mocked(api.chapters.tree).mockResolvedValue([chapter(11, 'Introduction', '1')])
-		vi.mocked(api.assets.list).mockResolvedValue([asset(101, 11, 'Draft notes', false)])
+	it('blocks creation when the structure has no selected assets', async () => {
+		vi.mocked(api.compositions.preview).mockResolvedValue([])
 
 		const wrapper = mountScreen()
 		await flushPromises()
 
 		expect(wrapper.get('.preview-empty').text()).toContain('No assets are marked')
+		expect(button(wrapper, 'Create composition')?.attributes('disabled')).toBeDefined()
 	})
 })

@@ -140,21 +140,12 @@ class AssetController extends AbstractApiController {
 	#[ApiRoute(verb: 'PATCH', url: '/api/v1/assets/{assetId}')]
 	public function update(int $assetId, ?string $name = null, ?bool $includeInComposition = null): DataResponse {
 		return $this->handle(function () use ($assetId, $name, $includeInComposition): DataResponse {
-			if ($name === null && $includeInComposition === null) {
-				throw new ValidationException('Provide a name or composition inclusion flag');
-			}
-
-			$result = $name !== null
-				? $this->assetService->rename($this->currentUserId(), $assetId, $name)
-				: $this->assetService->get($this->currentUserId(), $assetId);
-
-			if ($includeInComposition !== null) {
-				$result = $this->assetService->setIncludeInComposition(
-					$this->currentUserId(),
-					$assetId,
-					$includeInComposition,
-				);
-			}
+			$result = $this->assetService->update(
+				$this->currentUserId(),
+				$assetId,
+				$name,
+				$includeInComposition,
+			);
 
 			return new DataResponse($this->serializer->asset(
 				$result['asset'],

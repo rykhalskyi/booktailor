@@ -13,7 +13,9 @@ use OCA\BookTailor\Db\ChapterMapper;
 use OCA\BookTailor\Db\CompositionMapper;
 use OCA\BookTailor\Db\StructureChapterMapper;
 use OCA\BookTailor\Db\StructureMapper;
+use OCA\BookTailor\Entity\Asset;
 use OCA\BookTailor\Entity\Book;
+use OCA\BookTailor\Entity\Chapter;
 use OCA\BookTailor\Entity\Composition;
 use OCA\BookTailor\Entity\Structure;
 use OCA\BookTailor\Exception\ConflictException;
@@ -60,10 +62,7 @@ class CompositionService {
 
 	public function create(string $userId, int $bookId, int $structureId, ?string $name = null): Composition {
 		$this->bookService->get($userId, $bookId);
-		$structure = $this->structureMapper->findById($structureId);
-		if ($structure === null || $structure->getBookId() !== $bookId) {
-			throw new NotFoundException('Structure not found');
-		}
+		$structure = $this->getStructure($bookId, $structureId);
 
 		$outputName = $this->normalizeOutputName($name);
 
@@ -99,6 +98,21 @@ class CompositionService {
 		$this->bookService->get($userId, $composition->getBookId());
 
 		return $composition;
+	}
+
+	/**
+	 * @return list<array{chapter: Chapter, number: string, assets: list<Asset>}>
+	 */
+	public function preview(string $userId, int $bookId, int $structureId): array {
+		$book = $this->bookService->get($userId, $bookId);
+		$structure = $this->getStructure($bookId, $structureId);
+		$numbered = $this->numberedTree($book, $structure);
+		$selectedByChapter = $this->includedAssetsByChapter($bookId);
+
+		$groups = [];
+		$this->collectPreviewGroups($numbered, $selectedByChapter, $groups);
+
+		return $groups;
 	}
 
 	public function retry(string $userId, int $compositionId): Composition {
@@ -238,19 +252,73 @@ class CompositionService {
 	}
 
 	private function buildOutput(Book $book, Structure $structure): string {
+		$numbered = $this->numberedTree($book, $structure);
+		$selectedByChapter = $this->includedAssetsByChapter($book->getId());
+
+		return $this->markdownComposer->compose($book, $numbered, $selectedByChapter)['markdown'];
+	}
+
+	private function getStructure(int $bookId, int $structureId): Structure {
+		$structure = $this->structureMapper->findById($structureId);
+		if ($structure === null || $structure->getBookId() !== $bookId) {
+			throw new NotFoundException('Structure not found');
+		}
+
+		return $structure;
+	}
+
+	/**
+	 * @return list<array{chapter: Chapter, children: array, effectiveParentId: ?int, number: string}>
+	 */
+	private function numberedTree(Book $book, Structure $structure): array {
 		$chapters = $this->chapterMapper->findByBook($book->getId());
 		$entries = $this->structureChapterMapper->findByStructure($structure->getId());
 		$tree = $this->structureTreeBuilder->build($chapters, $entries)['tree'];
-		$numbered = $this->numberingService->number($tree);
 
-		$selectedByChapter = [];
-		foreach ($this->assetMapper->findByBook($book->getId()) as $asset) {
+		return $this->numberingService->number($tree);
+	}
+
+	/**
+	 * @return array<int, list<Asset>>
+	 */
+	private function includedAssetsByChapter(int $bookId): array {
+		$grouped = [];
+		foreach ($this->assetMapper->findByBook($bookId) as $asset) {
 			if ($asset->getIncludeInComposition()) {
-				$selectedByChapter[$asset->getChapterId()][] = $asset;
+				$grouped[$asset->getChapterId()][] = $asset;
 			}
 		}
 
-		return $this->markdownComposer->compose($book, $numbered, $selectedByChapter)['markdown'];
+		foreach ($grouped as &$assets) {
+			usort($assets, static function (Asset $a, Asset $b): int {
+				return strcasecmp($a->getName(), $b->getName())
+					?: ($a->getId() <=> $b->getId());
+			});
+		}
+		unset($assets);
+
+		return $grouped;
+	}
+
+	/**
+	 * @param array<array-key, mixed> $nodes
+	 * @param array<int, list<Asset>> $selectedByChapter
+	 * @param list<array{chapter: Chapter, number: string, assets: list<Asset>}> $groups
+	 */
+	private function collectPreviewGroups(array $nodes, array $selectedByChapter, array &$groups): void {
+		foreach ($nodes as $node) {
+			/** @var array{chapter: Chapter, children: array, effectiveParentId: ?int, number: string} $node */
+			$assets = $selectedByChapter[$node['chapter']->getId()] ?? [];
+			if ($assets !== []) {
+				$groups[] = [
+					'chapter' => $node['chapter'],
+					'number' => $node['number'],
+					'assets' => $assets,
+				];
+			}
+
+			$this->collectPreviewGroups($node['children'], $selectedByChapter, $groups);
+		}
 	}
 
 	private function normalizeOutputName(?string $name): ?string {

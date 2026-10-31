@@ -1,5 +1,5 @@
 import { generateOcsUrl } from '@nextcloud/router'
-import type { AiAction, AiChatRequest, AiChatResponse, AiProfile, AiProfilePayload, AiPrompt, AiSettings, Asset, Book, Capabilities, Chapter, ChapterImage, Composition, SettingsInfo, Structure, StructureEntry, Tag, Version } from '../types'
+import type { AiAction, AiChatRequest, AiChatResponse, AiProfile, AiProfilePayload, AiPrompt, AiSettings, Asset, Book, Capabilities, Chapter, ChapterImage, Composition, CompositionPreviewGroup, SettingsInfo, Structure, StructureEntry, Tag, Version } from '../types'
 
 declare global {
 	interface Window {
@@ -263,6 +263,9 @@ export const api = {
 		create: (bookId: number, structureId: number, name?: string): Promise<Composition> => request<Composition>(`/books/${bookId}/compositions`, {
 			method: 'POST',
 			body: { structureId, name: name ?? null },
+		}),
+		preview: (bookId: number, structureId: number): Promise<CompositionPreviewGroup[]> => request<CompositionPreviewGroup[]>(`/books/${bookId}/compositions/preview`, {
+			query: { structureId },
 		}),
 		get: (compositionId: number): Promise<Composition> => request<Composition>(`/compositions/${compositionId}`),
 		remove: (compositionId: number): Promise<void> => request<void>(`/compositions/${compositionId}`, {

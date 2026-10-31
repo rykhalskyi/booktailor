@@ -969,6 +969,34 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+  /books/{bookId}/compositions/preview:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/BookId'
+    get:
+      tags: [compositions]
+      operationId: previewComposition
+      summary: Preview the assets a structure would compose
+      parameters:
+        - name: structureId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Assets marked for composition, grouped by chapter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsCompositionPreviewResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
   /compositions/{compositionId}:
     parameters:
       - $ref: '#/components/parameters/OCS-APIRequest'
@@ -2027,6 +2055,16 @@ components:
           type: string
           maxLength: 255
           description: Optional output name hint; T5 finalizes naming
+    CompositionPreviewGroup:
+      type: object
+      required: [chapter, assets]
+      properties:
+        chapter:
+          $ref: '#/components/schemas/Chapter'
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Asset'
     AiActionStatus:
       type: string
       enum: [proposed, applied, rejected]
@@ -2492,6 +2530,18 @@ components:
                   type: array
                   items:
                     $ref: '#/components/schemas/Composition'
+    OcsCompositionPreviewResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CompositionPreviewGroup'
     OcsAiActionResponse:
       allOf:
         - $ref: '#/components/schemas/OcsEnvelope'

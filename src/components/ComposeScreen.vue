@@ -7,14 +7,8 @@ import NcSelect from '@nextcloud/vue/components/NcSelect'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import { api } from '../api/client'
 import { useLibrary } from '../stores/useLibrary'
-import type { Asset, Chapter, Structure } from '../types'
+import type { Asset, CompositionPreviewGroup, Structure } from '../types'
 import { defaultCompositionName } from '../utils/compositions'
-import { flattenChapters } from '../utils/tree'
-
-interface PreviewGroup {
-	chapter: Chapter
-	assets: Asset[]
-}
 
 const {
 	closeCompose,
@@ -28,7 +22,7 @@ const {
 
 const structureId = ref<number | null>(selectedStructureId.value)
 const outputName = ref(defaultCompositionName())
-const previewGroups = ref<PreviewGroup[]>([])
+const previewGroups = ref<CompositionPreviewGroup[]>([])
 const previewLoading = ref(false)
 const previewError = ref<string | null>(null)
 let previewRequest = 0
@@ -47,6 +41,9 @@ const canSubmit = computed<boolean>(() => (
 	structureId.value !== null
 	&& !nameMissing.value
 	&& !loading.mutation
+	&& !previewLoading.value
+	&& previewError.value === null
+	&& previewAssetCount.value > 0
 ))
 
 function onStructureChange(structure: Structure | null): void {
@@ -85,25 +82,12 @@ async function loadPreview(): Promise<void> {
 	previewGroups.value = []
 
 	try {
-		const tree = await api.chapters.tree(bookId, selectedId)
+		const groups = await api.compositions.preview(bookId, selectedId)
 		if (request !== previewRequest) {
 			return
 		}
 
-		const chapters = flattenChapters(tree)
-		const assetsByChapter = await Promise.all(
-			chapters.map((chapter) => api.assets.list(chapter.id)),
-		)
-		if (request !== previewRequest) {
-			return
-		}
-
-		previewGroups.value = chapters
-			.map((chapter, index) => ({
-				chapter,
-				assets: (assetsByChapter[index] ?? []).filter((asset) => asset.includeInComposition),
-			}))
-			.filter((group) => group.assets.length > 0)
+		previewGroups.value = groups
 	} catch (errorValue) {
 		if (request !== previewRequest) {
 			return

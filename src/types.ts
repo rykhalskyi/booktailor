@@ -83,6 +83,11 @@ export interface StructureEntry {
 
 export type CompositionStatus = 'queued' | 'running' | 'succeeded' | 'failed'
 
+export interface CompositionPreviewGroup {
+	chapter: Chapter
+	assets: Asset[]
+}
+
 export interface Composition {
 	id: number
 	bookId: number
