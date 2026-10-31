@@ -15,3 +15,4 @@
 /playwright-report/
 /blob-report/
 /build/booktailor-*.tar.gz
+/build/booktailor-*.tar.gz.sha256

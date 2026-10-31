@@ -65,6 +65,26 @@ the HTTP cache in your browser or press `Ctrl+Shift+R`).
 
 PHP changes under `lib/`, `templates/` and `appinfo/` do not need a build step - just reload the page.
 
+## Release
+
+The app ships as a GitHub Release tarball consumed by the homelab Nextcloud image
+pipeline. Bump the version, commit, then tag:
+
+```bash
+./scripts/set-version.sh 1.7.1
+git add appinfo/info.xml package.json package-lock.json
+git commit -m "Release 1.7.1"
+git tag v1.7.1
+git push origin main
+git push origin v1.7.1
+```
+
+`.github/workflows/release.yml` validates that the tag matches `appinfo/info.xml`
+and `package.json`, builds the frontend, and publishes
+`booktailor-<version>.tar.gz` plus its `.sha256` checksum. The tarball contains a
+top-level `booktailor/` directory for direct extraction into the Nextcloud image
+build context.
+
 ## Usage
 
 - To get started easily use the [Appstore App generator](https://apps.nextcloud.com/developer/apps/generate) to
