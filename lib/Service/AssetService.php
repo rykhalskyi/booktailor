@@ -105,6 +105,7 @@ class AssetService {
 			$asset->setName($name);
 			$asset->setFileName($created['fileName']);
 			$asset->setFileId($created['file']->getId());
+			$asset->setIncludeInComposition(false);
 			$asset->setCreatedAt($now);
 			$asset->setUpdatedAt($now);
 			$asset = $this->assetMapper->insert($asset);
@@ -159,6 +160,26 @@ class AssetService {
 			'asset' => $asset,
 			'bookId' => $chapter->getBookId(),
 			'chapter' => $chapter,
+			'tags' => $tags,
+		];
+	}
+
+	/**
+	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
+	 */
+	public function setIncludeInComposition(string $userId, int $assetId, bool $includeInComposition): array {
+		$context = $this->context($userId, $assetId);
+		$asset = $context['asset'];
+		$asset->setIncludeInComposition($includeInComposition);
+		$asset->setUpdatedAt(new DateTime());
+		$asset = $this->assetMapper->update($asset);
+
+		$tags = $this->assetTagMapper->findTagsByAssetIds([$assetId])[$assetId] ?? [];
+
+		return [
+			'asset' => $asset,
+			'bookId' => $context['chapter']->getBookId(),
+			'chapter' => $context['chapter'],
 			'tags' => $tags,
 		];
 	}

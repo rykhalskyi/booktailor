@@ -8,6 +8,23 @@ const STATUS_LABELS: Record<CompositionStatus, string> = {
 	failed: 'Failed',
 }
 
+function pad(value: number): string {
+	return String(value).padStart(2, '0')
+}
+
+export function defaultCompositionName(now: Date = new Date()): string {
+	const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+	const time = `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`
+
+	return `Composition-${date}-${time}`
+}
+
+export function compositionTitle(composition: Composition): string {
+	const name = composition.outputName?.trim()
+
+	return name !== undefined && name !== '' ? name : composition.structureName
+}
+
 export function compositionStatusLabel(composition: Composition): string {
 	if (composition.status === 'running' && composition.stale) {
 		return 'Stale'

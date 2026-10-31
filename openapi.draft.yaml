@@ -33,7 +33,7 @@ tags:
   - name: versions
     description: Native Nextcloud versions and check-in messages.
   - name: tags
-    description: Per-book labels used for classification and composition rules.
+    description: Per-book labels used for asset classification.
   - name: compositions
     description: Asynchronous Markdown generation.
   - name: ai
@@ -626,7 +626,7 @@ paths:
     patch:
       tags: [assets]
       operationId: updateAsset
-      summary: Rename an asset
+      summary: Rename an asset or update its composition inclusion
       requestBody:
         required: true
         content:
@@ -869,7 +869,7 @@ paths:
     delete:
       tags: [tags]
       operationId: deleteTag
-      summary: Delete a tag and detach it from assets and composition rules
+      summary: Delete a tag and detach it from assets
       responses:
         '204':
           description: Tag deleted
@@ -1783,7 +1783,7 @@ components:
               type: string
     Asset:
       type: object
-      required: [id, bookId, chapterId, name, fileName, fileId, tags, createdAt, updatedAt]
+      required: [id, bookId, chapterId, name, fileName, fileId, tags, includeInComposition, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -1815,6 +1815,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Tag'
+        includeInComposition:
+          type: boolean
+          description: Whether this asset is included in compositions for the book
         createdAt:
           type: string
           format: date-time
@@ -1831,12 +1834,14 @@ components:
           maxLength: 255
     AssetUpdate:
       type: object
-      required: [name]
+      minProperties: 1
       properties:
         name:
           type: string
           minLength: 1
           maxLength: 255
+        includeInComposition:
+          type: boolean
     Version:
       type: object
       required: [revisionId, size, createdAt]
@@ -1965,18 +1970,6 @@ components:
     CompositionStatus:
       type: string
       enum: [queued, running, succeeded, failed]
-    CompositionRule:
-      type: object
-      required: [tagId, priority, fallback]
-      properties:
-        tagId:
-          type: integer
-          format: int64
-        priority:
-          type: integer
-          description: Lower values are evaluated first
-        fallback:
-          type: boolean
     Composition:
       type: object
       required: [id, bookId, structureName, status, createdAt]
@@ -1993,12 +1986,11 @@ components:
           nullable: true
         structureName:
           type: string
+        outputName:
+          type: string
+          nullable: true
         status:
           $ref: '#/components/schemas/CompositionStatus'
-        rules:
-          type: array
-          items:
-            $ref: '#/components/schemas/CompositionRule'
         outputFileId:
           type: integer
           format: int64
@@ -2026,15 +2018,11 @@ components:
           nullable: true
     CompositionCreate:
       type: object
-      required: [structureId, rules]
+      required: [structureId]
       properties:
         structureId:
           type: integer
           format: int64
-        rules:
-          type: array
-          items:
-            $ref: '#/components/schemas/CompositionRule'
         name:
           type: string
           maxLength: 255

@@ -1,5 +1,15 @@
-import { mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+vi.mock('../../src/api/client', () => ({
+	ApiError: class extends Error {},
+	api: {
+		assets: {
+			setIncludeInComposition: vi.fn(),
+		},
+	},
+}))
+
+import { api } from '../../src/api/client'
 import ChapterNode from '../../src/components/ChapterNode.vue'
 import { useLibrary } from '../../src/stores/useLibrary'
 import type { Asset, Chapter, Tag } from '../../src/types'
@@ -30,7 +40,7 @@ function tag(id: number, name: string, color: string): Tag {
 	return { id, bookId: 1, name, slug: name.toLowerCase(), color }
 }
 
-function asset(id: number, tags: Tag[]): Asset {
+function asset(id: number, tags: Tag[], includeInComposition = false): Asset {
 	return {
 		id,
 		bookId: 1,
@@ -40,6 +50,7 @@ function asset(id: number, tags: Tag[]): Asset {
 		fileId: id,
 		path: `BookTailor/Book/Chapter/Asset ${id}.md`,
 		tags,
+		includeInComposition,
 		createdAt: '2026-01-01T00:00:00+00:00',
 		updatedAt: '2026-01-01T00:00:00+00:00',
 	}
@@ -66,7 +77,6 @@ beforeEach(() => {
 	store.loading.mutation = false
 	store.expandedChapterIds.value = {}
 	store.expandedAssetChapterIds.value = {}
-	store.compositionRules.value = []
 	store.assetsByChapter.value = {
 		1: [
 			asset(10, [tag(1, 'Raw', '#2563eb'), tag(2, 'Summary', '#15803d')]),
@@ -113,18 +123,26 @@ describe('ChapterNode asset table', () => {
 		expect(rows[1].findAll('.asset-tag')).toHaveLength(0)
 	})
 
-	it('marks the asset picked by the highest-priority matching rule', () => {
+	it('shows and toggles the include flag for each asset', async () => {
 		const store = useLibrary()
 		store.expandedAssetChapterIds.value = { 1: true }
-		store.compositionRules.value = [
-			{ tagId: 2, priority: 1, fallback: false },
-			{ tagId: 1, priority: 2, fallback: false },
-		]
+		store.assetsByChapter.value[1][0] = asset(10, [tag(1, 'Raw', '#2563eb')], true)
+		vi.mocked(api.assets.setIncludeInComposition).mockResolvedValue(
+			asset(10, [tag(1, 'Raw', '#2563eb')], false),
+		)
 		const wrapper = mountNode()
 
-		const rows = wrapper.findAll('.chapter-asset-table tbody tr')
-		expect(rows[0].text()).toContain('Rule 1')
-		expect(rows[0].findAll('.asset-tag').at(-1)?.text()).toBe('Summary')
-		expect(wrapper.get('.chapter-asset-summary').text()).toContain('1')
+		const boxes = wrapper.findAll('.chapter-asset-table input[type="checkbox"]')
+		expect(boxes).toHaveLength(2)
+		expect((boxes[0].element as HTMLInputElement).checked).toBe(true)
+		expect((boxes[1].element as HTMLInputElement).checked).toBe(false)
+		expect(wrapper.get('.summary-metric--included').text()).toBe('1')
+
+		await boxes[0].setValue(false)
+		await flushPromises()
+
+		expect(api.assets.setIncludeInComposition).toHaveBeenCalledWith(10, false)
+		expect(store.assetsByChapter.value[1][0].includeInComposition).toBe(false)
+		expect(wrapper.get('.summary-metric--included').text()).toBe('0')
 	})
 })

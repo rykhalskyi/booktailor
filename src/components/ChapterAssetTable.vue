@@ -1,34 +1,26 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { t } from '@nextcloud/l10n'
 import NcActionButton from '@nextcloud/vue/components/NcActionButton'
 import NcActions from '@nextcloud/vue/components/NcActions'
-import type { Asset, CompositionRule } from '../types'
-import { pickAssetsForChapter, type AssetPick } from '../utils/composition'
+import type { Asset } from '../types'
 import { formatUpdatedAt } from '../utils/dates'
 import { assetEditorUrl } from '../utils/files'
 import { tagChipStyle } from '../utils/tags'
 
 defineOptions({ name: 'ChapterAssetTable' })
 
-const props = defineProps<{
+defineProps<{
 	assets: Asset[]
-	rules: CompositionRule[]
 	indent: number
+	busy: boolean
 }>()
 
 const emit = defineEmits<{
 	(event: 'open', asset: Asset): void
 	(event: 'tags', asset: Asset): void
 	(event: 'delete', asset: Asset): void
+	(event: 'include', asset: Asset, includeInComposition: boolean): void
 }>()
-
-const picks = computed<Map<number, AssetPick>>(() => pickAssetsForChapter(
-	props.assets,
-	props.rules,
-))
-
-const hasRules = computed<boolean>(() => props.rules.length > 0)
 
 function fileUrl(asset: Asset): string | null {
 	return assetEditorUrl(asset)
@@ -42,15 +34,8 @@ function showFileName(asset: Asset): boolean {
 	return asset.name !== '' && asset.name !== asset.fileName
 }
 
-function pickFor(asset: Asset): AssetPick | undefined {
-	return picks.value.get(asset.id)
-}
-
-function ruleLabel(asset: Asset): string {
-	const pick = pickFor(asset)
-	return pick === undefined
-		? ''
-		: t('booktailor', 'Rule {priority}', { priority: pick.rulePriority })
+function onIncludeChange(asset: Asset, event: Event): void {
+	emit('include', asset, (event.target as HTMLInputElement).checked)
 }
 </script>
 
@@ -71,8 +56,8 @@ function ruleLabel(asset: Asset): string {
 					<th scope="col" class="cell-date">
 						{{ t('booktailor', 'Updated') }}
 					</th>
-					<th v-if="hasRules" scope="col" class="cell-pick">
-						{{ t('booktailor', 'Picked by') }}
+					<th scope="col" class="cell-include">
+						{{ t('booktailor', 'Compose') }}
 					</th>
 					<th scope="col" class="cell-actions">
 						<span class="visually-hidden">{{ t('booktailor', 'Actions') }}</span>
@@ -109,17 +94,13 @@ function ruleLabel(asset: Asset): string {
 					<td class="cell-date" :title="asset.updatedAt">
 						{{ formatUpdatedAt(asset.updatedAt) }}
 					</td>
-					<td v-if="hasRules" class="cell-pick">
-						<span v-if="pickFor(asset)" class="asset-pick">
-							<span class="asset-pick-rule">{{ ruleLabel(asset) }}</span>
-							<span
-								v-if="pickFor(asset)?.tag"
-								class="asset-tag"
-								:style="tagChipStyle(pickFor(asset)?.tag?.color)">
-								{{ pickFor(asset)?.tag?.name }}
-							</span>
-						</span>
-						<span v-else class="muted">—</span>
+					<td class="cell-include">
+						<input
+							type="checkbox"
+							:checked="asset.includeInComposition"
+							:disabled="busy"
+							:aria-label="t('booktailor', 'Include {name} in composition', { name: titleFor(asset) })"
+							@change="onIncludeChange(asset, $event)">
 					</td>
 					<td class="cell-actions">
 						<NcActions
@@ -185,8 +166,12 @@ function ruleLabel(asset: Asset): string {
 	white-space: nowrap;
 }
 
-.cell-pick {
-	width: 16%;
+.cell-include {
+	width: 10%;
+}
+
+.muted {
+	color: var(--color-text-maxcontrast);
 }
 
 .cell-actions {
@@ -240,22 +225,6 @@ function ruleLabel(asset: Asset): string {
 	font-size: 0.75rem;
 	line-height: 1.6;
 	white-space: nowrap;
-}
-
-.asset-pick {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 2px;
-}
-
-.asset-pick-rule {
-	color: var(--color-text-maxcontrast);
-	font-size: 0.75rem;
-}
-
-.muted {
-	color: var(--color-text-maxcontrast);
 }
 
 .visually-hidden {

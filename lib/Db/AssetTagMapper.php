@@ -32,31 +32,6 @@ class AssetTagMapper {
 
 	/**
 	 * @param list<int> $assetIds
-	 * @return array<int, list<int>>
-	 */
-	public function findTagIdsByAssetIds(array $assetIds): array {
-		if ($assetIds === []) {
-			return [];
-		}
-
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('asset_id', 'tag_id')
-			->from('booktailor_asset_tags')
-			->where($qb->expr()->in('asset_id', $qb->createNamedParameter($assetIds, IQueryBuilder::PARAM_INT_ARRAY)))
-			->orderBy('tag_id', 'ASC');
-
-		/** @var list<array{asset_id: int|string, tag_id: int|string}> $rows */
-		$rows = $qb->executeQuery()->fetchAll();
-		$grouped = [];
-		foreach ($rows as $row) {
-			$grouped[(int)$row['asset_id']][] = (int)$row['tag_id'];
-		}
-
-		return $grouped;
-	}
-
-	/**
-	 * @param list<int> $assetIds
 	 * @return array<int, list<array{id: int, bookId: int, name: string, slug: string, color: string}>>
 	 */
 	public function findTagsByAssetIds(array $assetIds): array {

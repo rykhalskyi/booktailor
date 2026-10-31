@@ -11,8 +11,7 @@ defineOptions({ name: 'ChapterAssetSummary' })
 const props = defineProps<{
 	assetCount: number
 	tags: Tag[]
-	pickedCount: number
-	showPicks: boolean
+	includedCount: number
 	expanded: boolean
 }>()
 
@@ -24,8 +23,8 @@ const visibleTags = computed<Tag[]>(() => props.tags.slice(0, 3))
 const tagNames = computed<string>(() => props.tags.map((tag) => tag.name).join(', '))
 const ariaLabel = computed<string>(() => t(
 	'booktailor',
-	'{count} assets. Show asset table.',
-	{ count: props.assetCount },
+	'{count} assets, {included} included. Show asset table.',
+	{ count: props.assetCount, included: props.includedCount },
 ))
 </script>
 
@@ -51,9 +50,9 @@ const ariaLabel = computed<string>(() => t(
 					:style="{ backgroundColor: normalizeTagColor(tag.color) }" />
 			</span>
 		</span>
-		<span v-if="showPicks" class="summary-metric summary-metric--picked">
+		<span class="summary-metric summary-metric--included">
 			<NcIconSvgWrapper :path="mdiCheckCircle" :size="16" />
-			{{ pickedCount }}
+			{{ includedCount }}
 		</span>
 		<svg
 			class="summary-chevron"
@@ -72,7 +71,7 @@ const ariaLabel = computed<string>(() => t(
 	align-items: center;
 	gap: 8px;
 	flex-shrink: 0;
-	min-width: 180px;
+	min-width: 220px;
 	padding: 2px 8px;
 	border: 1px solid var(--color-border-dark);
 	border-radius: 12px;
@@ -96,10 +95,6 @@ const ariaLabel = computed<string>(() => t(
 	display: inline-flex;
 	align-items: center;
 	gap: 3px;
-}
-
-.summary-metric--picked {
-	color: var(--color-success);
 }
 
 .summary-tag-dots {

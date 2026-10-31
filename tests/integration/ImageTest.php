@@ -175,16 +175,16 @@ final class ImageTest extends TestCase {
 	public function testUploadedImageSurvivesComposition(): void {
 		[$book, $chapter] = $this->bookAndChapter();
 		$uploaded = $this->images->upload($this->userId, $chapter->getId(), 'cover.png', $this->png());
-		$this->asset($chapter, 'Illustrated', '![cover](images/cover.png)');
+		$asset = $this->asset($chapter, 'Illustrated', '![cover](images/cover.png)');
+		$this->assets->setIncludeInComposition($this->userId, $asset->getId(), true);
 		$structure = $this->structures->listForBook($this->userId, $book->getId())[0];
 
-		$created = $this->compositions->create(
+		$composition = $this->compositions->create(
 			$this->userId,
 			$book->getId(),
 			$structure->getId(),
-			[],
 		);
-		$compositionId = $created['composition']->getId();
+		$compositionId = $composition->getId();
 		$this->compositions->run($compositionId);
 
 		$composition = $this->compositions->getOwned($this->userId, $compositionId);

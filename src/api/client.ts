@@ -1,5 +1,5 @@
 import { generateOcsUrl } from '@nextcloud/router'
-import type { AiAction, AiChatRequest, AiChatResponse, AiProfile, AiProfilePayload, AiPrompt, AiSettings, Asset, Book, Capabilities, Chapter, ChapterImage, Composition, CompositionRule, SettingsInfo, Structure, StructureEntry, Tag, Version } from '../types'
+import type { AiAction, AiChatRequest, AiChatResponse, AiProfile, AiProfilePayload, AiPrompt, AiSettings, Asset, Book, Capabilities, Chapter, ChapterImage, Composition, SettingsInfo, Structure, StructureEntry, Tag, Version } from '../types'
 
 declare global {
 	interface Window {
@@ -203,6 +203,10 @@ export const api = {
 		remove: (assetId: number): Promise<void> => request<void>(`/assets/${assetId}`, {
 			method: 'DELETE',
 		}),
+		setIncludeInComposition: (assetId: number, includeInComposition: boolean): Promise<Asset> => request<Asset>(`/assets/${assetId}`, {
+			method: 'PATCH',
+			body: { includeInComposition },
+		}),
 		content: (assetId: number): Promise<{ content: string }> => request<{ content: string }>(`/assets/${assetId}/content`),
 		updateContent: (assetId: number, content: string): Promise<{ content: string }> => request<{ content: string }>(`/assets/${assetId}/content`, {
 			method: 'PUT',
@@ -256,9 +260,9 @@ export const api = {
 		list: (bookId: number, status?: string): Promise<Composition[]> => request<Composition[]>(`/books/${bookId}/compositions`, {
 			query: { status },
 		}),
-		create: (bookId: number, structureId: number, rules: CompositionRule[], name?: string): Promise<Composition> => request<Composition>(`/books/${bookId}/compositions`, {
+		create: (bookId: number, structureId: number, name?: string): Promise<Composition> => request<Composition>(`/books/${bookId}/compositions`, {
 			method: 'POST',
-			body: { structureId, rules, name: name ?? null },
+			body: { structureId, name: name ?? null },
 		}),
 		get: (compositionId: number): Promise<Composition> => request<Composition>(`/compositions/${compositionId}`),
 		remove: (compositionId: number): Promise<void> => request<void>(`/compositions/${compositionId}`, {

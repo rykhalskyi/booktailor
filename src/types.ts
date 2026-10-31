@@ -36,6 +36,7 @@ export interface Asset {
 	fileName: string
 	fileId: number | null
 	path: string | null
+	includeInComposition: boolean
 	tags: Tag[]
 	createdAt: string
 	updatedAt: string
@@ -82,19 +83,13 @@ export interface StructureEntry {
 
 export type CompositionStatus = 'queued' | 'running' | 'succeeded' | 'failed'
 
-export interface CompositionRule {
-	tagId: number
-	priority: number
-	fallback: boolean
-}
-
 export interface Composition {
 	id: number
 	bookId: number
 	structureId: number | null
 	structureName: string
+	outputName: string | null
 	status: CompositionStatus
-	rules: CompositionRule[]
 	outputFileId: number | null
 	outputPath: string | null
 	error: string | null

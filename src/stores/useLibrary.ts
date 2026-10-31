@@ -1,6 +1,6 @@
 import { computed, reactive, ref } from 'vue'
 import { api, ApiError } from '../api/client'
-import type { Asset, Book, Capabilities, Chapter, Composition, CompositionRule, DialogState, Structure, StructureEntry, Tag, Version } from '../types'
+import type { Asset, Book, Capabilities, Chapter, Composition, DialogState, Structure, StructureEntry, Tag, Version } from '../types'
 import { compositionFileName, saveBlob } from '../utils/compositions'
 import { collectChapterIds, findChapter } from '../utils/tree'
 
@@ -23,7 +23,6 @@ export function createLibraryStore() {
 	const loadingAssets = ref<Record<number, boolean>>({})
 	const expandedChapterIds = ref<Record<number, boolean>>({})
 	const expandedAssetChapterIds = ref<Record<number, boolean>>({})
-	const compositionRules = ref<CompositionRule[]>([])
 	const dialog = ref<DialogState | null>(null)
 	const error = ref<string | null>(null)
 	const loading = reactive({
@@ -88,7 +87,6 @@ export function createLibraryStore() {
 		loadingAssets.value = {}
 		expandedChapterIds.value = {}
 		expandedAssetChapterIds.value = {}
-		compositionRules.value = []
 		tags.value = []
 		historyEpoch += 1
 		historyAsset.value = null
@@ -748,10 +746,6 @@ export function createLibraryStore() {
 			: { [chapterId]: true }
 	}
 
-	function setCompositionRules(rules: CompositionRule[]): void {
-		compositionRules.value = rules
-	}
-
 	async function initialize(): Promise<void> {
 		await Promise.all([loadCapabilities(), loadBooks()])
 		if (books.value.length === 0) {
@@ -1024,7 +1018,7 @@ export function createLibraryStore() {
 		}
 	}
 
-	async function createComposition(structureId: number, rules: CompositionRule[], name?: string): Promise<boolean> {
+	async function createComposition(structureId: number, name?: string): Promise<boolean> {
 		const bookId = selectedBookId.value
 		if (bookId === null || loading.mutation) {
 			return false
@@ -1033,7 +1027,7 @@ export function createLibraryStore() {
 		loading.mutation = true
 		error.value = null
 		try {
-			await api.compositions.create(bookId, structureId, rules, name)
+			await api.compositions.create(bookId, structureId, name)
 			if (selectedBookId.value !== bookId) {
 				return true
 			}
@@ -1042,6 +1036,36 @@ export function createLibraryStore() {
 			await loadCompositions()
 			return true
 		} catch (errorValue) {
+			error.value = messageFor(errorValue)
+			return false
+		} finally {
+			loading.mutation = false
+		}
+	}
+
+	function replaceAsset(asset: Asset): void {
+		assetsByChapter.value = {
+			...assetsByChapter.value,
+			[asset.chapterId]: (assetsByChapter.value[asset.chapterId] ?? [])
+				.map((candidate) => candidate.id === asset.id ? asset : candidate),
+		}
+	}
+
+	async function setAssetIncluded(asset: Asset, includeInComposition: boolean): Promise<boolean> {
+		if (loading.mutation) {
+			return false
+		}
+
+		loading.mutation = true
+		error.value = null
+		const optimistic = { ...asset, includeInComposition }
+		replaceAsset(optimistic)
+		try {
+			const updated = await api.assets.setIncludeInComposition(asset.id, includeInComposition)
+			replaceAsset(updated)
+			return true
+		} catch (errorValue) {
+			replaceAsset(asset)
 			error.value = messageFor(errorValue)
 			return false
 		} finally {
@@ -1154,7 +1178,6 @@ export function createLibraryStore() {
 		editorEntries,
 		editorLoading,
 		editorStructureId,
-		compositionRules,
 		error,
 		expandedAssetChapterIds,
 		expandedChapterIds,
@@ -1224,7 +1247,7 @@ export function createLibraryStore() {
 		selectBook,
 		selectChapter,
 		selectStructure,
-		setCompositionRules,
+		setAssetIncluded,
 		toggleAssets,
 		toggleChapter,
 		uploadAsset,

@@ -30,7 +30,7 @@ class MarkdownComposer {
 		$blocks = $this->renderNodes($book, $numberedTree, 1, $selectedByChapter, $copiedImages, $assetCount);
 
 		if ($assetCount === 0) {
-			throw new ValidationException('No assets matched the composition rules');
+			throw new ValidationException('No assets are marked for composition');
 		}
 
 		$markdown = '# ' . trim($book->getName()) . "\n\n" . implode("\n\n", $blocks);

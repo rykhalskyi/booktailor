@@ -7,7 +7,6 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import { mdiChevronDown, mdiChevronRight } from '../icons'
 import { useLibrary } from '../stores/useLibrary'
 import type { Asset, Chapter, Tag } from '../types'
-import { pickAssetsForChapter } from '../utils/composition'
 import { assetEditorUrl } from '../utils/files'
 import { treeFocusKey } from '../utils/treeFocus'
 import ChapterAssetSummary from './ChapterAssetSummary.vue'
@@ -23,7 +22,6 @@ const props = defineProps<{
 const {
 	assetsByChapter,
 	capabilities,
-	compositionRules,
 	expandedAssetChapterIds,
 	expandedChapterIds,
 	loading,
@@ -33,6 +31,7 @@ const {
 	openDialog,
 	selectChapter,
 	selectedChapterId,
+	setAssetIncluded,
 	toggleAssets,
 	toggleChapter,
 	uploadAsset,
@@ -58,10 +57,9 @@ const chapterTags = computed<Tag[]>(() => {
 	}
 	return [...byId.values()]
 })
-const pickedCount = computed<number>(() => pickAssetsForChapter(
-	chapterAssets.value,
-	compositionRules.value,
-).size)
+const includedCount = computed<number>(() => chapterAssets.value.filter(
+	(asset) => asset.includeInComposition,
+).length)
 const assetTableIndent = computed<number>(() => (
 	8 + props.depth * 16 + 26 + 4 + 2 - 8
 ))
@@ -111,6 +109,10 @@ function editAssetTags(asset: Asset): void {
 function deleteAsset(asset: Asset): void {
 	openDialog({ type: 'asset-delete', asset })
 }
+
+function includeAsset(asset: Asset, includeInComposition: boolean): void {
+	setAssetIncluded(asset, includeInComposition)
+}
 </script>
 
 <template>
@@ -158,8 +160,7 @@ function deleteAsset(asset: Asset): void {
 				v-if="chapterAssets.length > 0"
 				:asset-count="chapterAssets.length"
 				:tags="chapterTags"
-				:picked-count="pickedCount"
-				:show-picks="compositionRules.length > 0"
+				:included-count="includedCount"
 				:expanded="assetsExpanded"
 				@toggle="toggleAssets(chapter.id, assetsExpanded)" />
 			<NcLoadingIcon
@@ -212,11 +213,12 @@ function deleteAsset(asset: Asset): void {
 		<ChapterAssetTable
 			v-if="assetsExpanded && chapterAssets.length > 0"
 			:assets="chapterAssets"
-			:rules="compositionRules"
 			:indent="assetTableIndent"
+			:busy="loading.mutation"
 			@open="openAsset"
 			@tags="editAssetTags"
-			@delete="deleteAsset" />
+			@delete="deleteAsset"
+			@include="includeAsset" />
 		<ul v-if="hasChildren && isExpanded" class="chapter-children" role="group">
 			<ChapterNode
 				v-for="child in chapter.children"

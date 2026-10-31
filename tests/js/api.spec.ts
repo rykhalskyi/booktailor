@@ -164,6 +164,39 @@ describe('API client', () => {
 	})
 })
 
+describe('asset API', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals()
+	})
+
+	it('patches the include-in-composition flag', async () => {
+		const asset = {
+			id: 10,
+			bookId: 1,
+			chapterId: 2,
+			name: 'Notes',
+			fileName: 'Notes.md',
+			fileId: 3,
+			path: 'BookTailor/Book/Chapter/Notes.md',
+			tags: [],
+			includeInComposition: true,
+			createdAt: '2026-01-01T00:00:00+00:00',
+			updatedAt: '2026-01-01T00:00:00+00:00',
+		}
+		const fetchMock = vi.fn().mockResolvedValue(response({
+			ocs: { meta: { statuscode: 200 }, data: asset },
+		}))
+		vi.stubGlobal('fetch', fetchMock)
+
+		expect(await api.assets.setIncludeInComposition(10, true)).toEqual(asset)
+
+		const [url, options] = fetchMock.mock.calls[0]
+		expect(url).toContain('/assets/10')
+		expect(options.method).toBe('PATCH')
+		expect(options.body).toBe(JSON.stringify({ includeInComposition: true }))
+	})
+})
+
 describe('composition API', () => {
 	afterEach(() => {
 		vi.unstubAllGlobals()
@@ -175,8 +208,8 @@ describe('composition API', () => {
 			bookId: 1,
 			structureId: 3,
 			structureName: 'Default',
+			outputName: 'Final',
 			status: 'queued',
-			rules: [{ tagId: 4, priority: 1, fallback: false }],
 			outputFileId: null,
 			outputPath: null,
 			error: null,
@@ -193,7 +226,7 @@ describe('composition API', () => {
 		vi.stubGlobal('fetch', fetchMock)
 
 		expect(await api.compositions.list(1)).toEqual([composition])
-		expect(await api.compositions.create(1, 3, composition.rules, 'Final')).toEqual(composition)
+		expect(await api.compositions.create(1, 3, 'Final')).toEqual(composition)
 		expect(await api.compositions.retry(9)).toEqual(composition)
 		await api.compositions.remove(9)
 
@@ -205,7 +238,6 @@ describe('composition API', () => {
 		expect(createOptions.method).toBe('POST')
 		expect(createOptions.body).toBe(JSON.stringify({
 			structureId: 3,
-			rules: composition.rules,
 			name: 'Final',
 		}))
 

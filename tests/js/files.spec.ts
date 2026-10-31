@@ -23,6 +23,7 @@ function asset(path: string | null, fileId: number | null = 42): Asset {
 		fileId,
 		path,
 		tags: [],
+		includeInComposition: false,
 		createdAt: '2026-01-01T00:00:00+00:00',
 		updatedAt: '2026-01-01T00:00:00+00:00',
 	}

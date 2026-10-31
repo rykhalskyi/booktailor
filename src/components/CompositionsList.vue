@@ -11,6 +11,7 @@ import {
 	compositionFileUrl,
 	compositionStatusClass,
 	compositionStatusLabel,
+	compositionTitle,
 } from '../utils/compositions'
 
 const {
@@ -29,12 +30,11 @@ const {
 const deleteTarget = ref<Composition | null>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
-const hasActive = computed<boolean>(() => compositions.value.some((composition) => (
-	composition.status === 'queued' || composition.status === 'running'
-)))
+const hasActive = computed<boolean>(() => compositions.value.some(isProcessing))
 
-function isRunning(composition: Composition): boolean {
-	return composition.status === 'running' && !composition.stale
+function isProcessing(composition: Composition): boolean {
+	return composition.status === 'queued'
+		|| (composition.status === 'running' && !composition.stale)
 }
 
 function canRetry(composition: Composition): boolean {
@@ -98,7 +98,7 @@ onUnmounted(() => {
 				</p>
 			</div>
 			<div class="compositions-header-actions">
-				<NcButton variant="primary" :disabled="loading.mutation" @click="openCompose">
+				<NcButton variant="primary" :disabled="loading.mutation || hasActive" @click="openCompose">
 					New composition
 				</NcButton>
 				<NcButton @click="closeCompositions">
@@ -127,11 +127,11 @@ onUnmounted(() => {
 			<li v-for="composition in compositions" :key="composition.id" class="composition-row">
 				<div class="composition-main">
 					<div class="composition-heading">
-						<span class="composition-structure">{{ composition.structureName }}</span>
+						<span class="composition-name">{{ compositionTitle(composition) }}</span>
 						<span class="composition-status" :class="compositionStatusClass(composition)">
 							<NcLoadingIcon
-								v-if="isRunning(composition)"
-								name="Composition running"
+								v-if="isProcessing(composition)"
+								name="Composition processing"
 								:size="14" />
 							{{ compositionStatusLabel(composition) }}
 						</span>
@@ -177,7 +177,7 @@ onUnmounted(() => {
 		<ConfirmDialog
 			v-if="deleteTarget !== null"
 			title="Delete composition"
-			:message="`Delete the output for “${deleteTarget.structureName}”? This cannot be undone.`"
+			:message="`Delete “${compositionTitle(deleteTarget)}”? This cannot be undone.`"
 			confirm-label="Delete composition"
 			:busy="loading.mutation"
 			:error="error"
@@ -269,8 +269,9 @@ onUnmounted(() => {
 	flex-wrap: wrap;
 }
 
-.composition-structure {
+.composition-name {
 	font-weight: 600;
+	overflow-wrap: anywhere;
 }
 
 .composition-status {

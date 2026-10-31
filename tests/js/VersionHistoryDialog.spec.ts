@@ -32,6 +32,7 @@ function asset(): Asset {
 		fileId: 20,
 		path: 'BookTailor/Book/Chapter/Notes.md',
 		tags: [],
+		includeInComposition: false,
 		createdAt: '2026-01-01T00:00:00+00:00',
 		updatedAt: '2026-01-01T00:00:00+00:00',
 	}
