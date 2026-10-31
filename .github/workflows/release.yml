@@ -71,10 +71,11 @@ jobs:
           tar="build/booktailor-${version}.tar.gz"
           test -f "$tar" || { echo "::error::missing $tar"; exit 1; }
           test -f "${tar}.sha256" || { echo "::error::missing ${tar}.sha256"; exit 1; }
-          tar -tzf "$tar" | grep -qx 'booktailor/appinfo/info.xml' \
+          tar -tzf "$tar" > /tmp/booktailor-contents.txt
+          grep -qx 'booktailor/appinfo/info.xml' /tmp/booktailor-contents.txt \
             || { echo "::error::unexpected tarball layout"; exit 1; }
-          tar -xOzf "$tar" booktailor/appinfo/info.xml \
-            | grep -q "<version>${version}</version>" \
+          tar -xOzf "$tar" booktailor/appinfo/info.xml > /tmp/booktailor-info.xml
+          grep -Fq "<version>${version}</version>" /tmp/booktailor-info.xml \
             || { echo "::error::tarball app version does not match ${version}"; exit 1; }
           ls -l build/booktailor-*
 
