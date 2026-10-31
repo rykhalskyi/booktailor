@@ -85,8 +85,15 @@ jobs:
         run: |
           set -euo pipefail
           version="${{ steps.version.outputs.version }}"
-          gh release create "v${version}" \
-            "build/booktailor-${version}.tar.gz" \
-            "build/booktailor-${version}.tar.gz.sha256" \
-            --title "v${version}" \
-            --generate-notes
+          assets=(
+            "build/booktailor-${version}.tar.gz"
+            "build/booktailor-${version}.tar.gz.sha256"
+          )
+
+          if gh release view "v${version}" >/dev/null 2>&1; then
+            gh release upload "v${version}" "${assets[@]}" --clobber
+          else
+            gh release create "v${version}" "${assets[@]}" \
+              --title "v${version}" \
+              --generate-notes
+          fi
