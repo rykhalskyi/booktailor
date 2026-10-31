@@ -139,6 +139,7 @@ function asset(id: number, chapterId: number): Asset {
 		fileId: id,
 		path: `BookTailor/Book 1/Chapter ${chapterId}/Asset ${id}.md`,
 		tags: [],
+		includeInComposition: false,
 		createdAt: '2026-01-01T00:00:00+00:00',
 		updatedAt: '2026-01-01T00:00:00+00:00',
 	}

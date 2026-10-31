@@ -18,7 +18,6 @@ use OCA\BookTailor\Service\ChapterService;
 use OCA\BookTailor\Service\CompositionService;
 use OCA\BookTailor\Service\StorageService;
 use OCA\BookTailor\Service\StructureService;
-use OCA\BookTailor\Service\TagService;
 use OCP\Files\Folder;
 use OCP\IDBConnection;
 use OCP\IUser;
@@ -32,7 +31,6 @@ final class CompositionTest extends TestCase {
 	private BookService $books;
 	private ChapterService $chapters;
 	private AssetService $assets;
-	private TagService $tags;
 	private StructureService $structures;
 	private CompositionService $compositions;
 	private StorageService $storage;
@@ -55,7 +53,6 @@ final class CompositionTest extends TestCase {
 		$this->books = $container->get(BookService::class);
 		$this->chapters = $container->get(ChapterService::class);
 		$this->assets = $container->get(AssetService::class);
-		$this->tags = $container->get(TagService::class);
 		$this->structures = $container->get(StructureService::class);
 		$this->compositions = $container->get(CompositionService::class);
 		$this->storage = $container->get(StorageService::class);
@@ -73,24 +70,19 @@ final class CompositionTest extends TestCase {
 		$this->user->delete();
 	}
 
-	public function testRuleSelectionFallsBackPerChapter(): void {
+	public function testOnlyIncludedAssetsAreComposedPerChapter(): void {
 		$book = $this->books->create($this->userId, 'Field Notes');
 		$part = $this->chapters->create($this->userId, $book->getId(), 'Part One');
 		$child = $this->chapters->create($this->userId, $book->getId(), 'Chapter Two', $part->getId());
 		$structure = $this->defaultStructure($book);
 
-		$summary = $this->tag($book, 'summary');
-		$raw = $this->tag($book, 'raw');
-		$this->asset($book, $part, 'A Summary', 'SUMMARY A', [$summary]);
-		$this->asset($book, $part, 'A Raw', 'RAW A', [$raw]);
-		$this->asset($book, $child, 'B Raw', 'RAW B', [$raw]);
+		$this->asset($book, $part, 'A Summary', 'SUMMARY A', true);
+		$this->asset($book, $part, 'A Raw', 'RAW A', false);
+		$this->asset($book, $child, 'B Raw', 'RAW B', true);
 
-		$created = $this->compositions->create($this->userId, $book->getId(), $structure->getId(), [
-			['tagId' => $summary, 'priority' => 1, 'fallback' => false],
-			['tagId' => $raw, 'priority' => 2, 'fallback' => true],
-		]);
-		$id = $created['composition']->getId();
-		$this->assertSame(Composition::STATUS_QUEUED, $created['composition']->getStatus());
+		$composition = $this->compositions->create($this->userId, $book->getId(), $structure->getId());
+		$id = $composition->getId();
+		$this->assertSame(Composition::STATUS_QUEUED, $composition->getStatus());
 
 		$this->compositions->run($id);
 		$composition = $this->compositions->getOwned($this->userId, $id);
@@ -108,16 +100,16 @@ final class CompositionTest extends TestCase {
 		$this->assertMatchesRegularExpression('/default-\d{8}-\d{6}\.md$/', (string)$composition->getOutputPath());
 	}
 
-	public function testEmptyRulesComposeAllAssetsInNameOrder(): void {
+	public function testIncludedAssetsComposeInNameOrder(): void {
 		$book = $this->books->create($this->userId, 'Everything');
 		$chapter = $this->chapters->create($this->userId, $book->getId(), 'Chapter');
 		$structure = $this->defaultStructure($book);
 
-		$this->asset($book, $chapter, 'Zebra', 'ZEBRA');
-		$this->asset($book, $chapter, 'Alpha', 'ALPHA');
+		$this->asset($book, $chapter, 'Zebra', 'ZEBRA', true);
+		$this->asset($book, $chapter, 'Alpha', 'ALPHA', true);
 
-		$created = $this->compositions->create($this->userId, $book->getId(), $structure->getId(), []);
-		$id = $created['composition']->getId();
+		$composition = $this->compositions->create($this->userId, $book->getId(), $structure->getId());
+		$id = $composition->getId();
 		$this->compositions->run($id);
 
 		$composition = $this->compositions->getOwned($this->userId, $id);
@@ -132,10 +124,10 @@ final class CompositionTest extends TestCase {
 		$chapter = $this->chapters->create($this->userId, $book->getId(), 'Chapter');
 		$structure = $this->defaultStructure($book);
 		$imageId = $this->image($book, $chapter, 'pic.png', 'PNGDATA');
-		$this->asset($book, $chapter, 'Text', '![pic](images/pic.png)' . "\n\n" . '<img src="./images/pic.png">');
+		$this->asset($book, $chapter, 'Text', '![pic](images/pic.png)' . "\n\n" . '<img src="./images/pic.png">', true);
 
-		$created = $this->compositions->create($this->userId, $book->getId(), $structure->getId(), []);
-		$id = $created['composition']->getId();
+		$created = $this->compositions->create($this->userId, $book->getId(), $structure->getId());
+		$id = $created->getId();
 		$this->compositions->run($id);
 
 		$composition = $this->compositions->getOwned($this->userId, $id);
@@ -154,10 +146,10 @@ final class CompositionTest extends TestCase {
 		$book = $this->books->create($this->userId, 'Broken Image');
 		$chapter = $this->chapters->create($this->userId, $book->getId(), 'Chapter');
 		$structure = $this->defaultStructure($book);
-		$this->asset($book, $chapter, 'Text', '![missing](images/nope.png)');
+		$this->asset($book, $chapter, 'Text', '![missing](images/nope.png)', true);
 
-		$created = $this->compositions->create($this->userId, $book->getId(), $structure->getId(), []);
-		$id = $created['composition']->getId();
+		$created = $this->compositions->create($this->userId, $book->getId(), $structure->getId());
+		$id = $created->getId();
 		$this->compositions->run($id);
 
 		$composition = $this->compositions->getOwned($this->userId, $id);
@@ -167,22 +159,19 @@ final class CompositionTest extends TestCase {
 		$this->assertStringContainsString('missing', (string)$composition->getError());
 	}
 
-	public function testNoMatchingAssetsFailsAndFailedCompositionCanBeRetried(): void {
+	public function testNoIncludedAssetsFailsAndFailedCompositionCanBeRetried(): void {
 		$book = $this->books->create($this->userId, 'No Match');
 		$chapter = $this->chapters->create($this->userId, $book->getId(), 'Chapter');
 		$structure = $this->defaultStructure($book);
-		$tag = $this->tag($book, 'wanted');
-		$this->asset($book, $chapter, 'Text', 'CONTENT');
+		$this->asset($book, $chapter, 'Text', 'CONTENT', false);
 
-		$created = $this->compositions->create($this->userId, $book->getId(), $structure->getId(), [
-			['tagId' => $tag, 'priority' => 1, 'fallback' => false],
-		]);
-		$id = $created['composition']->getId();
+		$composition = $this->compositions->create($this->userId, $book->getId(), $structure->getId());
+		$id = $composition->getId();
 		$this->compositions->run($id);
 
 		$composition = $this->compositions->getOwned($this->userId, $id);
 		$this->assertSame(Composition::STATUS_FAILED, $composition->getStatus());
-		$this->assertSame('No assets matched the composition rules', $composition->getError());
+		$this->assertSame('No assets are marked for composition', $composition->getError());
 
 		$retried = $this->compositions->retry($this->userId, $id);
 		$this->assertSame(Composition::STATUS_QUEUED, $retried->getStatus());
@@ -200,10 +189,10 @@ final class CompositionTest extends TestCase {
 		$book = $this->books->create($this->userId, 'Delete Me');
 		$chapter = $this->chapters->create($this->userId, $book->getId(), 'Chapter');
 		$structure = $this->defaultStructure($book);
-		$this->asset($book, $chapter, 'Text', 'CONTENT');
+		$this->asset($book, $chapter, 'Text', 'CONTENT', true);
 
-		$created = $this->compositions->create($this->userId, $book->getId(), $structure->getId(), []);
-		$id = $created['composition']->getId();
+		$composition = $this->compositions->create($this->userId, $book->getId(), $structure->getId());
+		$id = $composition->getId();
 		$this->compositions->run($id);
 		$composition = $this->compositions->getOwned($this->userId, $id);
 		$this->assertSame(Composition::STATUS_SUCCEEDED, $composition->getStatus());
@@ -224,67 +213,41 @@ final class CompositionTest extends TestCase {
 	public function testCompositionIsOwnerScoped(): void {
 		$book = $this->books->create($this->userId, 'Private');
 		$structure = $this->defaultStructure($book);
-		$created = $this->compositions->create($this->userId, $book->getId(), $structure->getId(), []);
+		$composition = $this->compositions->create($this->userId, $book->getId(), $structure->getId());
 
 		$this->expectException(NotFoundException::class);
-		$this->compositions->getOwned('somebody-else', $created['composition']->getId());
+		$this->compositions->getOwned('somebody-else', $composition->getId());
 	}
 
-	public function testCreateValidatesStructureTagsAndName(): void {
+	public function testCreateValidatesStructureAndName(): void {
 		$book = $this->books->create($this->userId, 'Validation');
 		$other = $this->books->create($this->userId, 'Other');
 		$structure = $this->defaultStructure($book);
 		$otherStructure = $this->defaultStructure($other);
 
 		try {
-			$this->compositions->create($this->userId, $book->getId(), $otherStructure->getId(), []);
+			$this->compositions->create($this->userId, $book->getId(), $otherStructure->getId());
 			$this->fail('A structure from another book must be rejected');
 		} catch (NotFoundException) {
 			// Expected.
 		}
 
-		$foreignTag = $this->tag($other, 'foreign');
-
-		try {
-			$this->compositions->create($this->userId, $book->getId(), $structure->getId(), [
-				['tagId' => $foreignTag, 'priority' => 1, 'fallback' => false],
-			]);
-			$this->fail('A tag from another book must be rejected');
-		} catch (ValidationException) {
-			// Expected.
-		}
-
-		$tag = $this->tag($book, 'local');
-		try {
-			$this->compositions->create($this->userId, $book->getId(), $structure->getId(), [
-				['tagId' => $tag, 'priority' => 1, 'fallback' => false],
-				['tagId' => $tag, 'priority' => 2, 'fallback' => false],
-			]);
-			$this->fail('Duplicate rule tags must be rejected');
-		} catch (ValidationException) {
-			// Expected.
-		}
+		$composition = $this->compositions->create($this->userId, $book->getId(), $structure->getId(), 'Final');
+		$this->assertSame('Final', $composition->getOutputName());
 
 		$this->expectException(ValidationException::class);
-		$this->compositions->create($this->userId, $book->getId(), $structure->getId(), [], str_repeat('a', 256));
+		$this->compositions->create($this->userId, $book->getId(), $structure->getId(), str_repeat('a', 256));
 	}
 
-	/**
-	 * @param list<int> $tagIds
-	 */
-	private function asset(Book $book, Chapter $chapter, string $name, string $content, array $tagIds = []): Asset {
+	private function asset(Book $book, Chapter $chapter, string $name, string $content, bool $includeInComposition): Asset {
 		$created = $this->assets->create($this->userId, $chapter->getId(), $name);
 		$asset = $created['asset'];
 		$this->assets->updateContent($this->userId, $asset->getId(), $content);
-		if ($tagIds !== []) {
-			$this->tags->replaceForAsset($this->userId, $asset->getId(), $tagIds);
+		if ($includeInComposition) {
+			$asset = $this->assets->setIncludeInComposition($this->userId, $asset->getId(), true)['asset'];
 		}
 
 		return $asset;
-	}
-
-	private function tag(Book $book, string $name): int {
-		return $this->tags->create($this->userId, $book->getId(), $name)->getId();
 	}
 
 	private function defaultStructure(Book $book): \OCA\BookTailor\Entity\Structure {

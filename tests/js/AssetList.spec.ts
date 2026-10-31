@@ -51,6 +51,7 @@ function asset(id: number, tags: Tag[]): Asset {
 		fileId: id,
 		path: `BookTailor/Book/Chapter/Asset ${id}.md`,
 		tags,
+		includeInComposition: false,
 		createdAt: '2026-01-01T00:00:00+00:00',
 		updatedAt: '2026-01-01T00:00:00+00:00',
 	}

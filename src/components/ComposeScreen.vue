@@ -1,15 +1,19 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
+import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcSelect from '@nextcloud/vue/components/NcSelect'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
+import { api } from '../api/client'
 import { useLibrary } from '../stores/useLibrary'
-import type { CompositionRule, Structure, Tag } from '../types'
+import type { Asset, Chapter, Structure } from '../types'
+import { defaultCompositionName } from '../utils/compositions'
+import { flattenChapters } from '../utils/tree'
 
-interface RuleDraft {
-	tagId: number | null
-	fallback: boolean
+interface PreviewGroup {
+	chapter: Chapter
+	assets: Asset[]
 }
 
 const {
@@ -17,101 +21,115 @@ const {
 	createComposition,
 	error,
 	loading,
+	selectedBookId,
 	selectedStructureId,
 	structures,
-	tags,
 } = useLibrary()
 
 const structureId = ref<number | null>(selectedStructureId.value)
-const outputName = ref('')
-const rules = ref<RuleDraft[]>([])
+const outputName = ref(defaultCompositionName())
+const previewGroups = ref<PreviewGroup[]>([])
+const previewLoading = ref(false)
+const previewError = ref<string | null>(null)
+let previewRequest = 0
 
 const selectedStructure = computed<Structure | null>(() => (
 	structures.value.find((structure) => structure.id === structureId.value) ?? null
 ))
 
-const tagById = computed<Map<number, Tag>>(() => new Map(
-	tags.value.map((tag) => [tag.id, tag]),
+const previewAssetCount = computed<number>(() => (
+	previewGroups.value.reduce((total, group) => total + group.assets.length, 0)
 ))
 
-const hasMissingTag = computed<boolean>(() => rules.value.some((rule) => rule.tagId === null))
-
-const hasDuplicateTag = computed<boolean>(() => {
-	const ids = rules.value
-		.map((rule) => rule.tagId)
-		.filter((id): id is number => id !== null)
-
-	return new Set(ids).size !== ids.length
-})
+const nameMissing = computed<boolean>(() => outputName.value.trim() === '')
 
 const canSubmit = computed<boolean>(() => (
 	structureId.value !== null
+	&& !nameMissing.value
 	&& !loading.mutation
-	&& !hasMissingTag.value
-	&& !hasDuplicateTag.value
 ))
 
 function onStructureChange(structure: Structure | null): void {
 	structureId.value = structure?.id ?? null
 }
 
-function onTagChange(index: number, tag: Tag | null): void {
-	setRuleTag(index, tag)
+function assetTitle(asset: Asset): string {
+	return asset.name === '' ? asset.fileName : asset.name
 }
 
-function tagFor(rule: RuleDraft): Tag | null {
-	return rule.tagId === null ? null : tagById.value.get(rule.tagId) ?? null
+function showAssetFileName(asset: Asset): boolean {
+	return asset.name !== '' && asset.name !== asset.fileName
 }
 
-function setRuleTag(index: number, tag: Tag | null): void {
-	rules.value[index] = {
-		...rules.value[index],
-		tagId: tag?.id ?? null,
+function previewMessage(errorValue: unknown): string {
+	if (errorValue instanceof Error) {
+		return errorValue.message
 	}
+
+	return 'Could not load the assets for this structure.'
 }
 
-function setFallback(index: number, event: Event): void {
-	rules.value[index] = {
-		...rules.value[index],
-		fallback: (event.target as HTMLInputElement).checked,
-	}
-}
+async function loadPreview(): Promise<void> {
+	const request = ++previewRequest
+	const bookId = selectedBookId.value
+	const selectedId = structureId.value
+	previewError.value = null
 
-function addRule(): void {
-	rules.value.push({ tagId: null, fallback: false })
-}
-
-function removeRule(index: number): void {
-	rules.value.splice(index, 1)
-}
-
-function moveRule(index: number, direction: number): void {
-	const target = index + direction
-	if (target < 0 || target >= rules.value.length) {
+	if (bookId === null || selectedId === null) {
+		previewGroups.value = []
+		previewLoading.value = false
 		return
 	}
 
-	const reordered = [...rules.value]
-	const [moved] = reordered.splice(index, 1)
-	reordered.splice(target, 0, moved)
-	rules.value = reordered
+	previewLoading.value = true
+	previewGroups.value = []
+
+	try {
+		const tree = await api.chapters.tree(bookId, selectedId)
+		if (request !== previewRequest) {
+			return
+		}
+
+		const chapters = flattenChapters(tree)
+		const assetsByChapter = await Promise.all(
+			chapters.map((chapter) => api.assets.list(chapter.id)),
+		)
+		if (request !== previewRequest) {
+			return
+		}
+
+		previewGroups.value = chapters
+			.map((chapter, index) => ({
+				chapter,
+				assets: (assetsByChapter[index] ?? []).filter((asset) => asset.includeInComposition),
+			}))
+			.filter((group) => group.assets.length > 0)
+	} catch (errorValue) {
+		if (request !== previewRequest) {
+			return
+		}
+
+		previewGroups.value = []
+		previewError.value = previewMessage(errorValue)
+	} finally {
+		if (request === previewRequest) {
+			previewLoading.value = false
+		}
+	}
 }
+
+watch([selectedBookId, structureId], () => {
+	loadPreview()
+}, { immediate: true })
 
 async function submit(): Promise<void> {
 	if (!canSubmit.value || structureId.value === null) {
 		return
 	}
 
-	const payload: CompositionRule[] = rules.value.map((rule, index) => ({
-		tagId: rule.tagId as number,
-		priority: index + 1,
-		fallback: rule.fallback,
-	}))
-
 	await createComposition(
 		structureId.value,
-		payload,
-		outputName.value.trim() === '' ? undefined : outputName.value.trim(),
+		outputName.value.trim(),
 	)
 }
 </script>
@@ -124,8 +142,8 @@ async function submit(): Promise<void> {
 					Compose
 				</h1>
 				<p class="compose-subtitle">
-					Turn a structure into one Markdown document. Rules pick assets by tag,
-					falling back to the next matching rule.
+					Turn a structure into one Markdown document using the assets marked
+					for composition in the chapter tree.
 				</p>
 			</div>
 			<NcButton @click="closeCompose">
@@ -149,96 +167,85 @@ async function submit(): Promise<void> {
 					@update:model-value="onStructureChange" />
 				<NcTextField
 					v-model="outputName"
-					label="Output name (optional)"
+					label="Composition name"
+					:error="nameMissing"
+					:helper-text="nameMissing ? 'A composition name is required.' : ''"
 					:disabled="loading.mutation"
 					:maxlength="255" />
 			</div>
 
-			<div class="rules-header">
-				<div>
-					<h2 class="rules-title">
-						Tag rules
-					</h2>
-					<p class="rules-subtitle">
-						Rules are evaluated top to bottom. Fallback rules are used only when
-						no normal rule matches a chapter.
-					</p>
+			<NcNoteCard
+				type="info"
+				text="Select the assets to include by checking them in the asset table of each chapter." />
+
+			<section class="compose-preview" aria-label="Assets to compose">
+				<div class="preview-header">
+					<div>
+						<h2 class="preview-title">
+							Assets to compose
+						</h2>
+						<p class="preview-subtitle">
+							Chapters included in the selected structure and the assets marked
+							for composition.
+						</p>
+					</div>
+					<span
+						v-if="!previewLoading && previewAssetCount > 0"
+						class="preview-count">
+						{{ previewAssetCount }}
+						{{ previewAssetCount === 1 ? 'asset' : 'assets' }}
+						from
+						{{ previewGroups.length }}
+						{{ previewGroups.length === 1 ? 'chapter' : 'chapters' }}
+					</span>
 				</div>
-				<NcButton :disabled="loading.mutation || tags.length === 0" @click="addRule">
-					Add rule
-				</NcButton>
-			</div>
 
-			<NcNoteCard
-				v-if="tags.length === 0"
-				type="info"
-				text="This book has no tags yet. With no rules, every asset in each included chapter is composed." />
-			<NcNoteCard
-				v-else-if="rules.length === 0"
-				type="info"
-				text="No rules yet. Every asset in each included chapter will be composed." />
-			<NcNoteCard
-				v-if="hasMissingTag"
-				type="warning"
-				text="Choose a tag for every rule before composing." />
-			<NcNoteCard
-				v-if="hasDuplicateTag"
-				type="warning"
-				text="Each tag may appear only once in the rule list." />
-
-			<ol v-if="rules.length > 0" class="rule-list">
-				<li v-for="(rule, index) in rules" :key="index" class="rule-row">
-					<span class="rule-priority">{{ index + 1 }}</span>
-					<div class="rule-tag">
-						<NcSelect
-							:model-value="tagFor(rule)"
-							:options="tags"
-							label="name"
-							input-label="Tag"
-							placeholder="Select a tag"
-							aria-label="Tag"
-							:clearable="false"
-							:searchable="true"
-							:disabled="loading.mutation"
-							@update:model-value="(tag) => onTagChange(index, tag)" />
-					</div>
-					<label class="fallback-toggle">
-						<input
-							type="checkbox"
-							:checked="rule.fallback"
-							:disabled="loading.mutation"
-							@change="(event) => setFallback(index, event)">
-						Fallback
-					</label>
-					<div class="rule-actions">
-						<NcButton
-							:disabled="loading.mutation || index === 0"
-							aria-label="Move rule up"
-							@click="moveRule(index, -1)">
-							Up
-						</NcButton>
-						<NcButton
-							:disabled="loading.mutation || index === rules.length - 1"
-							aria-label="Move rule down"
-							@click="moveRule(index, 1)">
-							Down
-						</NcButton>
-						<NcButton
-							variant="error"
-							:disabled="loading.mutation"
-							aria-label="Remove rule"
-							@click="removeRule(index)">
-							Remove
-						</NcButton>
-					</div>
-				</li>
-			</ol>
+				<div v-if="previewLoading" class="preview-state">
+					<NcLoadingIcon name="Loading assets to compose" :size="24" />
+				</div>
+				<NcNoteCard
+					v-else-if="previewError"
+					type="error"
+					:text="previewError" />
+				<p v-else-if="previewGroups.length === 0" class="preview-empty">
+					No assets are marked for composition in this structure.
+				</p>
+				<ul v-else class="preview-list">
+					<li
+						v-for="group in previewGroups"
+						:key="group.chapter.id"
+						class="preview-chapter">
+						<div class="preview-chapter-heading">
+							<span v-if="group.chapter.number" class="preview-chapter-number">
+								{{ group.chapter.number }}
+							</span>
+							<span class="preview-chapter-name">{{ group.chapter.name }}</span>
+							<span class="preview-chapter-count">{{ group.assets.length }}</span>
+						</div>
+						<ul class="preview-assets">
+							<li
+								v-for="asset in group.assets"
+								:key="asset.id"
+								class="preview-asset">
+								<span class="preview-asset-title">{{ assetTitle(asset) }}</span>
+								<span v-if="showAssetFileName(asset)" class="preview-asset-file">
+									{{ asset.fileName }}
+								</span>
+							</li>
+						</ul>
+					</li>
+				</ul>
+			</section>
 
 			<div class="compose-actions">
 				<NcButton
 					variant="primary"
 					:disabled="!canSubmit"
 					@click="submit">
+					<NcLoadingIcon
+						v-if="loading.mutation"
+						name="Creating composition"
+						:size="18" />
 					Create composition
 				</NcButton>
 			</div>
@@ -258,8 +265,7 @@ async function submit(): Promise<void> {
 	overflow: auto;
 }
 
-.compose-header,
-.rules-header {
+.compose-header {
 	display: flex;
 	align-items: flex-start;
 	justify-content: space-between;
@@ -267,18 +273,12 @@ async function submit(): Promise<void> {
 	flex-wrap: wrap;
 }
 
-.compose-title,
-.rules-title {
+.compose-title {
 	margin: 0;
 	font-size: 1.3rem;
 }
 
-.rules-title {
-	font-size: 1.1rem;
-}
-
-.compose-subtitle,
-.rules-subtitle {
+.compose-subtitle {
 	margin: 4px 0 0;
 	color: var(--color-text-maxcontrast);
 }
@@ -299,60 +299,139 @@ async function submit(): Promise<void> {
 	gap: 16px;
 }
 
-.rule-list {
+.compose-preview {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: 12px;
+	padding: 16px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	background: var(--color-background-dark);
+}
+
+.preview-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.preview-title {
+	margin: 0;
+	font-size: 1rem;
+}
+
+.preview-subtitle {
+	margin: 4px 0 0;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9rem;
+}
+
+.preview-count {
+	flex-shrink: 0;
+	padding: 2px 10px;
+	border-radius: 12px;
+	background: var(--color-primary-element-light);
+	font-size: 0.8rem;
+	white-space: nowrap;
+}
+
+.preview-state {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 72px;
+}
+
+.preview-empty {
+	margin: 0;
+	color: var(--color-text-maxcontrast);
+}
+
+.preview-list,
+.preview-assets {
 	margin: 0;
 	padding: 0;
 	list-style: none;
 }
 
-.rule-row {
+.preview-list {
 	display: flex;
-	align-items: center;
+	flex-direction: column;
 	gap: 12px;
-	padding: 8px 12px;
-	border: 1px solid var(--color-border-dark);
-	border-radius: var(--border-radius);
-	flex-wrap: wrap;
 }
 
-.rule-priority {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 24px;
-	height: 24px;
-	border-radius: 50%;
-	background: var(--color-primary-element);
-	color: var(--color-primary-element-text);
-	font-size: 0.85rem;
-	font-weight: 600;
-	flex-shrink: 0;
-}
-
-.rule-tag {
-	min-width: 180px;
-	flex: 1 1 220px;
-}
-
-.fallback-toggle {
+.preview-chapter {
 	display: flex;
-	align-items: center;
+	flex-direction: column;
 	gap: 6px;
-	white-space: nowrap;
 }
 
-.rule-actions,
+.preview-chapter-heading {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	font-weight: 600;
+}
+
+.preview-chapter-number {
+	flex-shrink: 0;
+	color: var(--color-text-maxcontrast);
+	font-variant-numeric: tabular-nums;
+}
+
+.preview-chapter-name {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.preview-chapter-count {
+	margin-inline-start: auto;
+	padding: 0 8px;
+	border: 1px solid var(--color-border-dark);
+	border-radius: 10px;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.75rem;
+	font-weight: 400;
+}
+
+.preview-assets {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding-inline-start: 16px;
+}
+
+.preview-asset {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	flex-wrap: wrap;
+	padding: 4px 8px;
+	border-inline-start: 2px solid var(--color-border-dark);
+}
+
+.preview-asset-title {
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+.preview-asset-file {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.8rem;
+	overflow-wrap: anywhere;
+}
+
 .compose-actions {
 	display: flex;
+	justify-content: flex-end;
 	gap: 8px;
 	flex-wrap: wrap;
 }
 
-.compose-actions {
-	justify-content: flex-end;
+.compose-actions :deep(.button-vue) {
+	gap: 6px;
 }
 
 @media (max-width: 720px) {

@@ -21,10 +21,14 @@ export function assetEditorUrl(asset: Asset): string | null {
 		return assetFileUrl(asset.fileId)
 	}
 
+	const folder = assetFolderPath(asset)
+	const dir = folder === null || folder === ''
+		? '/'
+		: `/${folder.replace(/^\/+/, '')}`
 	const params = new URLSearchParams({
-		dir: assetFolderPath(asset) ?? '',
-		openfile: String(asset.fileId),
+		dir,
+		openfile: 'true',
 	})
 
-	return `${generateUrl('/apps/files/')}?${params.toString()}`
+	return `${generateUrl('/apps/files/files/{fileId}', { fileId: asset.fileId })}?${params.toString()}`
 }

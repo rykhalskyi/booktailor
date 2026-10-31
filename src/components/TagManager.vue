@@ -66,7 +66,7 @@ async function submitDelete(): Promise<void> {
 					Tags
 				</h1>
 				<p class="tag-subtitle">
-					Tags are per book. They label assets and drive composition rules.
+					Tags are per book. They label and classify assets.
 				</p>
 			</div>
 			<div class="tag-header-actions">
@@ -137,7 +137,7 @@ async function submitDelete(): Promise<void> {
 		<ConfirmDialog
 			v-else-if="tagDialog?.type === 'delete'"
 			title="Delete tag"
-			:message="`Delete “${tagDialog.tag.name}”? It will be removed from all assets and composition rules.`"
+			:message="`Delete “${tagDialog.tag.name}”? It will be removed from all assets.`"
 			confirm-label="Delete tag"
 			:busy="loading.mutation"
 			:error="error"

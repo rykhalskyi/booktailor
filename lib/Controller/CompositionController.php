@@ -49,18 +49,17 @@ class CompositionController extends AbstractApiController {
 
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'POST', url: '/api/v1/books/{bookId}/compositions')]
-	public function create(int $bookId, int $structureId, array $rules = [], ?string $name = null): DataResponse {
-		return $this->handle(function () use ($bookId, $structureId, $rules, $name): DataResponse {
-			$created = $this->compositionService->create(
+	public function create(int $bookId, int $structureId, ?string $name = null): DataResponse {
+		return $this->handle(function () use ($bookId, $structureId, $name): DataResponse {
+			$composition = $this->compositionService->create(
 				$this->currentUserId(),
 				$bookId,
 				$structureId,
-				$rules,
 				$name,
 			);
 
 			return new DataResponse(
-				$this->serializer->composition($created['composition'], $created['rules']),
+				$this->serializer->composition($composition),
 				Http::STATUS_ACCEPTED,
 			);
 		});
@@ -113,13 +112,9 @@ class CompositionController extends AbstractApiController {
 	 * @return list<array>
 	 */
 	private function serializeMany(array $compositions): array {
-		$ids = array_map(static fn (Composition $composition): int => $composition->getId(), $compositions);
-		$rules = $this->compositionService->rulesForMany($ids);
-
 		return array_map(
 			fn (Composition $composition): array => $this->serializer->composition(
 				$composition,
-				$rules[$composition->getId()] ?? [],
 				$this->compositionService->isStale($composition),
 			),
 			$compositions,
@@ -129,7 +124,6 @@ class CompositionController extends AbstractApiController {
 	private function serializeOne(Composition $composition): array {
 		return $this->serializer->composition(
 			$composition,
-			$this->compositionService->rulesFor($composition->getId()),
 			$this->compositionService->isStale($composition),
 		);
 	}

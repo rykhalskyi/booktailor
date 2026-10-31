@@ -19,6 +19,8 @@ use OCP\DB\Types;
  * @method void setFileName(string $fileName)
  * @method ?int getFileId()
  * @method void setFileId(?int $fileId)
+ * @method bool getIncludeInComposition()
+ * @method void setIncludeInComposition(bool $includeInComposition)
  * @method DateTime getCreatedAt()
  * @method void setCreatedAt(DateTime $createdAt)
  * @method DateTime getUpdatedAt()
@@ -30,6 +32,7 @@ class Asset extends Entity {
 	protected ?string $name = null;
 	protected ?string $fileName = null;
 	protected ?int $fileId = null;
+	protected ?bool $includeInComposition = false;
 	protected ?DateTime $createdAt = null;
 	protected ?DateTime $updatedAt = null;
 
@@ -37,6 +40,7 @@ class Asset extends Entity {
 		$this->addType('id', Types::BIGINT);
 		$this->addType('chapterId', Types::BIGINT);
 		$this->addType('fileId', Types::BIGINT);
+		$this->addType('includeInComposition', Types::BOOLEAN);
 		$this->addType('createdAt', Types::DATETIME);
 		$this->addType('updatedAt', Types::DATETIME);
 	}
