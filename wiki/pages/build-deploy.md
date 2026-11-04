@@ -156,9 +156,14 @@ AI provider keys are **per user** and live in the in-app **Settings** screen. Th
 encrypted with Nextcloud's `ICrypto` and only a last-four mask is returned by the API.
 Never put provider keys in `config.php`, `.env`, or the repository.
 
-Langfuse is app-level configuration. There are two supported ways to provide it.
+Langfuse is app-level configuration. Administrators can set it in
+**Settings → Privacy and observability**, or with `occ`/environment variables.
 
-**Option A — app config via `occ`:**
+**Option A — app config via Settings or `occ`:**
+
+The Settings form is admin-only and stores the URL, public key, secret key, and
+prompt label as app config. The secret key is write-only: the API reports only
+whether one is stored. The same values can still be set with `occ`:
 
 ```bash
 docker exec -u www-data master-nextcloud-1 php occ config:app:set booktailor langfuse_url --value="http://langfuse.homelab.home.arpa"

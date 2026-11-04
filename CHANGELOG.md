@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Asset composition selection: mark or unmark assets for composition directly in the chapter tree, with a per-chapter table for names, tags, update times, and inclusion state.
 - Composition preview that lists the assets a structure will compose before the composition is created.
+- Administrators can configure the Langfuse URL, public key, secret key, and prompt label from Settings; stored secrets stay write-only.
+- Asset tags in the chapter table open the tag editor when clicked.
 
 ### Changed
 

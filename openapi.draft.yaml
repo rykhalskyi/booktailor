@@ -1260,6 +1260,52 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+  /ai/langfuse:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+    get:
+      tags: [settings]
+      operationId: getLangfuseSettings
+      summary: Read Langfuse app configuration (administrators only; the secret key is write-only)
+      responses:
+        '200':
+          description: Langfuse settings returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsLangfuseSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [settings]
+      operationId: updateLangfuseSettings
+      summary: Update Langfuse app configuration (administrators only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LangfuseSettingsUpdate'
+      responses:
+        '200':
+          description: Langfuse settings updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsLangfuseSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [settings]
+      operationId: clearLangfuseSettings
+      summary: Remove Langfuse app configuration (administrators only)
+      responses:
+        '204':
+          description: Langfuse settings removed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /ai/profiles:
     get:
       tags: [settings]
@@ -2286,8 +2332,11 @@ components:
           type: boolean
     AiSettings:
       type: object
-      required: [profiles, contentLogging, langfuse, providers]
+      required: [profiles, contentLogging, langfuse, providers, canManageLangfuse]
       properties:
+        canManageLangfuse:
+          type: boolean
+          description: Whether the current user may edit the app-level Langfuse configuration
         profiles:
           type: array
           items:
@@ -2320,6 +2369,42 @@ components:
       properties:
         contentLogging:
           type: boolean
+    LangfuseSettings:
+      type: object
+      required: [configured, url, publicKey, promptLabel, secretConfigured]
+      properties:
+        configured:
+          type: boolean
+        url:
+          type: string
+          nullable: true
+        publicKey:
+          type: string
+          nullable: true
+        promptLabel:
+          type: string
+        secretConfigured:
+          type: boolean
+          description: Whether a secret key is stored; the key itself is never returned
+    LangfuseSettingsUpdate:
+      type: object
+      properties:
+        url:
+          type: string
+          nullable: true
+          description: Empty string removes the stored URL; omit or null to keep it
+        publicKey:
+          type: string
+          nullable: true
+          description: Empty string removes the stored key; omit or null to keep it
+        secretKey:
+          type: string
+          writeOnly: true
+          description: Empty string removes the stored secret; omit or null to keep it
+        promptLabel:
+          type: string
+          nullable: true
+          description: Empty string removes the stored label; omit or null to keep it
     OcsBookResponse:
       allOf:
         - $ref: '#/components/schemas/OcsEnvelope'
@@ -2594,6 +2679,16 @@ components:
               properties:
                 data:
                   $ref: '#/components/schemas/AiSettings'
+    OcsLangfuseSettingsResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/LangfuseSettings'
     OcsAiProfileResponse:
       allOf:
         - $ref: '#/components/schemas/OcsEnvelope'

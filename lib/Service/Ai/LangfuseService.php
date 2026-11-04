@@ -246,8 +246,12 @@ class LangfuseService {
 	}
 
 	/** @psalm-suppress DeprecatedMethod */
-	private function publicKey(): string {
+	public function publicKey(): string {
 		return trim($this->value(self::CONFIG_PUBLIC_KEY, [self::ENV_PUBLIC_KEY, 'LANGFUSE_PUBLIC_KEY']));
+	}
+
+	public function hasSecret(): bool {
+		return $this->secretKey() !== '';
 	}
 
 	/** @psalm-suppress DeprecatedMethod */

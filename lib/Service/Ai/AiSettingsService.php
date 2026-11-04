@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\BookTailor\Service\Ai;
 
+use OCA\BookTailor\Exception\ValidationException;
 use OCP\IConfig;
 
 class AiSettingsService {
@@ -32,5 +33,92 @@ class AiSettingsService {
 			'configured' => $this->langfuseService->isConfigured(),
 			'url' => $this->langfuseService->publicUrl(),
 		];
+	}
+
+	/**
+	 * Full Langfuse app-level configuration for administrators. The secret key
+	 * is write-only: only whether one is stored is returned.
+	 *
+	 * @return array{configured: bool, url: ?string, publicKey: ?string, promptLabel: string, secretConfigured: bool}
+	 */
+	public function langfuseSettings(): array {
+		$url = $this->langfuseService->baseUrl();
+		$publicKey = $this->langfuseService->publicKey();
+
+		return [
+			'configured' => $this->langfuseService->isConfigured(),
+			'url' => $url === '' ? null : $url,
+			'publicKey' => $publicKey === '' ? null : $publicKey,
+			'promptLabel' => $this->langfuseService->promptLabel(),
+			'secretConfigured' => $this->langfuseService->hasSecret(),
+		];
+	}
+
+	/**
+	 * Update Langfuse app-level settings. A null value keeps the current value;
+	 * an empty string clears it. The secret key is only changed when provided.
+	 *
+	 * @psalm-suppress DeprecatedMethod
+	 */
+	public function updateLangfuseSettings(
+		?string $url = null,
+		?string $publicKey = null,
+		?string $secretKey = null,
+		?string $promptLabel = null,
+	): void {
+		if ($url !== null) {
+			$url = trim($url);
+			if ($url === '') {
+				$this->config->deleteAppValue('booktailor', LangfuseService::CONFIG_URL);
+			} else {
+				$this->assertValidUrl($url);
+				$this->config->setAppValue('booktailor', LangfuseService::CONFIG_URL, $url);
+			}
+		}
+
+		if ($publicKey !== null) {
+			$this->storeOrRemove(LangfuseService::CONFIG_PUBLIC_KEY, $publicKey);
+		}
+
+		if ($secretKey !== null) {
+			$this->storeOrRemove(LangfuseService::CONFIG_SECRET_KEY, $secretKey);
+		}
+
+		if ($promptLabel !== null) {
+			$this->storeOrRemove(LangfuseService::CONFIG_PROMPT_LABEL, $promptLabel);
+		}
+	}
+
+	/** @psalm-suppress DeprecatedMethod */
+	public function clearLangfuseSettings(): void {
+		foreach ([
+			LangfuseService::CONFIG_URL,
+			LangfuseService::CONFIG_PUBLIC_KEY,
+			LangfuseService::CONFIG_SECRET_KEY,
+			LangfuseService::CONFIG_PROMPT_LABEL,
+		] as $key) {
+			$this->config->deleteAppValue('booktailor', $key);
+		}
+	}
+
+	/** @psalm-suppress DeprecatedMethod */
+	private function storeOrRemove(string $key, string $value): void {
+		$value = trim($value);
+		if ($value === '') {
+			$this->config->deleteAppValue('booktailor', $key);
+
+			return;
+		}
+
+		$this->config->setAppValue('booktailor', $key, $value);
+	}
+
+	private function assertValidUrl(string $url): void {
+		$scheme = parse_url($url, PHP_URL_SCHEME);
+		if (filter_var($url, FILTER_VALIDATE_URL) === false
+			|| !is_string($scheme)
+			|| !in_array(strtolower($scheme), ['http', 'https'], true)) {
+			throw new ValidationException('Langfuse URL must be a valid http(s) URL.');
+		}
 	}
 }

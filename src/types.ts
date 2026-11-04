@@ -153,6 +153,19 @@ export interface LangfuseStatus {
 	url: string | null
 }
 
+export interface LangfuseSettings extends LangfuseStatus {
+	publicKey: string | null
+	promptLabel: string
+	secretConfigured: boolean
+}
+
+export interface LangfuseSettingsPayload {
+	url?: string
+	publicKey?: string
+	secretKey?: string
+	promptLabel?: string
+}
+
 export interface SettingsInfo {
 	storage: {
 		root: string
@@ -178,6 +191,7 @@ export interface AiSettings {
 	contentLogging: boolean
 	langfuse: LangfuseStatus
 	providers: AiProviderOption[]
+	canManageLangfuse: boolean
 }
 
 export type AiActionStatus = 'proposed' | 'applied' | 'rejected'

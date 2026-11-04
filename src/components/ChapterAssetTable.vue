@@ -82,14 +82,21 @@ function onIncludeChange(asset: Asset, event: Event): void {
 						</span>
 					</td>
 					<td class="cell-tags">
-						<span v-if="asset.tags.length === 0" class="muted">—</span>
-						<span
-							v-for="tag in asset.tags"
-							:key="tag.id"
-							class="asset-tag"
-							:style="tagChipStyle(tag.color)">
-							{{ tag.name }}
-						</span>
+						<button
+							type="button"
+							class="asset-tags-trigger"
+							:aria-label="t('booktailor', 'Edit tags for {name}', { name: titleFor(asset) })"
+							:title="t('booktailor', 'Edit tags')"
+							@click="emit('tags', asset)">
+							<span v-if="asset.tags.length === 0" class="muted">—</span>
+							<span
+								v-for="tag in asset.tags"
+								:key="tag.id"
+								class="asset-tag"
+								:style="tagChipStyle(tag.color)">
+								{{ tag.name }}
+							</span>
+						</button>
 					</td>
 					<td class="cell-date" :title="asset.updatedAt">
 						{{ formatUpdatedAt(asset.updatedAt) }}
@@ -215,6 +222,30 @@ function onIncludeChange(asset: Asset, event: Event): void {
 .asset-name--missing {
 	cursor: default;
 	color: var(--color-text-maxcontrast);
+}
+
+.asset-tags-trigger {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 2px;
+	max-width: 100%;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+
+.asset-tags-trigger:hover .asset-tag {
+	text-decoration: underline;
+}
+
+.asset-tags-trigger:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: 2px;
 }
 
 .asset-tag {
