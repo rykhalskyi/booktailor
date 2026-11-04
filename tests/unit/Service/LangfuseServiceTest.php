@@ -9,6 +9,7 @@ use OCP\Http\Client\IClient;
 use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
 use OCP\IConfig;
+use OCP\Security\ICrypto;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
@@ -50,6 +51,7 @@ final class LangfuseServiceTest extends TestCase {
 			$this->createMock(IClientService::class),
 			$config,
 			$this->createMock(LoggerInterface::class),
+			$this->createMock(ICrypto::class),
 		);
 
 		$this->assertFalse($service->isConfigured());
@@ -69,6 +71,7 @@ final class LangfuseServiceTest extends TestCase {
 				$this->createMock(IClientService::class),
 				$config,
 				$this->createMock(LoggerInterface::class),
+				$this->createMock(ICrypto::class),
 			);
 
 			$this->assertTrue($service->isConfigured());
@@ -92,6 +95,7 @@ final class LangfuseServiceTest extends TestCase {
 				$this->createMock(IClientService::class),
 				$config,
 				$this->createMock(LoggerInterface::class),
+				$this->createMock(ICrypto::class),
 			);
 
 			$this->assertTrue($service->isConfigured());
@@ -128,7 +132,7 @@ final class LangfuseServiceTest extends TestCase {
 			},
 		);
 
-		$service = new LangfuseService($clientService, $config, $this->createMock(LoggerInterface::class));
+		$service = new LangfuseService($clientService, $config, $this->createMock(LoggerInterface::class), $this->createMock(ICrypto::class));
 		$traceId = $service->traceGeneration('user', 'booktailor-chat', 'model', 'input', 'output', null, null, ['total' => 1], true);
 
 		$this->assertNotNull($traceId);
@@ -170,7 +174,7 @@ final class LangfuseServiceTest extends TestCase {
 			},
 		);
 
-		$service = new LangfuseService($clientService, $config, $this->createMock(LoggerInterface::class));
+		$service = new LangfuseService($clientService, $config, $this->createMock(LoggerInterface::class), $this->createMock(ICrypto::class));
 		$service->traceGeneration('user', 'booktailor-chat', 'model', 'input', 'output');
 
 		$this->assertIsArray($captured);
@@ -205,7 +209,7 @@ final class LangfuseServiceTest extends TestCase {
 			},
 		);
 
-		$service = new LangfuseService($clientService, $config, $this->createMock(LoggerInterface::class));
+		$service = new LangfuseService($clientService, $config, $this->createMock(LoggerInterface::class), $this->createMock(ICrypto::class));
 		$service->traceGeneration(
 			'user',
 			'booktailor-chat',
@@ -260,10 +264,139 @@ final class LangfuseServiceTest extends TestCase {
 			$clientService,
 			$config,
 			$this->createMock(LoggerInterface::class),
+			$this->createMock(ICrypto::class),
 		);
 
 		$this->assertTrue($service->isConfigured());
 		$this->assertNull($service->fetchPrompt('booktailor-chat'));
 		$this->assertNull($service->traceGeneration('user', 'trace', 'model', 'in', 'out'));
+	}
+
+	public function testStoredSecretIsEncryptedAtRest(): void {
+		$store = [];
+		$config = $this->createMock(IConfig::class);
+		$config->method('setAppValue')->willReturnCallback(
+			static function (string $app, string $key, string $value) use (&$store): void {
+				$store[$key] = $value;
+			},
+		);
+		$config->method('deleteAppValue')->willReturnCallback(
+			static function (string $app, string $key) use (&$store): void {
+				unset($store[$key]);
+			},
+		);
+		$crypto = $this->createMock(ICrypto::class);
+		$crypto->method('encrypt')->with('sk-secret')->willReturn('ciphertext');
+
+		$service = new LangfuseService(
+			$this->createMock(IClientService::class),
+			$config,
+			$this->createMock(LoggerInterface::class),
+			$crypto,
+		);
+		$service->storeSecret('sk-secret');
+
+		$this->assertSame('ciphertext', $store[LangfuseService::CONFIG_SECRET_KEY_ENCRYPTED]);
+		$this->assertArrayNotHasKey(LangfuseService::CONFIG_SECRET_KEY, $store);
+	}
+
+	public function testEncryptedSecretIsDecryptedAndReportedAsAppConfig(): void {
+		$config = $this->createMock(IConfig::class);
+		$config->method('getAppValue')->willReturnCallback(
+			static fn (string $app, string $key, string $default = ''): string => match ($key) {
+				LangfuseService::CONFIG_URL => 'http://langfuse.test',
+				LangfuseService::CONFIG_PUBLIC_KEY => 'public',
+				LangfuseService::CONFIG_SECRET_KEY_ENCRYPTED => 'ciphertext',
+				default => $default,
+			},
+		);
+		$crypto = $this->createMock(ICrypto::class);
+		$crypto->expects($this->once())->method('decrypt')->with('ciphertext')->willReturn('secret');
+
+		$service = new LangfuseService(
+			$this->createMock(IClientService::class),
+			$config,
+			$this->createMock(LoggerInterface::class),
+			$crypto,
+		);
+
+		$this->assertTrue($service->isConfigured());
+		$this->assertSame([
+			'url' => 'app',
+			'publicKey' => 'app',
+			'secretKey' => 'app',
+			'promptLabel' => 'none',
+		], $service->sources());
+	}
+
+	public function testLegacyPlaintextSecretStillWorks(): void {
+		$config = $this->createMock(IConfig::class);
+		$config->method('getAppValue')->willReturnCallback(
+			static fn (string $app, string $key, string $default = ''): string => match ($key) {
+				LangfuseService::CONFIG_URL => 'http://langfuse.test',
+				LangfuseService::CONFIG_PUBLIC_KEY => 'public',
+				LangfuseService::CONFIG_SECRET_KEY => 'legacy-secret',
+				default => $default,
+			},
+		);
+		$crypto = $this->createMock(ICrypto::class);
+		$crypto->expects($this->never())->method('decrypt');
+
+		$service = new LangfuseService(
+			$this->createMock(IClientService::class),
+			$config,
+			$this->createMock(LoggerInterface::class),
+			$crypto,
+		);
+
+		$this->assertTrue($service->isConfigured());
+	}
+
+	public function testSourcesReportEnvironmentValues(): void {
+		putenv(LangfuseService::ENV_URL . '=http://langfuse.test');
+		putenv(LangfuseService::ENV_PUBLIC_KEY . '=public');
+		putenv(LangfuseService::ENV_SECRET_KEY . '=secret');
+		try {
+			$config = $this->createMock(IConfig::class);
+			$config->method('getAppValue')->willReturn('');
+
+			$service = new LangfuseService(
+				$this->createMock(IClientService::class),
+				$config,
+				$this->createMock(LoggerInterface::class),
+				$this->createMock(ICrypto::class),
+			);
+
+			$this->assertSame([
+				'url' => 'environment',
+				'publicKey' => 'environment',
+				'secretKey' => 'environment',
+				'promptLabel' => 'none',
+			], $service->sources());
+		} finally {
+			putenv(LangfuseService::ENV_URL);
+			putenv(LangfuseService::ENV_PUBLIC_KEY);
+			putenv(LangfuseService::ENV_SECRET_KEY);
+		}
+	}
+
+	public function testClearSecretRemovesEncryptedAndLegacyValues(): void {
+		$config = $this->createMock(IConfig::class);
+		$config->expects($this->exactly(2))
+			->method('deleteAppValue')
+			->willReturnCallback(function (string $app, string $key): void {
+				$this->assertContains($key, [
+					LangfuseService::CONFIG_SECRET_KEY_ENCRYPTED,
+					LangfuseService::CONFIG_SECRET_KEY,
+				]);
+			});
+
+		$service = new LangfuseService(
+			$this->createMock(IClientService::class),
+			$config,
+			$this->createMock(LoggerInterface::class),
+			$this->createMock(ICrypto::class),
+		);
+		$service->clearSecret();
 	}
 }

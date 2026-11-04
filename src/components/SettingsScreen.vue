@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AiProfile, AiPrompt, AiSettings, SettingsInfo } from '../types'
+import type { AiProfile, AiPrompt, AiSettings, LangfuseSettings, SettingsInfo } from '../types'
 import { computed, onMounted, ref, watch } from 'vue'
 import { t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
@@ -8,9 +8,11 @@ import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwit
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import ConfirmDialog from './ConfirmDialog.vue'
 import AiProfileCard from './settings/AiProfileCard.vue'
 import AiProfileDialog from './settings/AiProfileDialog.vue'
 import AiPromptDialog from './settings/AiPromptDialog.vue'
+import LangfuseSettingsDialog from './settings/LangfuseSettingsDialog.vue'
 import { api, ApiError } from '../api/client'
 import { formatFileSize } from '../utils/images'
 import { useLibrary } from '../stores/useLibrary'
@@ -29,7 +31,15 @@ const editing = ref<AiProfile | undefined>(undefined)
 const promptDialogOpen = ref(false)
 const editingPrompt = ref<AiPrompt | undefined>(undefined)
 
+const langfuseConfig = ref<LangfuseSettings | null>(null)
+const langfuseDialogOpen = ref(false)
+const langfuseOpening = ref(false)
+const langfuseBusy = ref(false)
+const langfuseError = ref<string | null>(null)
+const langfuseClearOpen = ref(false)
+
 const profiles = computed(() => settings.value?.profiles ?? [])
+const canManageLangfuse = computed(() => settings.value?.canManageLangfuse ?? false)
 
 function messageFor(errorValue: unknown, fallback: string): string {
 	return errorValue instanceof ApiError ? errorValue.message : fallback
@@ -50,6 +60,63 @@ async function load(): Promise<void> {
 		error.value = messageFor(failure, t('booktailor', 'Could not load settings.'))
 	}
 	loading.value = false
+}
+
+async function openLangfuse(): Promise<void> {
+	if (langfuseOpening.value) {
+		return
+	}
+	langfuseOpening.value = true
+	langfuseError.value = null
+	try {
+		langfuseConfig.value = await api.ai.langfuse.get()
+		langfuseDialogOpen.value = true
+	} catch (errorValue) {
+		langfuseError.value = messageFor(errorValue, t('booktailor', 'Could not load Langfuse settings.'))
+	} finally {
+		langfuseOpening.value = false
+	}
+}
+
+function onLangfuseSaved(config: LangfuseSettings): void {
+	langfuseConfig.value = config
+	langfuseDialogOpen.value = false
+	if (settings.value !== null) {
+		settings.value = {
+			...settings.value,
+			langfuse: { configured: config.configured, url: config.url },
+		}
+	}
+}
+
+function onLangfuseRemoveRequest(): void {
+	langfuseClearOpen.value = true
+}
+
+async function clearLangfuse(): Promise<void> {
+	if (langfuseBusy.value) {
+		return
+	}
+	langfuseBusy.value = true
+	langfuseError.value = null
+	try {
+		await api.ai.langfuse.clear()
+		langfuseClearOpen.value = false
+		langfuseConfig.value = await api.ai.langfuse.get()
+		if (settings.value !== null) {
+			settings.value = {
+				...settings.value,
+				langfuse: {
+					configured: langfuseConfig.value.configured,
+					url: langfuseConfig.value.url,
+				},
+			}
+		}
+	} catch (errorValue) {
+		langfuseError.value = messageFor(errorValue, t('booktailor', 'Could not remove Langfuse settings.'))
+	} finally {
+		langfuseBusy.value = false
+	}
 }
 
 function openStorageFolder(): void {
@@ -376,14 +443,42 @@ async function onContentLoggingChange(value: boolean | string): Promise<void> {
 						{{ t('booktailor', 'Send prompt and response content to Langfuse') }}
 					</NcCheckboxRadioSwitch>
 
-					<NcNoteCard
-						:type="settings?.langfuse.configured ? 'success' : 'info'"
-						:text="settings?.langfuse.configured
-							? t('booktailor', 'Langfuse is configured for this app. Trace ids appear in chat responses.')
-							: t('booktailor', 'Langfuse is not configured. Set the app-level URL, public key, and secret key in Nextcloud app config.')" />
-					<p v-if="settings?.langfuse.url" :class="$style.hint">
-						Langfuse: <a :href="settings.langfuse.url" target="_blank" rel="noopener noreferrer">{{ settings.langfuse.url }}</a>
-					</p>
+					<template v-if="canManageLangfuse">
+						<NcNoteCard v-if="langfuseError" type="error" :text="langfuseError" />
+						<div :class="$style.langfuseCard">
+							<div :class="$style.langfuseMain">
+								<div :class="$style.langfuseTitle">
+									<span>Langfuse</span>
+									<span :class="settings?.langfuse.configured ? $style.statusOn : $style.statusOff">
+										{{ settings?.langfuse.configured
+											? t('booktailor', 'Configured')
+											: t('booktailor', 'Not configured') }}
+									</span>
+								</div>
+								<span :class="$style.hint">
+									<span v-if="settings?.langfuse.configured && settings.langfuse.url">
+										{{ settings.langfuse.url }}
+									</span>
+									<span v-else>
+										{{ t('booktailor', 'Add the Langfuse URL, project keys, and prompt label.') }}
+									</span>
+								</span>
+							</div>
+							<NcButton :disabled="langfuseOpening" @click="openLangfuse">
+								{{ settings?.langfuse.configured ? t('booktailor', 'Edit') : t('booktailor', 'Configure') }}
+							</NcButton>
+						</div>
+					</template>
+					<template v-else>
+						<NcNoteCard
+							:type="settings?.langfuse.configured ? 'success' : 'info'"
+							:text="settings?.langfuse.configured
+								? t('booktailor', 'Langfuse is configured for this app. Trace ids appear in chat responses.')
+								: t('booktailor', 'Langfuse is not configured. Ask an administrator to configure it.')" />
+						<p v-if="settings?.langfuse.url" :class="$style.hint">
+							Langfuse: <a :href="settings.langfuse.url" target="_blank" rel="noopener noreferrer">{{ settings.langfuse.url }}</a>
+						</p>
+					</template>
 				</section>
 			</template>
 		</div>
@@ -404,6 +499,21 @@ async function onContentLoggingChange(value: boolean | string): Promise<void> {
 			@created="onPromptSaved"
 			@updated="onPromptSaved"
 			@deleted="onPromptSaved" />
+		<LangfuseSettingsDialog
+			:open="langfuseDialogOpen"
+			:config="langfuseConfig"
+			@update:open="langfuseDialogOpen = $event"
+			@saved="onLangfuseSaved"
+			@remove="onLangfuseRemoveRequest" />
+		<ConfirmDialog
+			v-if="langfuseClearOpen"
+			:title="t('booktailor', 'Remove Langfuse configuration')"
+			:message="t('booktailor', 'Remove the stored Langfuse URL, keys, and prompt label? Environment variables, if any, still apply after removal.')"
+			:confirm-label="t('booktailor', 'Remove')"
+			:busy="langfuseBusy"
+			:error="langfuseError"
+			@confirm="clearLangfuse"
+			@close="langfuseClearOpen = false" />
 	</div>
 </template>
 
@@ -519,6 +629,49 @@ async function onContentLoggingChange(value: boolean | string): Promise<void> {
 	gap: 12px;
 	color: var(--color-text-maxcontrast);
 	padding: 24px;
+}
+
+.langfuseCard {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 12px 16px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius);
+	background: var(--color-background-hover);
+}
+
+.langfuseMain {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
+}
+
+.langfuseTitle {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: 600;
+}
+
+.statusOn,
+.statusOff {
+	padding: 1px 8px;
+	border-radius: 10px;
+	font-size: var(--font-size-small, 12px);
+	font-weight: 600;
+}
+
+.statusOn {
+	background: var(--color-success-background, rgba(45, 194, 107, 0.15));
+	color: var(--color-success);
+}
+
+.statusOff {
+	background: var(--color-background-dark);
+	color: var(--color-text-maxcontrast);
 }
 
 .hint {

@@ -14,6 +14,7 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataResponse;
+use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
@@ -29,6 +30,7 @@ class AiSettingsController extends AbstractApiController {
 		private readonly LlmProfileService $profileService,
 		private readonly AiSettingsService $settingsService,
 		private readonly AiProviderRegistry $providerRegistry,
+		private readonly IGroupManager $groupManager,
 	) {
 		parent::__construct($request, $userSession, $logger);
 	}
@@ -47,7 +49,36 @@ class AiSettingsController extends AbstractApiController {
 				'contentLogging' => $this->settingsService->contentLogging($userId),
 				'langfuse' => $this->settingsService->langfuseStatus(),
 				'providers' => $this->providerRegistry->list(),
+				'canManageLangfuse' => $this->groupManager->isAdmin($userId),
 			]);
+		});
+	}
+
+	#[ApiRoute(verb: 'GET', url: '/api/v1/ai/langfuse')]
+	public function langfuse(): DataResponse {
+		return $this->handle(fn (): DataResponse => new DataResponse($this->settingsService->langfuseSettings()));
+	}
+
+	#[ApiRoute(verb: 'PATCH', url: '/api/v1/ai/langfuse')]
+	public function updateLangfuse(
+		?string $url = null,
+		?string $publicKey = null,
+		?string $secretKey = null,
+		?string $promptLabel = null,
+	): DataResponse {
+		return $this->handle(function () use ($url, $publicKey, $secretKey, $promptLabel): DataResponse {
+			$this->settingsService->updateLangfuseSettings($url, $publicKey, $secretKey, $promptLabel);
+
+			return new DataResponse($this->settingsService->langfuseSettings());
+		});
+	}
+
+	#[ApiRoute(verb: 'DELETE', url: '/api/v1/ai/langfuse')]
+	public function clearLangfuse(): DataResponse {
+		return $this->handle(function (): DataResponse {
+			$this->settingsService->clearLangfuseSettings();
+
+			return new DataResponse([], Http::STATUS_NO_CONTENT);
 		});
 	}
 

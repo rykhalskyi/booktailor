@@ -1,5 +1,5 @@
 import { generateOcsUrl } from '@nextcloud/router'
-import type { AiAction, AiChatRequest, AiChatResponse, AiProfile, AiProfilePayload, AiPrompt, AiSettings, Asset, Book, Capabilities, Chapter, ChapterImage, Composition, CompositionPreviewGroup, SettingsInfo, Structure, StructureEntry, Tag, Version } from '../types'
+import type { AiAction, AiChatRequest, AiChatResponse, AiProfile, AiProfilePayload, AiPrompt, AiSettings, Asset, Book, Capabilities, Chapter, ChapterImage, Composition, CompositionPreviewGroup, LangfuseSettings, LangfuseSettingsPayload, SettingsInfo, Structure, StructureEntry, Tag, Version } from '../types'
 
 declare global {
 	interface Window {
@@ -282,6 +282,16 @@ export const api = {
 			method: 'PATCH',
 			body: { contentLogging },
 		}),
+		langfuse: {
+			get: (): Promise<LangfuseSettings> => request<LangfuseSettings>('/ai/langfuse'),
+			update: (payload: LangfuseSettingsPayload): Promise<LangfuseSettings> => request<LangfuseSettings>('/ai/langfuse', {
+				method: 'PATCH',
+				body: payload,
+			}),
+			clear: (): Promise<void> => request<void>('/ai/langfuse', {
+				method: 'DELETE',
+			}),
+		},
 		profiles: {
 			list: (): Promise<AiSettings> => request<AiSettings>('/ai/settings'),
 			create: (payload: AiProfilePayload): Promise<AiProfile> => request<AiProfile>('/ai/profiles', {

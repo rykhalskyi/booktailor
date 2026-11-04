@@ -153,6 +153,29 @@ export interface LangfuseStatus {
 	url: string | null
 }
 
+export type LangfuseConfigSource = 'app' | 'environment' | 'none'
+
+export interface LangfuseSources {
+	url: LangfuseConfigSource
+	publicKey: LangfuseConfigSource
+	secretKey: LangfuseConfigSource
+	promptLabel: LangfuseConfigSource
+}
+
+export interface LangfuseSettings extends LangfuseStatus {
+	publicKey: string | null
+	promptLabel: string
+	secretConfigured: boolean
+	sources: LangfuseSources
+}
+
+export interface LangfuseSettingsPayload {
+	url?: string
+	publicKey?: string
+	secretKey?: string
+	promptLabel?: string
+}
+
 export interface SettingsInfo {
 	storage: {
 		root: string
@@ -178,6 +201,7 @@ export interface AiSettings {
 	contentLogging: boolean
 	langfuse: LangfuseStatus
 	providers: AiProviderOption[]
+	canManageLangfuse: boolean
 }
 
 export type AiActionStatus = 'proposed' | 'applied' | 'rejected'
