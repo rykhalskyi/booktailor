@@ -162,8 +162,12 @@ Langfuse is app-level configuration. Administrators can set it in
 **Option A — app config via Settings or `occ`:**
 
 The Settings form is admin-only and stores the URL, public key, secret key, and
-prompt label as app config. The secret key is write-only: the API reports only
-whether one is stored. The same values can still be set with `occ`:
+prompt label as app config. The secret key is encrypted with Nextcloud's
+`ICrypto` and is write-only: the API reports only whether one is stored. Values
+provided by environment variables are flagged as such in the form; saving writes
+an app-config override, and removing the configuration does not clear the
+environment. The same values can still be set with `occ` (the secret key stored
+this way stays in the legacy plaintext key and is still read):
 
 ```bash
 docker exec -u www-data master-nextcloud-1 php occ config:app:set booktailor langfuse_url --value="http://langfuse.homelab.home.arpa"

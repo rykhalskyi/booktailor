@@ -3,6 +3,7 @@ import type { LangfuseSettings, LangfuseSettingsPayload } from '../../types'
 import { computed, ref, watch } from 'vue'
 import { t } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
+import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
@@ -23,14 +24,17 @@ const url = ref('')
 const publicKey = ref('')
 const secretKey = ref('')
 const promptLabel = ref('production')
+const clearSecret = ref(false)
 const saving = ref(false)
 const error = ref<string | null>(null)
 
 const hasStoredSecret = computed(() => props.config?.secretConfigured ?? false)
-const canSubmit = computed(() => !saving.value
-	&& url.value.trim() !== ''
-	&& publicKey.value.trim() !== ''
-	&& (hasStoredSecret.value || secretKey.value.trim() !== ''))
+const hasEnvironmentValue = computed(() => {
+	const sources = props.config?.sources
+	return sources !== undefined
+		&& Object.values(sources).includes('environment')
+})
+const canSubmit = computed(() => !saving.value)
 
 function messageFor(errorValue: unknown, fallback: string): string {
 	return errorValue instanceof ApiError ? errorValue.message : fallback
@@ -44,6 +48,7 @@ watch(
 		}
 		error.value = null
 		saving.value = false
+		clearSecret.value = false
 		const config = props.config
 		url.value = config?.url ?? ''
 		publicKey.value = config?.publicKey ?? ''
@@ -67,7 +72,9 @@ async function submit(): Promise<void> {
 			publicKey: publicKey.value.trim(),
 			promptLabel: promptLabel.value.trim(),
 		}
-		if (secretKey.value.trim() !== '') {
+		if (clearSecret.value) {
+			payload.secretKey = ''
+		} else if (secretKey.value.trim() !== '') {
 			payload.secretKey = secretKey.value.trim()
 		}
 		emit('saved', await api.ai.langfuse.update(payload))
@@ -95,6 +102,10 @@ function requestRemove(): void {
 		@update:open="emit('update:open', $event)">
 		<div :class="$style.form">
 			<NcNoteCard v-if="error" type="error" :text="error" />
+			<NcNoteCard
+				v-if="hasEnvironmentValue"
+				type="info"
+				:text="t('booktailor', 'Some values come from environment variables. Saving stores them as app configuration, which takes precedence. Removing the configuration does not clear environment variables.')" />
 
 			<NcTextField
 				v-model="url"
@@ -112,11 +123,20 @@ function requestRemove(): void {
 				v-model="secretKey"
 				type="password"
 				:label="t('booktailor', 'Secret key')"
-				:placeholder="hasStoredSecret ? '••••••••' : 'sk-lf-…'"
-				:disabled="saving"
-				:helper-text="hasStoredSecret
-					? t('booktailor', 'A secret key is stored. Leave empty to keep it.')
-					: t('booktailor', 'Project secret key from Langfuse.')" />
+				:placeholder="hasStoredSecret && !clearSecret ? '••••••••' : 'sk-lf-…'"
+				:disabled="saving || clearSecret"
+				:helper-text="clearSecret
+					? t('booktailor', 'The stored secret key will be removed when you save.')
+					: hasStoredSecret
+						? t('booktailor', 'A secret key is stored. Leave empty to keep it.')
+						: t('booktailor', 'Project secret key from Langfuse.')" />
+			<NcCheckboxRadioSwitch
+				v-if="hasStoredSecret"
+				v-model="clearSecret"
+				type="checkbox"
+				:disabled="saving">
+				{{ t('booktailor', 'Remove the stored secret key') }}
+			</NcCheckboxRadioSwitch>
 			<NcTextField
 				v-model="promptLabel"
 				:label="t('booktailor', 'Prompt label')"

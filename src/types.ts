@@ -153,10 +153,20 @@ export interface LangfuseStatus {
 	url: string | null
 }
 
+export type LangfuseConfigSource = 'app' | 'environment' | 'none'
+
+export interface LangfuseSources {
+	url: LangfuseConfigSource
+	publicKey: LangfuseConfigSource
+	secretKey: LangfuseConfigSource
+	promptLabel: LangfuseConfigSource
+}
+
 export interface LangfuseSettings extends LangfuseStatus {
 	publicKey: string | null
 	promptLabel: string
 	secretConfigured: boolean
+	sources: LangfuseSources
 }
 
 export interface LangfuseSettingsPayload {

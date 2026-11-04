@@ -39,7 +39,7 @@ class AiSettingsService {
 	 * Full Langfuse app-level configuration for administrators. The secret key
 	 * is write-only: only whether one is stored is returned.
 	 *
-	 * @return array{configured: bool, url: ?string, publicKey: ?string, promptLabel: string, secretConfigured: bool}
+	 * @return array{configured: bool, url: ?string, publicKey: ?string, promptLabel: string, secretConfigured: bool, sources: array{url: string, publicKey: string, secretKey: string, promptLabel: string}}
 	 */
 	public function langfuseSettings(): array {
 		$url = $this->langfuseService->baseUrl();
@@ -51,6 +51,7 @@ class AiSettingsService {
 			'publicKey' => $publicKey === '' ? null : $publicKey,
 			'promptLabel' => $this->langfuseService->promptLabel(),
 			'secretConfigured' => $this->langfuseService->hasSecret(),
+			'sources' => $this->langfuseService->sources(),
 		];
 	}
 
@@ -81,7 +82,7 @@ class AiSettingsService {
 		}
 
 		if ($secretKey !== null) {
-			$this->storeOrRemove(LangfuseService::CONFIG_SECRET_KEY, $secretKey);
+			$this->langfuseService->storeSecret($secretKey);
 		}
 
 		if ($promptLabel !== null) {
@@ -94,11 +95,12 @@ class AiSettingsService {
 		foreach ([
 			LangfuseService::CONFIG_URL,
 			LangfuseService::CONFIG_PUBLIC_KEY,
-			LangfuseService::CONFIG_SECRET_KEY,
 			LangfuseService::CONFIG_PROMPT_LABEL,
 		] as $key) {
 			$this->config->deleteAppValue('booktailor', $key);
 		}
+
+		$this->langfuseService->clearSecret();
 	}
 
 	/** @psalm-suppress DeprecatedMethod */
@@ -114,10 +116,12 @@ class AiSettingsService {
 	}
 
 	private function assertValidUrl(string $url): void {
-		$scheme = parse_url($url, PHP_URL_SCHEME);
-		if (filter_var($url, FILTER_VALIDATE_URL) === false
-			|| !is_string($scheme)
-			|| !in_array(strtolower($scheme), ['http', 'https'], true)) {
+		$parts = parse_url($url);
+		if ($parts === false
+			|| !isset($parts['scheme'], $parts['host'])
+			|| !in_array(strtolower($parts['scheme']), ['http', 'https'], true)
+			|| trim($parts['host']) === ''
+			|| preg_match('/\s/', $url) === 1) {
 			throw new ValidationException('Langfuse URL must be a valid http(s) URL.');
 		}
 	}

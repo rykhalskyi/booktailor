@@ -2371,7 +2371,7 @@ components:
           type: boolean
     LangfuseSettings:
       type: object
-      required: [configured, url, publicKey, promptLabel, secretConfigured]
+      required: [configured, url, publicKey, promptLabel, secretConfigured, sources]
       properties:
         configured:
           type: boolean
@@ -2386,6 +2386,24 @@ components:
         secretConfigured:
           type: boolean
           description: Whether a secret key is stored; the key itself is never returned
+        sources:
+          $ref: '#/components/schemas/LangfuseSettingsSources'
+    LangfuseSettingsSources:
+      type: object
+      required: [url, publicKey, secretKey, promptLabel]
+      description: Where each effective value comes from; environment values are not stored in app config
+      properties:
+        url:
+          $ref: '#/components/schemas/LangfuseConfigSource'
+        publicKey:
+          $ref: '#/components/schemas/LangfuseConfigSource'
+        secretKey:
+          $ref: '#/components/schemas/LangfuseConfigSource'
+        promptLabel:
+          $ref: '#/components/schemas/LangfuseConfigSource'
+    LangfuseConfigSource:
+      type: string
+      enum: [app, environment, none]
     LangfuseSettingsUpdate:
       type: object
       properties:

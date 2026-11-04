@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace OCA\BookTailor\Service\Ai;
 
+use OCA\BookTailor\Exception\ValidationException;
 use OCP\Http\Client\IClientService;
 use OCP\IConfig;
+use OCP\Security\ICrypto;
 use Psr\Log\LoggerInterface;
 
 class LangfuseService {
 	public const CONFIG_URL = 'langfuse_url';
 	public const CONFIG_PUBLIC_KEY = 'langfuse_public_key';
 	public const CONFIG_SECRET_KEY = 'langfuse_secret_key';
+	public const CONFIG_SECRET_KEY_ENCRYPTED = 'langfuse_secret_key_encrypted';
 	public const CONFIG_PROMPT_LABEL = 'langfuse_prompt_label';
 
 	public const ENV_URL = 'BOOKTAILOR_LANGFUSE_URL';
@@ -24,6 +27,7 @@ class LangfuseService {
 		private readonly IClientService $clientService,
 		private readonly IConfig $config,
 		private readonly LoggerInterface $logger,
+		private readonly ICrypto $crypto,
 	) {
 	}
 
@@ -31,6 +35,22 @@ class LangfuseService {
 		return $this->baseUrl() !== ''
 			&& $this->publicKey() !== ''
 			&& $this->secretKey() !== '';
+	}
+
+	/**
+	 * Where each effective value comes from, so the settings UI can explain
+	 * when a value is inherited from the server environment rather than stored
+	 * in app config.
+	 *
+	 * @return array{url: string, publicKey: string, secretKey: string, promptLabel: string}
+	 */
+	public function sources(): array {
+		return [
+			'url' => $this->source(self::CONFIG_URL, [self::ENV_URL, 'LANGFUSE_HOST', 'LANGFUSE_URL']),
+			'publicKey' => $this->source(self::CONFIG_PUBLIC_KEY, [self::ENV_PUBLIC_KEY, 'LANGFUSE_PUBLIC_KEY']),
+			'secretKey' => $this->secretSource(),
+			'promptLabel' => $this->source(self::CONFIG_PROMPT_LABEL, [self::ENV_PROMPT_LABEL, 'LANGFUSE_PROMPT_LABEL']),
+		];
 	}
 
 	/** @psalm-suppress DeprecatedMethod */
@@ -254,9 +274,80 @@ class LangfuseService {
 		return $this->secretKey() !== '';
 	}
 
+	/**
+	 * Store the secret encrypted at rest. An empty value clears any stored
+	 * secret. The legacy plaintext app-config key is removed so it cannot
+	 * shadow the encrypted value later.
+	 *
+	 * @psalm-suppress DeprecatedMethod
+	 */
+	public function storeSecret(string $secret): void {
+		$secret = trim($secret);
+		if ($secret === '') {
+			$this->clearSecret();
+
+			return;
+		}
+
+		try {
+			$encrypted = $this->crypto->encrypt($secret);
+		} catch (\Throwable $e) {
+			$this->logger->error('BookTailor could not encrypt the Langfuse secret key', [
+				'exceptionClass' => $e::class,
+			]);
+			throw new ValidationException('The Langfuse secret key could not be stored securely');
+		}
+
+		$this->config->setAppValue('booktailor', self::CONFIG_SECRET_KEY_ENCRYPTED, $encrypted);
+		$this->config->deleteAppValue('booktailor', self::CONFIG_SECRET_KEY);
+	}
+
+	/** @psalm-suppress DeprecatedMethod */
+	public function clearSecret(): void {
+		$this->config->deleteAppValue('booktailor', self::CONFIG_SECRET_KEY_ENCRYPTED);
+		$this->config->deleteAppValue('booktailor', self::CONFIG_SECRET_KEY);
+	}
+
 	/** @psalm-suppress DeprecatedMethod */
 	private function secretKey(): string {
-		return trim($this->value(self::CONFIG_SECRET_KEY, [self::ENV_SECRET_KEY, 'LANGFUSE_SECRET_KEY']));
+		$encrypted = trim($this->config->getAppValue('booktailor', self::CONFIG_SECRET_KEY_ENCRYPTED, ''));
+		if ($encrypted !== '') {
+			try {
+				return trim($this->crypto->decrypt($encrypted));
+			} catch (\Throwable $e) {
+				$this->logger->warning('BookTailor could not decrypt the Langfuse secret key', [
+					'exceptionClass' => $e::class,
+				]);
+			}
+		}
+
+		$legacy = trim($this->config->getAppValue('booktailor', self::CONFIG_SECRET_KEY, ''));
+		if ($legacy !== '') {
+			return $legacy;
+		}
+
+		return $this->envValue([self::ENV_SECRET_KEY, 'LANGFUSE_SECRET_KEY']) ?? '';
+	}
+
+	/**
+	 * @param list<string> $envKeys
+	 */
+	private function source(string $configKey, array $envKeys): string {
+		return match ($this->resolve($configKey, $envKeys)['source']) {
+			'app' => 'app',
+			'environment' => 'environment',
+			default => 'none',
+		};
+	}
+
+	/** @psalm-suppress DeprecatedMethod */
+	private function secretSource(): string {
+		if (trim($this->config->getAppValue('booktailor', self::CONFIG_SECRET_KEY_ENCRYPTED, '')) !== ''
+			|| trim($this->config->getAppValue('booktailor', self::CONFIG_SECRET_KEY, '')) !== '') {
+			return 'app';
+		}
+
+		return $this->envValue([self::ENV_SECRET_KEY, 'LANGFUSE_SECRET_KEY']) !== null ? 'environment' : 'none';
 	}
 
 	/**
@@ -267,11 +358,32 @@ class LangfuseService {
 	 * @psalm-suppress DeprecatedMethod
 	 */
 	private function value(string $configKey, array $envKeys, string $default = ''): string {
+		return $this->resolve($configKey, $envKeys, $default)['value'];
+	}
+
+	/**
+	 * @param list<string> $envKeys
+	 * @return array{value: string, source: 'app'|'environment'|'default'}
+	 * @psalm-suppress DeprecatedMethod
+	 */
+	private function resolve(string $configKey, array $envKeys, string $default = ''): array {
 		$configured = trim($this->config->getAppValue('booktailor', $configKey, ''));
 		if ($configured !== '') {
-			return $configured;
+			return ['value' => $configured, 'source' => 'app'];
 		}
 
+		$fromEnv = $this->envValue($envKeys);
+		if ($fromEnv !== null) {
+			return ['value' => $fromEnv, 'source' => 'environment'];
+		}
+
+		return ['value' => $default, 'source' => 'default'];
+	}
+
+	/**
+	 * @param list<string> $envKeys
+	 */
+	private function envValue(array $envKeys): ?string {
 		foreach ($envKeys as $envKey) {
 			$fromEnv = getenv($envKey);
 			if (is_string($fromEnv) && trim($fromEnv) !== '') {
@@ -284,7 +396,7 @@ class LangfuseService {
 			}
 		}
 
-		return $default;
+		return null;
 	}
 
 	/**
