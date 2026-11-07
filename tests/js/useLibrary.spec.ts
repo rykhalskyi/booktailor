@@ -20,6 +20,13 @@ vi.mock('../../src/api/client', () => {
 				list: vi.fn(),
 				create: vi.fn(),
 			},
+			bookShares: {
+				list: vi.fn(),
+				create: vi.fn(),
+				update: vi.fn(),
+				remove: vi.fn(),
+				search: vi.fn(),
+			},
 			structures: {
 				list: vi.fn(),
 				create: vi.fn(),
@@ -72,13 +79,15 @@ function deferred<T>() {
 	return { promise, resolve }
 }
 
-function book(id: number): Book {
+function book(id: number, role: Book['role'] = 'owner'): Book {
 	return {
 		id,
 		name: `Book ${id}`,
 		description: null,
 		rootFileId: id,
 		path: null,
+		role,
+		owner: { id: 'owner', displayName: 'Owner' },
 		createdAt: '2026-01-01T00:00:00+00:00',
 		updatedAt: '2026-01-01T00:00:00+00:00',
 	}
@@ -388,6 +397,7 @@ describe('library store', () => {
 
 	it('switches between the structure and tag managers', () => {
 		const store = createLibraryStore()
+		store.books.value = [book(1)]
 		store.selectedBookId.value = 1
 
 		store.openStructureManager()
@@ -515,5 +525,61 @@ describe('library store', () => {
 		expect(result).toBe(true)
 		expect(api.versions.restore).toHaveBeenCalledWith(10, '100')
 		expect(store.historyPreview.value).toBeNull()
+	})
+
+	it('exposes read and write permissions from the book role', () => {
+		const store = createLibraryStore()
+		store.books.value = [book(1, 'read')]
+		store.selectedBookId.value = 1
+		expect(store.canEdit.value).toBe(false)
+		expect(store.canShare.value).toBe(false)
+
+		store.books.value = [book(1, 'write')]
+		expect(store.canEdit.value).toBe(true)
+		expect(store.canShare.value).toBe(false)
+
+		store.books.value = [book(1, 'owner')]
+		expect(store.canEdit.value).toBe(true)
+		expect(store.canShare.value).toBe(true)
+	})
+
+	it('loads, creates, updates, revokes, and searches book shares', async () => {
+		const store = createLibraryStore()
+		store.books.value = [book(1)]
+		store.selectedBookId.value = 1
+		const share = {
+			id: 5,
+			bookId: 1,
+			userId: 'reader',
+			displayName: 'Reader',
+			role: 'read' as const,
+			createdAt: '2026-01-01T00:00:00+00:00',
+			updatedAt: '2026-01-01T00:00:00+00:00',
+		}
+		vi.mocked(api.bookShares.list).mockResolvedValue([share])
+		vi.mocked(api.bookShares.create).mockResolvedValue({ ...share, userId: 'writer', displayName: 'Writer', role: 'write' })
+		vi.mocked(api.bookShares.update).mockResolvedValue({ ...share, role: 'write' })
+		vi.mocked(api.bookShares.remove).mockResolvedValue(undefined)
+		vi.mocked(api.bookShares.search).mockResolvedValue([{ id: 'writer', displayName: 'Writer' }])
+
+		store.openShareDialog()
+		await flushPromises()
+		expect(store.shareDialogOpen.value).toBe(true)
+		expect(store.bookShares.value.map((item) => item.userId)).toEqual(['reader'])
+
+		expect(await store.createBookShare('writer', 'write')).toBe(true)
+		expect(api.bookShares.create).toHaveBeenCalledWith(1, 'writer', 'write')
+
+		expect(await store.updateBookShare(share, 'write')).toBe(true)
+		expect(api.bookShares.update).toHaveBeenCalledWith(1, 5, 'write')
+
+		await store.searchShareCandidates('wri')
+		expect(api.bookShares.search).toHaveBeenCalledWith(1, 'wri')
+		expect(store.shareCandidates.value.map((item) => item.id)).toEqual(['writer'])
+
+		expect(await store.revokeBookShare(share)).toBe(true)
+		expect(api.bookShares.remove).toHaveBeenCalledWith(1, 5)
+		store.closeShareDialog()
+		expect(store.shareDialogOpen.value).toBe(false)
 	})
 })

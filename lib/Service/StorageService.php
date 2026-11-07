@@ -58,13 +58,13 @@ class StorageService {
 		return $node;
 	}
 
-	public function getBookFolder(Book $book): Folder {
+	public function getBookFolder(string $userId, Book $book): Folder {
 		$fileId = $book->getRootFileId();
 		if ($fileId === null) {
 			throw new NotFoundException('Book folder not found');
 		}
 
-		$folder = $this->getNodeById($book->getUserId(), $fileId, Folder::class);
+		$folder = $this->getNodeById($userId, $fileId, Folder::class);
 		if (!$folder instanceof Folder) {
 			throw new NotFoundException('Book folder not found');
 		}
@@ -137,19 +137,19 @@ class StorageService {
 		return $parent->newFolder($name);
 	}
 
-	public function getCompositionsFolder(Book $book): Folder {
-		return $this->getOrCreateFolder($this->getBookFolder($book), 'compositions');
+	public function getCompositionsFolder(string $userId, Book $book): Folder {
+		return $this->getOrCreateFolder($this->getBookFolder($userId, $book), 'compositions');
 	}
 
-	public function getCompositionsImagesFolder(Book $book): Folder {
-		return $this->getOrCreateFolder($this->getCompositionsFolder($book), 'images');
+	public function getCompositionsImagesFolder(string $userId, Book $book): Folder {
+		return $this->getOrCreateFolder($this->getCompositionsFolder($userId, $book), 'images');
 	}
 
 	/**
 	 * @return array{file: File, path: string}
 	 */
-	public function writeComposition(Book $book, string $baseName, string $content): array {
-		$folder = $this->getCompositionsFolder($book);
+	public function writeComposition(string $userId, Book $book, string $baseName, string $content): array {
+		$folder = $this->getCompositionsFolder($userId, $book);
 		$fileName = $this->uniqueChildName($folder, $baseName, '.md');
 		$tmpName = '.booktailor-' . bin2hex(random_bytes(8)) . '.tmp';
 		$tmp = $folder->newFile($tmpName);
@@ -169,12 +169,12 @@ class StorageService {
 
 		return [
 			'file' => $file,
-			'path' => $this->relativePathForFileId($book->getUserId(), $file->getId()) ?? $fileName,
+			'path' => $this->relativePathForFileId($userId, $file->getId()) ?? $fileName,
 		];
 	}
 
-	public function copyCompositionImage(Book $book, File $source): string {
-		$folder = $this->getCompositionsImagesFolder($book);
+	public function copyCompositionImage(string $userId, Book $book, File $source): string {
+		$folder = $this->getCompositionsImagesFolder($userId, $book);
 		$base = pathinfo($source->getName(), PATHINFO_FILENAME);
 		$extension = pathinfo($source->getName(), PATHINFO_EXTENSION);
 		$base = mb_substr($this->sanitizeName($base), 0, 150);

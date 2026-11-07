@@ -8,8 +8,8 @@ info:
     exported to `openapi.json` with `composer run openapi`.
 
     All paths are relative to the Nextcloud OCS base. Every request requires an
-    authenticated user and ownership of the target book. Non-owned resources return
-    404, not 403, to avoid disclosing their existence.
+    authenticated user. Books can be owned or shared with a read/read-write role.
+    Inaccessible resources return 404; a read-only share returns 403 on writes.
   license:
     name: AGPL-3.0-or-later
     url: https://www.gnu.org/licenses/agpl-3.0.html
@@ -22,6 +22,8 @@ security:
 tags:
   - name: books
     description: Workspaces that own chapters, assets, tags, and compositions.
+  - name: shares
+    description: Whole-book sharing with other Nextcloud users.
   - name: chapters
     description: Canonical chapter tree and visible folders.
   - name: structures
@@ -147,6 +149,119 @@ paths:
       responses:
         '204':
           description: Book deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /books/{bookId}/shares:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/BookId'
+    get:
+      tags: [shares]
+      operationId: listBookShares
+      summary: List the users a book is shared with (owner only)
+      responses:
+        '200':
+          description: Shares returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsBookShareListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [shares]
+      operationId: createBookShare
+      summary: Share a whole book with a Nextcloud user (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookShareCreate'
+      responses:
+        '201':
+          description: Share created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsBookShareResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /books/{bookId}/shares/{shareId}:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/BookId'
+      - $ref: '#/components/parameters/ShareId'
+    patch:
+      tags: [shares]
+      operationId: updateBookShare
+      summary: Change the access role of a share (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookShareUpdate'
+      responses:
+        '200':
+          description: Share updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsBookShareResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [shares]
+      operationId: deleteBookShare
+      summary: Revoke a share and its native folder share (owner only)
+      responses:
+        '204':
+          description: Share revoked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /books/{bookId}/sharees:
+    parameters:
+      - $ref: '#/components/parameters/OCS-APIRequest'
+      - $ref: '#/components/parameters/BookId'
+    get:
+      tags: [shares]
+      operationId: searchBookSharees
+      summary: Search Nextcloud users who can receive a book share (owner only)
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ''
+      responses:
+        '200':
+          description: Matching users returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcsShareeListResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -1475,6 +1590,13 @@ components:
       schema:
         type: integer
         format: int64
+    ShareId:
+      name: shareId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     ChapterId:
       name: chapterId
       in: path
@@ -1617,7 +1739,7 @@ components:
             data: {}
     Book:
       type: object
-      required: [id, name, description, rootFileId, path, createdAt, updatedAt]
+      required: [id, name, description, rootFileId, path, role, owner, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -1635,13 +1757,77 @@ components:
         path:
           type: string
           readOnly: true
-          description: Visible folder path relative to the user's Files root
+          description: Visible folder path relative to the current user's Files root
+        role:
+          type: string
+          enum: [owner, write, read]
+          readOnly: true
+          description: Current user's access to the book
+        owner:
+          $ref: '#/components/schemas/BookOwner'
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
+    BookOwner:
+      type: object
+      required: [id, displayName]
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+    BookShare:
+      type: object
+      required: [id, bookId, userId, displayName, role, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        bookId:
+          type: integer
+          format: int64
+        userId:
+          type: string
+          description: Nextcloud uid of the recipient
+        displayName:
+          type: string
+        role:
+          type: string
+          enum: [read, write]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    BookShareCreate:
+      type: object
+      required: [userId, role]
+      properties:
+        userId:
+          type: string
+        role:
+          type: string
+          enum: [read, write]
+    BookShareUpdate:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [read, write]
+    Sharee:
+      type: object
+      required: [id, displayName]
+      properties:
+        id:
+          type: string
+          description: Nextcloud uid
+        displayName:
+          type: string
     BookCreate:
       type: object
       required: [name]
@@ -2423,6 +2609,40 @@ components:
           type: string
           nullable: true
           description: Empty string removes the stored label; omit or null to keep it
+    OcsBookShareResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/BookShare'
+    OcsBookShareListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/BookShare'
+    OcsShareeListResponse:
+      allOf:
+        - $ref: '#/components/schemas/OcsEnvelope'
+        - type: object
+          properties:
+            ocs:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Sharee'
     OcsBookResponse:
       allOf:
         - $ref: '#/components/schemas/OcsEnvelope'

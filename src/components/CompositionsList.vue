@@ -15,6 +15,7 @@ import {
 } from '../utils/compositions'
 
 const {
+	canEdit,
 	closeCompositions,
 	compositions,
 	compositionsLoading,
@@ -98,7 +99,11 @@ onUnmounted(() => {
 				</p>
 			</div>
 			<div class="compositions-header-actions">
-				<NcButton variant="primary" :disabled="loading.mutation || hasActive" @click="openCompose">
+				<NcButton
+					v-if="canEdit"
+					variant="primary"
+					:disabled="loading.mutation || hasActive"
+					@click="openCompose">
 					New composition
 				</NcButton>
 				<NcButton @click="closeCompositions">
@@ -117,7 +122,7 @@ onUnmounted(() => {
 			class="compositions-state"
 			name="No compositions yet"
 			description="Compose a structure to generate the first Markdown output.">
-			<template #action>
+			<template v-if="canEdit" #action>
 				<NcButton variant="primary" @click="openCompose">
 					Create composition
 				</NcButton>
@@ -158,13 +163,13 @@ onUnmounted(() => {
 						Download
 					</NcButton>
 					<NcButton
-						v-if="canRetry(composition)"
+						v-if="canEdit && canRetry(composition)"
 						:disabled="loading.mutation"
 						@click="retryComposition(composition)">
 						Retry
 					</NcButton>
 					<NcButton
-						v-if="canDelete(composition)"
+						v-if="canEdit && canDelete(composition)"
 						variant="error"
 						:disabled="loading.mutation"
 						@click="deleteTarget = composition">

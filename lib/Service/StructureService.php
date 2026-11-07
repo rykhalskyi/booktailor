@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace OCA\BookTailor\Service;
 
 use DateTime;
-use OCA\BookTailor\Db\BookMapper;
 use OCA\BookTailor\Db\ChapterMapper;
 use OCA\BookTailor\Db\StructureChapterMapper;
 use OCA\BookTailor\Db\StructureMapper;
@@ -25,7 +24,7 @@ class StructureService {
 		private readonly StructureChapterMapper $structureChapterMapper,
 		private readonly StructureTreeBuilder $structureTreeBuilder,
 		private readonly ChapterMapper $chapterMapper,
-		private readonly BookMapper $bookMapper,
+		private readonly BookAccessService $bookAccess,
 		private readonly IDBConnection $db,
 	) {
 	}
@@ -49,7 +48,7 @@ class StructureService {
 	}
 
 	public function create(string $userId, int $bookId, string $name): Structure {
-		$this->assertBookOwned($userId, $bookId);
+		$this->bookAccess->getForWrite($userId, $bookId);
 		$name = $this->validateName($name);
 
 		if ($this->structureMapper->findByBookAndName($bookId, $name) !== null) {
@@ -100,7 +99,7 @@ class StructureService {
 	}
 
 	public function rename(string $userId, int $structureId, string $name): Structure {
-		$structure = $this->getOwned($userId, $structureId);
+		$structure = $this->getForWrite($userId, $structureId);
 		$name = $this->validateName($name);
 
 		$duplicate = $this->structureMapper->findByBookAndName($structure->getBookId(), $name);
@@ -125,7 +124,7 @@ class StructureService {
 	}
 
 	public function delete(string $userId, int $structureId): void {
-		$structure = $this->getOwned($userId, $structureId);
+		$structure = $this->getForWrite($userId, $structureId);
 		if ($structure->getIsDefault()) {
 			throw new ConflictException('The default structure cannot be deleted');
 		}
@@ -137,18 +136,35 @@ class StructureService {
 	 * @return list<Structure>
 	 */
 	public function listForBook(string $userId, int $bookId): array {
-		$this->assertBookOwned($userId, $bookId);
+		$this->bookAccess->getForRead($userId, $bookId);
 
 		return $this->structureMapper->findByBook($bookId);
 	}
 
+	/** @psalm-suppress PossiblyUnusedMethod */
 	public function getOwned(string $userId, int $structureId): Structure {
+		return $this->getForRead($userId, $structureId);
+	}
+
+	public function getForRead(string $userId, int $structureId): Structure {
+		return $this->getWithAccess($userId, $structureId, false);
+	}
+
+	public function getForWrite(string $userId, int $structureId): Structure {
+		return $this->getWithAccess($userId, $structureId, true);
+	}
+
+	private function getWithAccess(string $userId, int $structureId, bool $write): Structure {
 		$structure = $this->structureMapper->findById($structureId);
 		if ($structure === null) {
 			throw new NotFoundException('Structure not found');
 		}
 
-		$this->assertBookOwned($userId, $structure->getBookId());
+		if ($write) {
+			$this->bookAccess->getForWrite($userId, $structure->getBookId());
+		} else {
+			$this->bookAccess->getForRead($userId, $structure->getBookId());
+		}
 
 		return $structure;
 	}
@@ -157,7 +173,7 @@ class StructureService {
 	 * @return list<array{chapterId: int, included: bool, position: int, effectiveParentId: ?int}>
 	 */
 	public function getEntries(string $userId, int $structureId): array {
-		$structure = $this->getOwned($userId, $structureId);
+		$structure = $this->getForRead($userId, $structureId);
 		$rows = $this->structureChapterMapper->findByStructure($structureId);
 		$chapters = $this->chapterMapper->findByBook($structure->getBookId());
 		$effectiveParentIds = $this->structureTreeBuilder->build($chapters, $rows)['effectiveParentIds'];
@@ -205,7 +221,7 @@ class StructureService {
 	 * @return list<array{chapterId: int, included: bool, position: int, effectiveParentId: ?int}>
 	 */
 	public function replaceEntries(string $userId, int $structureId, array $entries): array {
-		$structure = $this->getOwned($userId, $structureId);
+		$structure = $this->getForWrite($userId, $structureId);
 		/** @var array<int, Chapter> $chapterById */
 		$chapterById = [];
 		foreach ($this->chapterMapper->findByBook($structure->getBookId()) as $chapter) {
@@ -310,9 +326,4 @@ class StructureService {
 		return $name;
 	}
 
-	private function assertBookOwned(string $userId, int $bookId): void {
-		if ($this->bookMapper->findByIdAndUser($bookId, $userId) === null) {
-			throw new NotFoundException('Book not found');
-		}
-	}
 }

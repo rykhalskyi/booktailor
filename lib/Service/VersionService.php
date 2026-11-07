@@ -60,7 +60,7 @@ class VersionService {
 	 * @return array{revisionId: string, author: ?string, message: ?string, size: int, createdAt: string, isCurrent: bool}
 	 */
 	public function checkIn(string $userId, int $assetId, ?string $message): array {
-		$context = $this->assetService->context($userId, $assetId);
+		$context = $this->assetService->contextForWrite($userId, $assetId);
 		$user = $this->getUser($userId);
 		$file = $this->storage->getAssetFile($userId, $context['asset']);
 
@@ -97,7 +97,7 @@ class VersionService {
 	 * @return array{revisionId: string, author: ?string, message: ?string, size: int, createdAt: string, isCurrent: bool}
 	 */
 	public function restore(string $userId, int $assetId, string $revisionId): array {
-		$context = $this->assetService->context($userId, $assetId);
+		$context = $this->assetService->contextForWrite($userId, $assetId);
 		$user = $this->getUser($userId);
 		$file = $this->storage->getAssetFile($userId, $context['asset']);
 		$versions = $this->getVersions($user, $file);

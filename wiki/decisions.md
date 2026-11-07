@@ -78,3 +78,7 @@ Append-only decision record. The "why" lives here; the full change history lives
 - [2026-10-29] D-75 — Translate frontend strings and user-facing API messages while keeping logs and internal exception text in English — because support and tests need stable technical messages
 - [2026-10-29] D-76 — Release T7 as version 1.5.0 — because the phase adds user-facing images, settings, and accessibility on top of 1.4.0
 - [2026-10-30] D-77 — Keep AI proposals pending-only and delete them after approval or rejection instead of retaining an action audit log — because the user does not want AI action history collected; supersedes D-67
+- [2026-11-07] D-78 — Store an app-level whole-book share and also create a native Nextcloud user share of the book folder — because recipients need Files/Text access while BookTailor controls roles and revocation
+- [2026-11-07] D-79 — Model access as owner/read/write and enforce write checks in services even when the UI hides actions — because client-side hiding is not authorization and read-only writes must return 403
+- [2026-11-07] D-80 — Run request-scoped storage in the acting user's Files mount while composition jobs stay owner-scoped — because recipient paths must match their native share mount and background output belongs to the owner
+- [2026-11-07] D-81 — Reconcile native share deletions and user deletions into app share rows, but do not fully sync role changes made in the Files sharing UI — because the prototype keeps BookTailor as the source of truth while preserving access when shares are removed elsewhere

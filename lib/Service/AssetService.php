@@ -88,7 +88,7 @@ class AssetService {
 	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
 	 */
 	public function createWithContent(string $userId, int $chapterId, string $name, string $content): array {
-		$chapter = $this->chapterService->get($userId, $chapterId);
+		$chapter = $this->chapterService->getForWrite($userId, $chapterId);
 		$name = $this->validateName($name);
 
 		if ($this->assetMapper->findByChapterAndName($chapterId, $name) !== null) {
@@ -123,6 +123,7 @@ class AssetService {
 	}
 
 	/**
+	 * @psalm-suppress PossiblyUnusedMethod, PossiblyUnusedReturnValue
 	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
 	 */
 	public function rename(string $userId, int $assetId, string $name): array {
@@ -130,6 +131,7 @@ class AssetService {
 	}
 
 	/**
+	 * @psalm-suppress PossiblyUnusedMethod, PossiblyUnusedReturnValue
 	 * @return array{asset: Asset, bookId: int, chapter: Chapter, tags: list<array{id: int, bookId: int, name: string, slug: string, color: string}>}
 	 */
 	public function setIncludeInComposition(string $userId, int $assetId, bool $includeInComposition): array {
@@ -144,7 +146,7 @@ class AssetService {
 			throw new ValidationException('Provide a name or composition inclusion flag');
 		}
 
-		$context = $this->context($userId, $assetId);
+		$context = $this->contextForWrite($userId, $assetId);
 		$asset = $context['asset'];
 		$chapter = $context['chapter'];
 
@@ -193,7 +195,7 @@ class AssetService {
 	}
 
 	public function delete(string $userId, int $assetId): void {
-		$context = $this->context($userId, $assetId);
+		$context = $this->contextForWrite($userId, $assetId);
 		$asset = $context['asset'];
 
 		$fileId = $asset->getFileId();
@@ -219,7 +221,7 @@ class AssetService {
 			throw new ValidationException('Markdown file is too large');
 		}
 
-		$context = $this->context($userId, $assetId);
+		$context = $this->contextForWrite($userId, $assetId);
 		$file = $this->storage->getAssetFile($userId, $context['asset']);
 		$file->putContent($content);
 
@@ -232,6 +234,20 @@ class AssetService {
 	 * @return array{asset: Asset, chapter: Chapter}
 	 */
 	public function context(string $userId, int $assetId): array {
+		return $this->resolveContext($userId, $assetId, false);
+	}
+
+	/**
+	 * @return array{asset: Asset, chapter: Chapter}
+	 */
+	public function contextForWrite(string $userId, int $assetId): array {
+		return $this->resolveContext($userId, $assetId, true);
+	}
+
+	/**
+	 * @return array{asset: Asset, chapter: Chapter}
+	 */
+	private function resolveContext(string $userId, int $assetId, bool $write): array {
 		$asset = $this->assetMapper->findById($assetId);
 		if ($asset === null) {
 			throw new NotFoundException('Asset not found');
@@ -242,7 +258,11 @@ class AssetService {
 			throw new NotFoundException('Chapter not found');
 		}
 
-		$this->bookService->get($userId, $chapter->getBookId());
+		if ($write) {
+			$this->bookService->getForWrite($userId, $chapter->getBookId());
+		} else {
+			$this->bookService->getForRead($userId, $chapter->getBookId());
+		}
 
 		return ['asset' => $asset, 'chapter' => $chapter];
 	}

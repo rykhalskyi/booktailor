@@ -9,6 +9,7 @@ import { useLibrary } from '../stores/useLibrary'
 import type { Version } from '../types'
 
 const {
+	canEdit,
 	capabilities,
 	checkInCurrentRevision,
 	closeHistory,
@@ -117,7 +118,7 @@ async function confirmRestore(version: Version): Promise<void> {
 				<p v-else class="version-message version-message--empty">
 					The current revision is not available.
 				</p>
-				<form class="checkin-form" @submit.prevent="submitCheckIn">
+				<form v-if="canEdit" class="checkin-form" @submit.prevent="submitCheckIn">
 					<NcTextField
 						v-model="message"
 						label="Check-in message (optional)"
@@ -156,6 +157,7 @@ async function confirmRestore(version: Version): Promise<void> {
 								{{ historyPreview?.revisionId === version.revisionId ? 'Hide preview' : 'Preview' }}
 							</NcButton>
 							<NcButton
+								v-if="canEdit"
 								variant="error"
 								:disabled="historyBusy || pendingRestore !== null"
 								@click="pendingRestore = version.revisionId">

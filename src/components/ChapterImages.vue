@@ -11,7 +11,7 @@ import { useLibrary } from '../stores/useLibrary'
 import type { ChapterImage } from '../types'
 import { formatFileSize, imageMarkdownSnippet, imagePreviewUrl, imageReferenceLabel } from '../utils/images'
 
-const { selectedChapter } = useLibrary()
+const { canEdit, selectedChapter } = useLibrary()
 
 const images = ref<ChapterImage[]>([])
 const loading = ref(false)
@@ -169,7 +169,7 @@ async function copySnippet(image: ChapterImage): Promise<void> {
 					{{ t('booktailor', 'Upload images here, then insert the Markdown snippet into an asset.') }}
 				</p>
 			</div>
-			<NcButton :disabled="busy || chapterId === null" @click="chooseUpload">
+			<NcButton v-if="canEdit" :disabled="busy || chapterId === null" @click="chooseUpload">
 				{{ t('booktailor', 'Upload image') }}
 			</NcButton>
 		</header>
@@ -183,7 +183,7 @@ async function copySnippet(image: ChapterImage): Promise<void> {
 			<NcEmptyContent
 				:name="t('booktailor', 'No images yet')"
 				:description="t('booktailor', 'Upload a PNG, JPEG, GIF, or WebP image for this chapter.')">
-				<template #action>
+				<template v-if="canEdit" #action>
 					<NcButton :disabled="busy || chapterId === null" @click="chooseUpload">
 						{{ t('booktailor', 'Upload image') }}
 					</NcButton>
@@ -207,10 +207,14 @@ async function copySnippet(image: ChapterImage): Promise<void> {
 					<NcButton :disabled="busy" @click="copySnippet(image)">
 						{{ copiedName === image.name ? t('booktailor', 'Copied') : t('booktailor', 'Copy snippet') }}
 					</NcButton>
-					<NcButton :disabled="busy" @click="chooseReplace(image)">
+					<NcButton v-if="canEdit" :disabled="busy" @click="chooseReplace(image)">
 						{{ t('booktailor', 'Replace') }}
 					</NcButton>
-					<NcButton variant="error" :disabled="busy" @click="askDelete(image)">
+					<NcButton
+						v-if="canEdit"
+						variant="error"
+						:disabled="busy"
+						@click="askDelete(image)">
 						{{ t('booktailor', 'Delete') }}
 					</NcButton>
 				</div>

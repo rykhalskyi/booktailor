@@ -116,7 +116,7 @@ final class ChapterMovementTest extends TestCase {
 		$promoted = $this->chapters->move($this->userId, $child->getId(), null);
 		$this->assertNull($promoted->getParentId());
 		$this->assertSame(
-			$this->storage->getBookFolder($book)->getId(),
+			$this->storage->getBookFolder($this->userId, $book)->getId(),
 			$this->chapterParentFolderId($promoted),
 		);
 

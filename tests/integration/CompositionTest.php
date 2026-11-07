@@ -115,7 +115,7 @@ final class CompositionTest extends TestCase {
 
 		$this->assertCount(2, $groups);
 		$this->assertSame($part->getId(), $groups[0]['chapter']->getId());
-		$this->assertSame('1', $groups[0]['number']);
+		$this->assertSame('1.', $groups[0]['number']);
 		$this->assertSame(
 			['Alpha', 'Zebra'],
 			array_map(static fn (Asset $asset): string => $asset->getName(), $groups[0]['assets']),
@@ -165,7 +165,7 @@ final class CompositionTest extends TestCase {
 		$this->assertStringContainsString('![pic](images/' . $name . ')', $markdown);
 		$this->assertStringContainsString('<img src="images/' . $name . '">', $markdown);
 
-		$images = $this->storage->getCompositionsImagesFolder($book);
+		$images = $this->storage->getCompositionsImagesFolder($this->userId, $book);
 		$this->assertTrue($images->nodeExists($name));
 		$this->assertSame('PNGDATA', $images->get($name)->getContent());
 	}

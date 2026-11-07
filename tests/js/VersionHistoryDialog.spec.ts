@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import VersionHistoryDialog from '../../src/components/VersionHistoryDialog.vue'
 import { useLibrary } from '../../src/stores/useLibrary'
+import { testBook } from './fixtures'
 import type { Asset, Version } from '../../src/types'
 
 const NcButtonStub = {
@@ -74,6 +75,8 @@ function buttonByText(wrapper: ReturnType<typeof mountDialog>, text: string) {
 
 beforeEach(() => {
 	const store = useLibrary()
+	store.books.value = [testBook()]
+	store.selectedBookId.value = 1
 	store.capabilities.value = { editor: 'text', versions: true }
 	store.historyAsset.value = asset()
 	store.historyVersions.value = [

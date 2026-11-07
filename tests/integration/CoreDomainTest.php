@@ -170,7 +170,7 @@ final class CoreDomainTest extends TestCase {
 		$otherId = $this->otherUser->getUID();
 
 		$this->expectException(NotFoundException::class);
-		$this->books->get($otherId, $book->getId());
+		$this->books->getForRead($otherId, $book->getId());
 	}
 
 	public function testChapterAndAssetCollisions(): void {

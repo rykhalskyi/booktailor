@@ -29,6 +29,7 @@ vi.mock('../../src/api/client', () => {
 import { api } from '../../src/api/client'
 import CompositionsList from '../../src/components/CompositionsList.vue'
 import { useLibrary } from '../../src/stores/useLibrary'
+import { testBook } from './fixtures'
 import type { Composition } from '../../src/types'
 
 const NcButtonStub = {
@@ -74,6 +75,7 @@ function composition(overrides: Partial<Composition> = {}): Composition {
 
 function resetStore(): void {
 	const store = useLibrary()
+	store.books.value = [testBook()]
 	store.selectedBookId.value = 1
 	store.compositions.value = []
 	store.compositionsLoading.value = false

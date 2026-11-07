@@ -20,6 +20,7 @@ import CompositionsList from './components/CompositionsList.vue'
 import DialogHost from './components/DialogHost.vue'
 import LibraryToolbar from './components/LibraryToolbar.vue'
 import SettingsScreen from './components/SettingsScreen.vue'
+import ShareBookDialog from './components/ShareBookDialog.vue'
 import StructureManager from './components/StructureManager.vue'
 import TagManager from './components/TagManager.vue'
 import VersionHistoryDialog from './components/VersionHistoryDialog.vue'
@@ -27,6 +28,7 @@ import { useLibrary } from './stores/useLibrary'
 
 const {
 	books,
+	canEdit,
 	composeOpen,
 	compositionsOpen,
 	dialog,
@@ -43,6 +45,7 @@ const {
 	selectedBook,
 	selectedBookId,
 	settingsOpen,
+	shareDialogOpen,
 	structureManagerOpen,
 	tagsManagerOpen,
 	openSettings,
@@ -67,7 +70,12 @@ onMounted(() => {
 					v-for="book in books"
 					:key="book.id"
 					:name="book.name"
-					:title="book.description ?? book.name"
+					:title="book.role === 'owner'
+						? (book.description ?? book.name)
+						: t('booktailor', 'Shared by {owner} · {role}', {
+							owner: book.owner.displayName,
+							role: book.role === 'write' ? t('booktailor', 'Read & write') : t('booktailor', 'Read only'),
+						})"
 					:active="book.id === selectedBookId"
 					icon="icon-folder"
 					@click="selectBook(book)" />
@@ -83,7 +91,7 @@ onMounted(() => {
 				:name="t('booktailor', 'Compose')"
 				icon="icon-add"
 				:active="composeOpen"
-				:disabled="selectedBook === null"
+				:disabled="selectedBook === null || !canEdit"
 				@click="openCompose" />
 			<NcAppNavigationItem
 				:name="t('booktailor', 'Compositions')"
@@ -162,6 +170,7 @@ onMounted(() => {
 		</NcAppContent>
 
 		<DialogHost />
+		<ShareBookDialog v-if="shareDialogOpen" />
 		<VersionHistoryDialog />
 	</NcContent>
 </template>

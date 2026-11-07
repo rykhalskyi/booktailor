@@ -1,6 +1,6 @@
 import { computed, reactive, ref } from 'vue'
 import { api, ApiError } from '../api/client'
-import type { Asset, Book, Capabilities, Chapter, Composition, DialogState, Structure, StructureEntry, Tag, Version } from '../types'
+import type { Asset, Book, BookShare, Capabilities, Chapter, Composition, DialogState, ShareeCandidate, Structure, StructureEntry, Tag, Version } from '../types'
 import { compositionFileName, saveBlob } from '../utils/compositions'
 import { collectChapterIds, findChapter } from '../utils/tree'
 
@@ -48,6 +48,13 @@ export function createLibraryStore() {
 	const historyError = ref<string | null>(null)
 	const historyPreview = ref<{ revisionId: string, content: string } | null>(null)
 	const historyPreviewLoading = ref(false)
+	const shareDialogOpen = ref(false)
+	const bookShares = ref<BookShare[]>([])
+	const sharesLoading = ref(false)
+	const shareBusy = ref(false)
+	const shareError = ref<string | null>(null)
+	const shareCandidates = ref<ShareeCandidate[]>([])
+	const shareCandidatesLoading = ref(false)
 	const editorChapters = ref<Chapter[]>([])
 	const editorEntries = ref<StructureEntry[]>([])
 	const editorStructureId = ref<number | null>(null)
@@ -61,6 +68,7 @@ export function createLibraryStore() {
 	let compositionsEpoch = 0
 	let editorEpoch = 0
 	let historyEpoch = 0
+	let shareCandidatesRequest = 0
 	const assetRequests: Record<number, number> = {}
 
 	const selectedBook = computed<Book | null>(() => books.value.find((book) => book.id === selectedBookId.value) ?? null)
@@ -72,6 +80,8 @@ export function createLibraryStore() {
 	const selectedAssetsLoading = computed<boolean>(() => selectedChapterId.value === null
 		? false
 		: loadingAssets.value[selectedChapterId.value] ?? false)
+	const canEdit = computed<boolean>(() => selectedBook.value !== null && selectedBook.value.role !== 'read')
+	const canShare = computed<boolean>(() => selectedBook.value?.role === 'owner')
 
 	function resetBookData(): void {
 		composeOpen.value = false
@@ -96,6 +106,13 @@ export function createLibraryStore() {
 		historyBusy.value = false
 		historyLoading.value = false
 		historyPreviewLoading.value = false
+		shareDialogOpen.value = false
+		bookShares.value = []
+		sharesLoading.value = false
+		shareBusy.value = false
+		shareError.value = null
+		shareCandidates.value = []
+		shareCandidatesLoading.value = false
 		editorEpoch += 1
 		editorChapters.value = []
 		editorEntries.value = []
@@ -292,7 +309,7 @@ export function createLibraryStore() {
 	}
 
 	function openStructureManager(): void {
-		if (selectedBookId.value === null) {
+		if (selectedBookId.value === null || !canEdit.value) {
 			return
 		}
 
@@ -950,7 +967,7 @@ export function createLibraryStore() {
 	}
 
 	function openCompose(): void {
-		if (selectedBookId.value === null) {
+		if (selectedBookId.value === null || !canEdit.value) {
 			return
 		}
 
@@ -1123,6 +1140,134 @@ export function createLibraryStore() {
 		}
 	}
 
+	async function loadShares(bookId: number | null = selectedBookId.value): Promise<void> {
+		if (bookId === null) {
+			bookShares.value = []
+			return
+		}
+
+		sharesLoading.value = true
+		shareError.value = null
+		try {
+			const loaded = await api.bookShares.list(bookId)
+			if (selectedBookId.value === bookId) {
+				bookShares.value = loaded
+			}
+		} catch (errorValue) {
+			if (selectedBookId.value === bookId) {
+				shareError.value = messageFor(errorValue)
+			}
+		} finally {
+			if (selectedBookId.value === bookId) {
+				sharesLoading.value = false
+			}
+		}
+	}
+
+	function openShareDialog(): void {
+		if (selectedBookId.value === null || !canShare.value) {
+			return
+		}
+
+		shareDialogOpen.value = true
+		shareError.value = null
+		shareCandidates.value = []
+		loadShares()
+	}
+
+	function closeShareDialog(): void {
+		shareDialogOpen.value = false
+		shareError.value = null
+		shareCandidates.value = []
+	}
+
+	async function createBookShare(userId: string, role: Exclude<Book['role'], 'owner'>): Promise<boolean> {
+		const bookId = selectedBookId.value
+		if (bookId === null || shareBusy.value || !canShare.value) {
+			return false
+		}
+
+		shareBusy.value = true
+		shareError.value = null
+		try {
+			await api.bookShares.create(bookId, userId, role)
+			await loadShares(bookId)
+			return true
+		} catch (errorValue) {
+			shareError.value = messageFor(errorValue)
+			return false
+		} finally {
+			shareBusy.value = false
+		}
+	}
+
+	async function updateBookShare(share: BookShare, role: Exclude<Book['role'], 'owner'>): Promise<boolean> {
+		const bookId = selectedBookId.value
+		if (bookId === null || shareBusy.value || !canShare.value) {
+			return false
+		}
+
+		shareBusy.value = true
+		shareError.value = null
+		try {
+			await api.bookShares.update(bookId, share.id, role)
+			await loadShares(bookId)
+			return true
+		} catch (errorValue) {
+			shareError.value = messageFor(errorValue)
+			return false
+		} finally {
+			shareBusy.value = false
+		}
+	}
+
+	async function revokeBookShare(share: BookShare): Promise<boolean> {
+		const bookId = selectedBookId.value
+		if (bookId === null || shareBusy.value || !canShare.value) {
+			return false
+		}
+
+		shareBusy.value = true
+		shareError.value = null
+		try {
+			await api.bookShares.remove(bookId, share.id)
+			await loadShares(bookId)
+			return true
+		} catch (errorValue) {
+			shareError.value = messageFor(errorValue)
+			return false
+		} finally {
+			shareBusy.value = false
+		}
+	}
+
+	async function searchShareCandidates(query: string): Promise<void> {
+		const bookId = selectedBookId.value
+		const request = ++shareCandidatesRequest
+		if (bookId === null || query.trim() === '') {
+			shareCandidates.value = []
+			shareCandidatesLoading.value = false
+			return
+		}
+
+		shareCandidatesLoading.value = true
+		try {
+			const candidates = await api.bookShares.search(bookId, query.trim())
+			if (request === shareCandidatesRequest) {
+				shareCandidates.value = candidates
+			}
+		} catch (errorValue) {
+			if (request === shareCandidatesRequest) {
+				shareError.value = messageFor(errorValue)
+				shareCandidates.value = []
+			}
+		} finally {
+			if (request === shareCandidatesRequest) {
+				shareCandidatesLoading.value = false
+			}
+		}
+	}
+
 	function openSettings(): void {
 		structureManagerOpen.value = false
 		tagsManagerOpen.value = false
@@ -1159,7 +1304,10 @@ export function createLibraryStore() {
 	return {
 		assetManagerOpen,
 		assetsByChapter,
+		bookShares,
 		books,
+		canEdit,
+		canShare,
 		composeOpen,
 		compositions,
 		compositionsLoading,
@@ -1192,6 +1340,12 @@ export function createLibraryStore() {
 		selectedStructure,
 		selectedStructureId,
 		settingsOpen,
+		shareBusy,
+		shareCandidates,
+		shareCandidatesLoading,
+		shareDialogOpen,
+		shareError,
+		sharesLoading,
 		structures,
 		structureManagerOpen,
 		tags,
@@ -1204,12 +1358,14 @@ export function createLibraryStore() {
 		closeCompose,
 		closeCompositions,
 		closeDialog,
+		closeShareDialog,
 		closeHistory,
 		closeSettings,
 		closeStructureManager,
 		closeTagsManager,
 		createAsset,
 		createBook,
+		createBookShare,
 		createChapter,
 		createComposition,
 		createStructure,
@@ -1235,21 +1391,25 @@ export function createLibraryStore() {
 		openDialog,
 		openHistory,
 		openSettings,
+		openShareDialog,
 		openStructureManager,
 		openTagsManager,
 		previewVersion,
+		revokeBookShare,
 		renameChapter,
 		renameStructure,
 		renameTag,
 		restoreVersion,
 		retryComposition,
 		saveStructureEntries,
+		searchShareCandidates,
 		selectBook,
 		selectChapter,
 		selectStructure,
 		setAssetIncluded,
 		toggleAssets,
 		toggleChapter,
+		updateBookShare,
 		uploadAsset,
 	}
 }

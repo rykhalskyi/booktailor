@@ -1,5 +1,5 @@
 import { generateOcsUrl } from '@nextcloud/router'
-import type { AiAction, AiChatRequest, AiChatResponse, AiProfile, AiProfilePayload, AiPrompt, AiSettings, Asset, Book, Capabilities, Chapter, ChapterImage, Composition, CompositionPreviewGroup, LangfuseSettings, LangfuseSettingsPayload, SettingsInfo, Structure, StructureEntry, Tag, Version } from '../types'
+import type { AiAction, AiChatRequest, AiChatResponse, AiProfile, AiProfilePayload, AiPrompt, AiSettings, Asset, Book, BookRole, BookShare, Capabilities, Chapter, ChapterImage, Composition, CompositionPreviewGroup, LangfuseSettings, LangfuseSettingsPayload, SettingsInfo, ShareeCandidate, Structure, StructureEntry, Tag, Version } from '../types'
 
 declare global {
 	interface Window {
@@ -144,6 +144,23 @@ export const api = {
 		create: (name: string, description?: string): Promise<Book> => request<Book>('/books', {
 			method: 'POST',
 			body: { name, description: description ?? null },
+		}),
+	},
+	bookShares: {
+		list: (bookId: number): Promise<BookShare[]> => request<BookShare[]>(`/books/${bookId}/shares`),
+		create: (bookId: number, userId: string, role: Exclude<BookRole, 'owner'>): Promise<BookShare> => request<BookShare>(`/books/${bookId}/shares`, {
+			method: 'POST',
+			body: { userId, role },
+		}),
+		update: (bookId: number, shareId: number, role: Exclude<BookRole, 'owner'>): Promise<BookShare> => request<BookShare>(`/books/${bookId}/shares/${shareId}`, {
+			method: 'PATCH',
+			body: { role },
+		}),
+		remove: (bookId: number, shareId: number): Promise<void> => request<void>(`/books/${bookId}/shares/${shareId}`, {
+			method: 'DELETE',
+		}),
+		search: (bookId: number, search: string): Promise<ShareeCandidate[]> => request<ShareeCandidate[]>(`/books/${bookId}/sharees`, {
+			query: { search },
 		}),
 	},
 	structures: {

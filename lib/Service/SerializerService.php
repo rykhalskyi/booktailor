@@ -11,21 +11,30 @@ use OCA\BookTailor\Entity\Chapter;
 use OCA\BookTailor\Entity\Composition;
 use OCA\BookTailor\Entity\Structure;
 use OCA\BookTailor\Entity\Tag;
+use OCP\IUserManager;
 
 class SerializerService {
 	/** @psalm-suppress PossiblyUnusedMethod */
 	public function __construct(
 		private readonly StorageService $storage,
+		private readonly IUserManager $userManager,
 	) {
 	}
 
-	public function book(Book $book): array {
+	public function book(Book $book, string $viewerId, string $role): array {
+		$ownerId = $book->getUserId();
+
 		return [
 			'id' => $book->getId(),
 			'name' => $book->getName(),
 			'description' => $book->getDescription(),
 			'rootFileId' => $book->getRootFileId(),
-			'path' => $this->storage->relativePathForFileId($book->getUserId(), $book->getRootFileId()),
+			'path' => $this->storage->relativePathForFileId($viewerId, $book->getRootFileId()),
+			'role' => $role,
+			'owner' => [
+				'id' => $ownerId,
+				'displayName' => $this->userManager->getDisplayName($ownerId) ?? $ownerId,
+			],
 			'createdAt' => $this->date($book->getCreatedAt()),
 			'updatedAt' => $this->date($book->getUpdatedAt()),
 		];

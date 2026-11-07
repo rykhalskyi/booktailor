@@ -1,7 +1,8 @@
 import { mount } from '@vue/test-utils'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LibraryToolbar from '../../src/components/LibraryToolbar.vue'
 import { useLibrary } from '../../src/stores/useLibrary'
+import { testBook } from './fixtures'
 
 const NcButtonStub = {
 	props: ['variant', 'disabled'],
@@ -19,6 +20,12 @@ function mountToolbar() {
 		},
 	})
 }
+
+beforeEach(() => {
+	const store = useLibrary()
+	store.books.value = [testBook()]
+	store.selectedBookId.value = 1
+})
 
 afterEach(() => {
 	const store = useLibrary()
@@ -42,7 +49,8 @@ describe('LibraryToolbar', () => {
 		const open = vi.spyOn(store, 'openStructureManager').mockImplementation(() => {})
 
 		const wrapper = mountToolbar()
-		await wrapper.get('button').trigger('click')
+		const button = wrapper.findAll('button').find((item) => item.text().trim() === 'Manage structures')
+		await button?.trigger('click')
 
 		expect(open).toHaveBeenCalledOnce()
 	})

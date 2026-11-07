@@ -52,7 +52,7 @@ class CompositionService {
 	 * @return list<Composition>
 	 */
 	public function listForBook(string $userId, int $bookId, ?string $status = null, ?int $limit = null, int $offset = 0): array {
-		$this->bookService->get($userId, $bookId);
+		$this->bookService->getForRead($userId, $bookId);
 		if ($status !== null && !in_array($status, self::statuses(), true)) {
 			throw new ValidationException('Unknown composition status');
 		}
@@ -61,7 +61,7 @@ class CompositionService {
 	}
 
 	public function create(string $userId, int $bookId, int $structureId, ?string $name = null): Composition {
-		$this->bookService->get($userId, $bookId);
+		$this->bookService->getForWrite($userId, $bookId);
 		$structure = $this->getStructure($bookId, $structureId);
 
 		$outputName = $this->normalizeOutputName($name);
@@ -89,13 +89,30 @@ class CompositionService {
 		return $composition;
 	}
 
+	/** @psalm-suppress PossiblyUnusedMethod */
 	public function getOwned(string $userId, int $compositionId): Composition {
+		return $this->getForRead($userId, $compositionId);
+	}
+
+	public function getForRead(string $userId, int $compositionId): Composition {
+		return $this->getWithAccess($userId, $compositionId, false);
+	}
+
+	public function getForWrite(string $userId, int $compositionId): Composition {
+		return $this->getWithAccess($userId, $compositionId, true);
+	}
+
+	private function getWithAccess(string $userId, int $compositionId, bool $write): Composition {
 		$composition = $this->compositionMapper->findById($compositionId);
 		if ($composition === null) {
 			throw new NotFoundException('Composition not found');
 		}
 
-		$this->bookService->get($userId, $composition->getBookId());
+		if ($write) {
+			$this->bookService->getForWrite($userId, $composition->getBookId());
+		} else {
+			$this->bookService->getForRead($userId, $composition->getBookId());
+		}
 
 		return $composition;
 	}
@@ -104,7 +121,7 @@ class CompositionService {
 	 * @return list<array{chapter: Chapter, number: string, assets: list<Asset>}>
 	 */
 	public function preview(string $userId, int $bookId, int $structureId): array {
-		$book = $this->bookService->get($userId, $bookId);
+		$book = $this->bookService->getForRead($userId, $bookId);
 		$structure = $this->getStructure($bookId, $structureId);
 		$numbered = $this->numberedTree($book, $structure);
 		$selectedByChapter = $this->includedAssetsByChapter($bookId);
@@ -116,7 +133,7 @@ class CompositionService {
 	}
 
 	public function retry(string $userId, int $compositionId): Composition {
-		$composition = $this->getOwned($userId, $compositionId);
+		$composition = $this->getForWrite($userId, $compositionId);
 		$stale = $this->isStale($composition);
 		if ($composition->getStatus() !== Composition::STATUS_FAILED && !$stale) {
 			throw new ConflictException('Only failed or stale compositions can be retried');
@@ -134,7 +151,7 @@ class CompositionService {
 	}
 
 	public function delete(string $userId, int $compositionId): void {
-		$composition = $this->getOwned($userId, $compositionId);
+		$composition = $this->getForWrite($userId, $compositionId);
 		if ($composition->getStatus() === Composition::STATUS_QUEUED
 			|| $composition->getStatus() === Composition::STATUS_RUNNING) {
 			throw new ConflictException('A composition that is still running cannot be deleted');
@@ -151,7 +168,7 @@ class CompositionService {
 	}
 
 	public function download(string $userId, int $compositionId): File {
-		$composition = $this->getOwned($userId, $compositionId);
+		$composition = $this->getForRead($userId, $compositionId);
 		if ($composition->getStatus() !== Composition::STATUS_SUCCEEDED) {
 			throw new ConflictException('The composition output is not ready');
 		}
@@ -211,6 +228,7 @@ class CompositionService {
 
 			$markdown = $this->buildOutput($book, $structure);
 			$output = $this->storage->writeComposition(
+				$book->getUserId(),
 				$book,
 				$this->outputBaseName($composition),
 				$markdown,
@@ -301,13 +319,12 @@ class CompositionService {
 	}
 
 	/**
-	 * @param array<array-key, mixed> $nodes
+	 * @param array<array-key, array{chapter: Chapter, children: array<array-key, mixed>, effectiveParentId: ?int, number: string}> $nodes
 	 * @param array<int, list<Asset>> $selectedByChapter
 	 * @param list<array{chapter: Chapter, number: string, assets: list<Asset>}> $groups
 	 */
 	private function collectPreviewGroups(array $nodes, array $selectedByChapter, array &$groups): void {
 		foreach ($nodes as $node) {
-			/** @var array{chapter: Chapter, children: array, effectiveParentId: ?int, number: string} $node */
 			$assets = $selectedByChapter[$node['chapter']->getId()] ?? [];
 			if ($assets !== []) {
 				$groups[] = [
@@ -317,7 +334,9 @@ class CompositionService {
 				];
 			}
 
-			$this->collectPreviewGroups($node['children'], $selectedByChapter, $groups);
+			/** @var array<array-key, array{chapter: Chapter, children: array<array-key, mixed>, effectiveParentId: ?int, number: string}> $children */
+			$children = $node['children'];
+			$this->collectPreviewGroups($children, $selectedByChapter, $groups);
 		}
 	}
 

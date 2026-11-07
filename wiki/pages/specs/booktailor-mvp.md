@@ -24,9 +24,13 @@ authoring and Markdown-composition product described here.
 ## Actors and permissions
 
 - Authenticated Nextcloud users own their books.
-- In the MVP, a book has exactly one owner; sharing and group permissions are out of
-  scope.
-- Every backend operation checks that the current user owns the target book.
+- The prototype supports whole-book sharing with individual Nextcloud users using
+  `read` or `write` roles; groups, public links, and chapter-level sharing remain out
+  of scope.
+- Every backend operation checks the current user's role on the target book. Missing
+  access returns 404; read-only writes return 403.
+- Sharing also creates a native Nextcloud user share of the book folder so recipients
+  can open Markdown in Text with the correct permissions.
 - Composition jobs run with the app's service account but write outputs owned by the
   book owner.
 - Admin-only configuration is limited to app enablement and, if needed, global AI

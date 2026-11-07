@@ -61,7 +61,7 @@ class StructureController extends AbstractApiController {
 	#[ApiRoute(verb: 'GET', url: '/api/v1/structures/{structureId}')]
 	public function show(int $structureId): DataResponse {
 		return $this->handle(function () use ($structureId): DataResponse {
-			$structure = $this->structureService->getOwned($this->currentUserId(), $structureId);
+			$structure = $this->structureService->getForRead($this->currentUserId(), $structureId);
 
 			return new DataResponse($this->serializer->structure($structure));
 		});

@@ -87,7 +87,7 @@ class AiProposalService {
 	 * @return array{id: int, userId: string, bookId: ?int, action: string, payload: array<string, mixed>, status: string, createdAt: string}
 	 */
 	public function confirm(string $userId, int $actionId): array {
-		$action = $this->getOwned($userId, $actionId);
+		$action = $this->getForWrite($userId, $actionId);
 		if ($action->getStatus() !== AiAction::STATUS_PROPOSED) {
 			throw new ConflictException('Only a proposed AI action can be confirmed');
 		}
@@ -145,7 +145,7 @@ class AiProposalService {
 	 * @return array{id: int, userId: string, bookId: ?int, action: string, payload: array<string, mixed>, status: string, createdAt: string}
 	 */
 	public function reject(string $userId, int $actionId): array {
-		$action = $this->getOwned($userId, $actionId);
+		$action = $this->getForWrite($userId, $actionId);
 		if ($action->getStatus() !== AiAction::STATUS_PROPOSED) {
 			throw new ConflictException('Only a proposed AI action can be rejected');
 		}
@@ -157,13 +157,30 @@ class AiProposalService {
 		return $serialized;
 	}
 
+	/** @psalm-suppress PossiblyUnusedMethod */
 	public function getOwned(string $userId, int $actionId): AiAction {
+		return $this->getForRead($userId, $actionId);
+	}
+
+	public function getForRead(string $userId, int $actionId): AiAction {
 		$action = $this->actionMapper->findByIdAndUser($actionId, $userId);
 		if ($action === null) {
 			throw new NotFoundException('AI action not found');
 		}
 		if ($action->getBookId() !== null) {
-			$this->bookService->get($userId, (int)$action->getBookId());
+			$this->bookService->getForRead($userId, (int)$action->getBookId());
+		}
+
+		return $action;
+	}
+
+	public function getForWrite(string $userId, int $actionId): AiAction {
+		$action = $this->actionMapper->findByIdAndUser($actionId, $userId);
+		if ($action === null) {
+			throw new NotFoundException('AI action not found');
+		}
+		if ($action->getBookId() !== null) {
+			$this->bookService->getForWrite($userId, (int)$action->getBookId());
 		}
 
 		return $action;
@@ -189,7 +206,7 @@ class AiProposalService {
 	 * @return array<string, mixed>
 	 */
 	private function validate(string $userId, int $bookId, string $action, array $payload): array {
-		$this->bookService->get($userId, $bookId);
+		$this->bookService->getForWrite($userId, $bookId);
 		if (!in_array($action, self::ACTIONS, true)) {
 			throw new ValidationException('Unsupported AI action');
 		}
@@ -344,7 +361,7 @@ class AiProposalService {
 	private function validateCreateStructure(string $userId, int $bookId, array $payload): array {
 		$this->assertAllowedKeys($payload, ['bookId', 'name', 'summary']);
 		$this->assertBookIdMatches($payload, $bookId);
-		$this->bookService->get($userId, $bookId);
+		$this->bookService->getForWrite($userId, $bookId);
 		$result = [
 			'bookId' => $bookId,
 			'name' => $this->shortText($payload['name'] ?? null, 'name', 255),
@@ -361,7 +378,7 @@ class AiProposalService {
 	private function validateRenameStructure(string $userId, int $bookId, array $payload): array {
 		$this->assertAllowedKeys($payload, ['structureId', 'name', 'summary']);
 		$structureId = $this->positiveInt($payload['structureId'] ?? null, 'structureId');
-		$structure = $this->structureService->getOwned($userId, $structureId);
+		$structure = $this->structureService->getForWrite($userId, $structureId);
 		if ($structure->getBookId() !== $bookId) {
 			throw new NotFoundException('Structure not found');
 		}
@@ -382,7 +399,7 @@ class AiProposalService {
 	private function validateDeleteStructure(string $userId, int $bookId, array $payload): array {
 		$this->assertAllowedKeys($payload, ['structureId', 'summary']);
 		$structureId = $this->positiveInt($payload['structureId'] ?? null, 'structureId');
-		$structure = $this->structureService->getOwned($userId, $structureId);
+		$structure = $this->structureService->getForWrite($userId, $structureId);
 		if ($structure->getBookId() !== $bookId) {
 			throw new NotFoundException('Structure not found');
 		}
