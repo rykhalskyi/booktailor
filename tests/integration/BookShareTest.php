@@ -13,10 +13,14 @@ use OCA\BookTailor\Service\BookRole;
 use OCA\BookTailor\Service\BookService;
 use OCA\BookTailor\Service\BookShareService;
 use OCA\BookTailor\Service\ChapterService;
+use OCA\BookTailor\Service\StorageService;
+use OCP\Constants;
 use OCP\IDBConnection;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\IUserSession;
+use OCP\Share\IManager as IShareManager;
+use OCP\Share\IShare;
 use PHPUnit\Framework\TestCase;
 
 final class BookShareTest extends TestCase {
@@ -152,5 +156,24 @@ final class BookShareTest extends TestCase {
 		$this->shares->create($this->ownerId, $book->getId(), $this->readerId, BookRole::READ);
 		$this->expectException(ConflictException::class);
 		$this->shares->create($this->ownerId, $book->getId(), $this->readerId, BookRole::WRITE);
+	}
+
+	public function testExistingNativeShareIsNotAdopted(): void {
+		$book = $this->books->create($this->ownerId, 'Native share');
+		$storage = (new Application())->getContainer()->get(StorageService::class);
+		$shareManager = \OC::$server->get(IShareManager::class);
+		$folder = $storage->getBookFolder($this->ownerId, $book);
+
+		$native = $shareManager->newShare();
+		$native->setNode($folder);
+		$native->setShareType(IShare::TYPE_USER);
+		$native->setSharedWith($this->readerId);
+		$native->setSharedBy($this->ownerId);
+		$native->setShareOwner($this->ownerId);
+		$native->setPermissions(Constants::PERMISSION_READ);
+		$shareManager->createShare($native);
+
+		$this->expectException(ConflictException::class);
+		$this->shares->create($this->ownerId, $book->getId(), $this->readerId, BookRole::READ);
 	}
 }

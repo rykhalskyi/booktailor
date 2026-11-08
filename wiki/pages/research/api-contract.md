@@ -149,7 +149,9 @@ Whole-book sharing is implemented under `/books/{bookId}/shares`:
 - `GET /books/{bookId}/sharees?search=` searches Nextcloud users for the owner.
 
 Each share creates a native Nextcloud user share of the book root folder with read or
-read/write permissions. Books now serialize `role` (`owner`/`write`/`read`) and
+read/write permissions. Creating a share returns `409` when the folder is already shared
+with that user outside BookTailor, so an unmanaged native share is never adopted or
+altered. Books now serialize `role` (`owner`/`write`/`read`) and
 `owner`. Read-only recipients can browse, open Markdown read-only, view versions, and
 download existing compositions; write recipients can edit content, chapters, assets,
 images, tags, and structures but cannot rename/delete the book or manage shares.

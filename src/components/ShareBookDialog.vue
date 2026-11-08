@@ -19,6 +19,7 @@ interface ShareRoleOption {
 
 interface CandidateOption extends ShareeCandidate {
 	subname: string
+	user: string
 }
 
 const {
@@ -47,6 +48,7 @@ const pendingRevoke = ref<BookShare | null>(null)
 const candidateOptions = computed<CandidateOption[]>(() => shareCandidates.value.map((candidate) => ({
 	...candidate,
 	subname: candidate.id,
+	user: candidate.id,
 })))
 
 function roleOption(role: string): ShareRoleOption {

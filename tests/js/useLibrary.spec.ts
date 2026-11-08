@@ -582,4 +582,28 @@ describe('library store', () => {
 		store.closeShareDialog()
 		expect(store.shareDialogOpen.value).toBe(false)
 	})
+
+	it('removes a newly shared user from the recipient candidates', async () => {
+		const store = createLibraryStore()
+		store.books.value = [book(1)]
+		store.selectedBookId.value = 1
+		const created = {
+			id: 6,
+			bookId: 1,
+			userId: 'writer',
+			displayName: 'Writer',
+			role: 'write' as const,
+			createdAt: '2026-01-01T00:00:00+00:00',
+			updatedAt: '2026-01-01T00:00:00+00:00',
+		}
+		vi.mocked(api.bookShares.create).mockResolvedValue(created)
+		vi.mocked(api.bookShares.list).mockResolvedValue([created])
+		store.shareCandidates.value = [
+			{ id: 'writer', displayName: 'Writer' },
+			{ id: 'other', displayName: 'Other' },
+		]
+
+		expect(await store.createBookShare('writer', 'write')).toBe(true)
+		expect(store.shareCandidates.value.map((candidate) => candidate.id)).toEqual(['other'])
+	})
 })

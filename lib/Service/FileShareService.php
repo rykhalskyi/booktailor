@@ -37,10 +37,9 @@ class FileShareService {
 		$permissions = $this->permissionsForRole($role);
 
 		if ($existing !== null) {
-			$existing->setPermissions($permissions);
-			$updated = $this->shareManager->updateShare($existing);
-
-			return ['share' => $updated, 'created' => false];
+			// Never adopt a share BookTailor does not manage: doing so would change
+			// permissions the owner set elsewhere and revoke it on BookTailor delete.
+			throw new ConflictException('This book is already shared with this user outside BookTailor. Remove the existing share first.');
 		}
 
 		$share = $this->shareManager->newShare();

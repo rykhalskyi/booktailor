@@ -1192,6 +1192,7 @@ export function createLibraryStore() {
 		try {
 			await api.bookShares.create(bookId, userId, role)
 			await loadShares(bookId)
+			shareCandidates.value = shareCandidates.value.filter((candidate) => candidate.id !== userId)
 			return true
 		} catch (errorValue) {
 			shareError.value = messageFor(errorValue)
@@ -1251,6 +1252,7 @@ export function createLibraryStore() {
 		}
 
 		shareCandidatesLoading.value = true
+		shareError.value = null
 		try {
 			const candidates = await api.bookShares.search(bookId, query.trim())
 			if (request === shareCandidatesRequest) {

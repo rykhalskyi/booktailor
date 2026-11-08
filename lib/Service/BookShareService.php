@@ -85,6 +85,11 @@ class BookShareService {
 					]);
 				}
 			}
+
+			if ($this->hasShare($bookId, $targetUid)) {
+				throw new ConflictException('The book is already shared with this user');
+			}
+
 			throw $e;
 		}
 
@@ -97,13 +102,16 @@ class BookShareService {
 	public function update(string $ownerId, int $bookId, int $shareId, string $role): array {
 		$book = $this->bookAccess->getOwned($ownerId, $bookId);
 		$role = $this->validateRole($role);
-		$share = $this->getShareForOwner($ownerId, $bookId, $shareId);
+		$share = $this->getShareForOwner($bookId, $shareId);
 
 		if ($share->getPermission() === $role) {
 			return $this->serialize($share);
 		}
 
-		$nativeShareId = $share->getNextcloudShareId();
+		$previousPermission = $share->getPermission() ?? BookRole::READ;
+		$previousNativeShareId = $share->getNextcloudShareId();
+
+		$nativeShareId = $previousNativeShareId;
 		if ($nativeShareId === null) {
 			$native = $this->fileShareService->createUserShare($book, $share->getSharedWith(), $role);
 			$share->setNextcloudShareId($native['share']->getFullId());
@@ -119,12 +127,17 @@ class BookShareService {
 		$share->setPermission($role);
 		$share->setUpdatedAt(new DateTime());
 
-		return $this->serialize($this->shareMapper->update($share));
+		try {
+			return $this->serialize($this->shareMapper->update($share));
+		} catch (\Throwable $e) {
+			$this->restoreNativeShare($ownerId, $share, $previousNativeShareId, $previousPermission);
+			throw $e;
+		}
 	}
 
 	public function delete(string $ownerId, int $bookId, int $shareId): void {
 		$this->bookAccess->getOwned($ownerId, $bookId);
-		$share = $this->getShareForOwner($ownerId, $bookId, $shareId);
+		$share = $this->getShareForOwner($bookId, $shareId);
 
 		$nativeShareId = $share->getNextcloudShareId();
 		if ($nativeShareId !== null) {
@@ -166,13 +179,53 @@ class BookShareService {
 		return $result;
 	}
 
-	private function getShareForOwner(string $ownerId, int $bookId, int $shareId): BookShare {
+	private function getShareForOwner(int $bookId, int $shareId): BookShare {
 		$share = $this->shareMapper->findByIdAndBook($shareId, $bookId);
 		if ($share === null) {
 			throw new NotFoundException('Share not found');
 		}
 
 		return $share;
+	}
+
+	private function hasShare(int $bookId, string $uid): bool {
+		try {
+			return $this->shareMapper->findByBookAndUser($bookId, $uid) !== null;
+		} catch (\Throwable) {
+			return false;
+		}
+	}
+
+	/**
+	 * Best-effort compensation when persisting a native role change fails.
+	 */
+	private function restoreNativeShare(
+		string $ownerId,
+		BookShare $share,
+		?string $previousNativeShareId,
+		string $previousPermission,
+	): void {
+		$currentNativeShareId = $share->getNextcloudShareId();
+
+		try {
+			if ($currentNativeShareId !== $previousNativeShareId) {
+				if ($currentNativeShareId !== null) {
+					$this->fileShareService->deleteUserShare($ownerId, $currentNativeShareId);
+				}
+
+				return;
+			}
+
+			if ($previousNativeShareId !== null) {
+				$this->fileShareService->updateUserShare($ownerId, $previousNativeShareId, $previousPermission);
+			}
+		} catch (\Throwable $restoreError) {
+			$this->logger->warning('Could not roll back a native book share after a failed role update', [
+				'shareId' => $share->getId(),
+				'bookId' => $share->getBookId(),
+				'exception' => $restoreError,
+			]);
+		}
 	}
 
 	private function validateRole(string $role): string {
