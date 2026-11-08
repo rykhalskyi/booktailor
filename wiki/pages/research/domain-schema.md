@@ -15,7 +15,8 @@ in [decisions.md](../../decisions.md).
 
 | Term | Definition |
 |---|---|
-| **Book** | A user's workspace. Owns chapters, structures, tags, compositions, and the visible folder. Has exactly one owner in the MVP. |
+| **Book** | A user's workspace. Owns chapters, structures, tags, compositions, and the visible folder. Has exactly one owner. |
+| **Book share** | A whole-book grant to another Nextcloud user with a `read` or `write` role. The owner controls role changes and revocation. |
 | **Chapter** | A node in the book's global chapter hierarchy. Holds assets and child chapters. The hierarchy is canonical; structures only select and order it. |
 | **Structure** | A named, ordered, partially inclusive view of the chapter tree. Every book has one non-deletable default structure. |
 | **Default structure** | The structure that always includes every chapter. It replaces the draft's “default chapter” concept (D-14). |
@@ -34,6 +35,7 @@ in [decisions.md](../../decisions.md).
 
 ```mermaid
 erDiagram
+    books ||--o{ book_shares : shared_with
     books ||--o{ chapters : contains
     books ||--o{ structures : defines
     books ||--o{ tags : owns
@@ -68,6 +70,22 @@ timestamps are UTC `DATETIME`, booleans are `BOOLEAN`, and JSON payloads are `TE
 | `updated_at` | DATETIME | |
 
 Index: `(user_id)`. `root_file_id` is unique when present.
+
+### `booktailor_book_shares`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | BIGINT PK | auto-increment |
+| `book_id` | BIGINT FK → books | `ON DELETE CASCADE` |
+| `shared_with` | VARCHAR(64) | Nextcloud uid of the recipient |
+| `permission` | VARCHAR(16) | `read` or `write` |
+| `nextcloud_share_id` | VARCHAR(255) NULL | full native share id used to update/revoke |
+| `created_at` | DATETIME | |
+| `updated_at` | DATETIME | |
+
+Unique `(book_id, shared_with)`; index `shared_with`; index `nextcloud_share_id`.
+A share also creates a native Nextcloud user share of the book folder. Recipients use
+their own Files mount, while app access checks use the app role.
 
 ### `chapters`
 

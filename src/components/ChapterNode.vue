@@ -21,6 +21,7 @@ const props = defineProps<{
 
 const {
 	assetsByChapter,
+	canEdit,
 	capabilities,
 	expandedAssetChapterIds,
 	expandedChapterIds,
@@ -171,6 +172,7 @@ function includeAsset(asset: Asset, includeInComposition: boolean): void {
 			<div class="chapter-actions" @click.stop>
 				<NcActions :aria-label="`Actions for ${chapter.name}`" :force-menu="true">
 					<NcActionButton
+						v-if="canEdit"
 						:disabled="loading.mutation"
 						@click="openDialog({ type: 'chapter-create', parentId: chapter.id })">
 						Add subchapter
@@ -181,14 +183,16 @@ function includeAsset(asset: Asset, includeInComposition: boolean): void {
 						Edit assets
 					</NcActionButton>
 					<NcActionButton
+						v-if="canEdit"
 						:disabled="loading.mutation"
 						@click="openDialog({ type: 'asset-create', chapterId: chapter.id })">
 						New asset
 					</NcActionButton>
-					<NcActionButton :disabled="loading.mutation" @click="chooseFile">
+					<NcActionButton v-if="canEdit" :disabled="loading.mutation" @click="chooseFile">
 						Upload file
 					</NcActionButton>
 					<NcActionButton
+						v-if="canEdit"
 						:disabled="loading.mutation"
 						@click="openDialog({ type: 'chapter-rename', chapter })">
 						Rename
@@ -201,8 +205,9 @@ function includeAsset(asset: Asset, includeInComposition: boolean): void {
 					<NcActionButton disabled>
 						Agent (coming soon)
 					</NcActionButton>
-					<NcActionSeparator />
+					<NcActionSeparator v-if="canEdit" />
 					<NcActionButton
+						v-if="canEdit"
 						:disabled="loading.mutation"
 						@click="openDialog({ type: 'chapter-delete', chapter })">
 						Delete chapter
@@ -215,6 +220,7 @@ function includeAsset(asset: Asset, includeInComposition: boolean): void {
 			:assets="chapterAssets"
 			:indent="assetTableIndent"
 			:busy="loading.mutation"
+			:read-only="!canEdit"
 			@open="openAsset"
 			@tags="editAssetTags"
 			@delete="deleteAsset"

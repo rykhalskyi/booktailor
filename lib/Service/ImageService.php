@@ -77,7 +77,7 @@ class ImageService {
 	 * @return array{bookId: int, image: array{fileId: int, name: string, mime: string, size: int, referenceCount: int}}
 	 */
 	public function upload(string $userId, int $chapterId, string $originalName, string $content): array {
-		$chapter = $this->chapterService->get($userId, $chapterId);
+		$chapter = $this->chapterService->getForWrite($userId, $chapterId);
 		$folder = $this->storage->getChapterImagesFolder($userId, $chapter, true);
 		if ($folder === null) {
 			throw new ConflictException($this->l10n->t('Could not create the chapter images folder'));
@@ -101,7 +101,7 @@ class ImageService {
 	 * @return array{bookId: int, image: array{fileId: int, name: string, mime: string, size: int, referenceCount: int}}
 	 */
 	public function replace(string $userId, int $chapterId, int $fileId, string $content): array {
-		$chapter = $this->chapterService->get($userId, $chapterId);
+		$chapter = $this->chapterService->getForWrite($userId, $chapterId);
 		[, $file] = $this->resolveFile($userId, $chapter, $fileId);
 		$name = $file->getName();
 		$this->validate($name, $content, $name);
@@ -116,7 +116,7 @@ class ImageService {
 	}
 
 	public function delete(string $userId, int $chapterId, int $fileId): void {
-		$chapter = $this->chapterService->get($userId, $chapterId);
+		$chapter = $this->chapterService->getForWrite($userId, $chapterId);
 		[, $file] = $this->resolveFile($userId, $chapter, $fileId);
 		$name = $file->getName();
 

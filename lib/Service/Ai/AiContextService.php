@@ -41,7 +41,7 @@ class AiContextService {
 		?array $contextAssetIds = null,
 		int $maxChars = self::DEFAULT_MAX_CHARS,
 	): array {
-		$book = $this->bookService->get($userId, $bookId);
+		$book = $this->bookService->getForRead($userId, $bookId);
 		$structures = $this->structureService->listForBook($userId, $bookId);
 		$tree = $this->chapterReferenceService->tree($userId, $bookId, $structureId);
 		$chapterReferences = [];

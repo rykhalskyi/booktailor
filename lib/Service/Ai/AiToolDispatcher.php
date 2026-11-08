@@ -77,7 +77,7 @@ class AiToolDispatcher {
 	 * @return array<string, mixed>
 	 */
 	private function getBook(string $userId, int $bookId): array {
-		$book = $this->bookService->get($userId, $bookId);
+		$book = $this->bookService->getForRead($userId, $bookId);
 
 		return [
 			'id' => $book->getId(),
@@ -392,7 +392,7 @@ class AiToolDispatcher {
 			throw new ValidationException('A valid structure id is required');
 		}
 
-		$structure = $this->structureService->getOwned($userId, $structureId);
+		$structure = $this->structureService->getForRead($userId, $structureId);
 		if ($structure->getBookId() !== $bookId) {
 			throw new NotFoundException('Structure not found');
 		}

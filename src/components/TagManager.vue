@@ -17,6 +17,7 @@ type TagDialog =
 	| null
 
 const {
+	canEdit,
 	closeTagsManager,
 	createTag,
 	deleteTag,
@@ -70,7 +71,7 @@ async function submitDelete(): Promise<void> {
 				</p>
 			</div>
 			<div class="tag-header-actions">
-				<NcButton :disabled="loading.mutation" @click="tagDialog = { type: 'create' }">
+				<NcButton v-if="canEdit" :disabled="loading.mutation" @click="tagDialog = { type: 'create' }">
 					New tag
 				</NcButton>
 				<NcButton @click="closeTagsManager">
@@ -89,7 +90,7 @@ async function submitDelete(): Promise<void> {
 			class="tag-state"
 			name="No tags yet"
 			description="Create tags such as Raw, Summary, or Terms to classify assets.">
-			<template #action>
+			<template v-if="canEdit" #action>
 				<NcButton variant="primary" @click="tagDialog = { type: 'create' }">
 					Create tag
 				</NcButton>
@@ -101,7 +102,7 @@ async function submitDelete(): Promise<void> {
 					<span class="tag-name" :style="tagChipStyle(tag.color)">{{ tag.name }}</span>
 					<span class="tag-slug">{{ tag.slug }}</span>
 				</div>
-				<div class="tag-actions">
+				<div v-if="canEdit" class="tag-actions">
 					<NcButton :disabled="loading.mutation" @click="tagDialog = { type: 'edit', tag }">
 						Edit
 					</NcButton>

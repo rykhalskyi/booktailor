@@ -9,11 +9,14 @@ import { tagChipStyle } from '../utils/tags'
 
 defineOptions({ name: 'ChapterAssetTable' })
 
-defineProps<{
+withDefaults(defineProps<{
 	assets: Asset[]
 	indent: number
 	busy: boolean
-}>()
+	readOnly?: boolean
+}>(), {
+	readOnly: false,
+})
 
 const emit = defineEmits<{
 	(event: 'open', asset: Asset): void
@@ -83,6 +86,7 @@ function onIncludeChange(asset: Asset, event: Event): void {
 					</td>
 					<td class="cell-tags">
 						<button
+							v-if="!readOnly"
 							type="button"
 							class="asset-tags-trigger"
 							:aria-label="t('booktailor', 'Edit tags for {name}', { name: titleFor(asset) })"
@@ -97,6 +101,16 @@ function onIncludeChange(asset: Asset, event: Event): void {
 								{{ tag.name }}
 							</span>
 						</button>
+						<span v-else class="asset-tags-static">
+							<span v-if="asset.tags.length === 0" class="muted">—</span>
+							<span
+								v-for="tag in asset.tags"
+								:key="tag.id"
+								class="asset-tag"
+								:style="tagChipStyle(tag.color)">
+								{{ tag.name }}
+							</span>
+						</span>
 					</td>
 					<td class="cell-date" :title="asset.updatedAt">
 						{{ formatUpdatedAt(asset.updatedAt) }}
@@ -105,7 +119,7 @@ function onIncludeChange(asset: Asset, event: Event): void {
 						<input
 							type="checkbox"
 							:checked="asset.includeInComposition"
-							:disabled="busy"
+							:disabled="busy || readOnly"
 							:aria-label="t('booktailor', 'Include {name} in composition', { name: titleFor(asset) })"
 							@change="onIncludeChange(asset, $event)">
 					</td>
@@ -116,10 +130,10 @@ function onIncludeChange(asset: Asset, event: Event): void {
 							<NcActionButton v-if="fileUrl(asset)" @click="emit('open', asset)">
 								{{ t('booktailor', 'Open') }}
 							</NcActionButton>
-							<NcActionButton @click="emit('tags', asset)">
+							<NcActionButton v-if="!readOnly" @click="emit('tags', asset)">
 								{{ t('booktailor', 'Edit tags') }}
 							</NcActionButton>
-							<NcActionButton @click="emit('delete', asset)">
+							<NcActionButton v-if="!readOnly" @click="emit('delete', asset)">
 								{{ t('booktailor', 'Delete') }}
 							</NcActionButton>
 						</NcActions>
@@ -224,7 +238,8 @@ function onIncludeChange(asset: Asset, event: Event): void {
 	color: var(--color-text-maxcontrast);
 }
 
-.asset-tags-trigger {
+.asset-tags-trigger,
+.asset-tags-static {
 	display: inline-flex;
 	flex-wrap: wrap;
 	align-items: center;

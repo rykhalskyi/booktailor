@@ -30,6 +30,7 @@ vi.mock('../../src/api/client', () => ({
 
 import ChapterImages from '../../src/components/ChapterImages.vue'
 import { useLibrary } from '../../src/stores/useLibrary'
+import { testBook } from './fixtures'
 
 const NcButtonStub = {
 	props: ['variant', 'disabled'],
@@ -93,6 +94,7 @@ function mountImages() {
 
 beforeEach(() => {
 	const store = useLibrary()
+	store.books.value = [testBook()]
 	store.selectedBookId.value = 1
 	store.selectedChapterId.value = 1
 	store.chapters.value = [chapter()]

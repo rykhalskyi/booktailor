@@ -13,6 +13,7 @@ import { api } from '../../src/api/client'
 import ChapterNode from '../../src/components/ChapterNode.vue'
 import { useLibrary } from '../../src/stores/useLibrary'
 import type { Asset, Chapter, Tag } from '../../src/types'
+import { testBook } from './fixtures'
 
 const NcActionsStub = {
 	template: '<div><slot /></div>',
@@ -73,6 +74,8 @@ function mountNode() {
 
 beforeEach(() => {
 	const store = useLibrary()
+	store.books.value = [testBook()]
+	store.selectedBookId.value = 1
 	store.capabilities.value = { editor: 'text', versions: true }
 	store.loading.mutation = false
 	store.expandedChapterIds.value = {}

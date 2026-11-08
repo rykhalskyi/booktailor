@@ -7,7 +7,6 @@ namespace OCA\BookTailor\Service;
 use DateTime;
 use OCA\BookTailor\Db\BookMapper;
 use OCA\BookTailor\Entity\Book;
-use OCA\BookTailor\Exception\NotFoundException;
 use OCA\BookTailor\Exception\ValidationException;
 use OCP\IDBConnection;
 
@@ -15,6 +14,7 @@ class BookService {
 	/** @psalm-suppress PossiblyUnusedMethod */
 	public function __construct(
 		private readonly BookMapper $bookMapper,
+		private readonly BookAccessService $bookAccess,
 		private readonly StructureService $structureService,
 		private readonly StorageService $storage,
 		private readonly IDBConnection $db,
@@ -22,19 +22,42 @@ class BookService {
 	}
 
 	/**
+	 * @psalm-suppress PossiblyUnusedMethod
 	 * @return list<Book>
 	 */
 	public function list(string $userId, ?int $limit = null, int $offset = 0): array {
-		return $this->bookMapper->findAllByUser($userId, $limit, $offset);
+		return array_map(
+			static fn (array $entry): Book => $entry['book'],
+			$this->listAccessible($userId, $limit, $offset),
+		);
 	}
 
-	public function get(string $userId, int $bookId): Book {
-		$book = $this->bookMapper->findByIdAndUser($bookId, $userId);
-		if ($book === null) {
-			throw new NotFoundException('Book not found');
-		}
+	/**
+	 * @return list<array{book: Book, role: string}>
+	 */
+	public function listAccessible(string $userId, ?int $limit = null, int $offset = 0): array {
+		return $this->bookAccess->listAccessible($userId, $limit, $offset);
+	}
 
-		return $book;
+	/** @psalm-suppress PossiblyUnusedMethod */
+	public function get(string $userId, int $bookId): Book {
+		return $this->getForRead($userId, $bookId);
+	}
+
+	public function getForRead(string $userId, int $bookId): Book {
+		return $this->bookAccess->getForRead($userId, $bookId);
+	}
+
+	public function getForWrite(string $userId, int $bookId): Book {
+		return $this->bookAccess->getForWrite($userId, $bookId);
+	}
+
+	public function getOwned(string $userId, int $bookId): Book {
+		return $this->bookAccess->getOwned($userId, $bookId);
+	}
+
+	public function roleFor(string $userId, Book $book): ?string {
+		return $this->bookAccess->roleFor($userId, $book);
 	}
 
 	public function create(string $userId, string $name, ?string $description = null): Book {
@@ -65,11 +88,11 @@ class BookService {
 	}
 
 	public function update(string $userId, int $bookId, string $name, ?string $description = null): Book {
-		$book = $this->get($userId, $bookId);
+		$book = $this->getOwned($userId, $bookId);
 		$name = $this->validateName($name);
 		$oldName = $book->getName();
 
-		$folder = $this->storage->getBookFolder($book);
+		$folder = $this->storage->getBookFolder($userId, $book);
 		$this->storage->renameNode($folder, $name);
 
 		try {
@@ -91,7 +114,7 @@ class BookService {
 	}
 
 	public function delete(string $userId, int $bookId): void {
-		$book = $this->get($userId, $bookId);
+		$book = $this->getOwned($userId, $bookId);
 
 		$fileId = $book->getRootFileId();
 		if ($fileId !== null) {

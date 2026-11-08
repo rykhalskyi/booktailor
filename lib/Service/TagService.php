@@ -27,13 +27,13 @@ class TagService {
 	 * @return list<Tag>
 	 */
 	public function listForBook(string $userId, int $bookId): array {
-		$this->bookService->get($userId, $bookId);
+		$this->bookService->getForRead($userId, $bookId);
 
 		return $this->tagMapper->findByBook($bookId);
 	}
 
 	public function create(string $userId, int $bookId, string $name, ?string $color = null): Tag {
-		$this->bookService->get($userId, $bookId);
+		$this->bookService->getForWrite($userId, $bookId);
 		$name = $this->validateName($name);
 		$slug = $this->slugify($name);
 		$color = $this->validateColor($color) ?? TagColor::DEFAULT;
@@ -67,7 +67,7 @@ class TagService {
 	}
 
 	public function update(string $userId, int $tagId, ?string $name = null, ?string $color = null): Tag {
-		$tag = $this->getOwned($userId, $tagId);
+		$tag = $this->getForWrite($userId, $tagId);
 		if ($name === null && $color === null) {
 			throw new ValidationException('Tag name or color is required');
 		}
@@ -94,7 +94,7 @@ class TagService {
 	}
 
 	public function delete(string $userId, int $tagId): void {
-		$tag = $this->getOwned($userId, $tagId);
+		$tag = $this->getForWrite($userId, $tagId);
 		$this->tagMapper->delete($tag);
 	}
 
@@ -113,7 +113,7 @@ class TagService {
 	 * @return list<Tag>
 	 */
 	public function replaceForAsset(string $userId, int $assetId, array $tagIds): array {
-		$context = $this->assetService->context($userId, $assetId);
+		$context = $this->assetService->contextForWrite($userId, $assetId);
 		$bookId = $context['chapter']->getBookId();
 
 		$normalized = [];
@@ -141,13 +141,18 @@ class TagService {
 		return $tags;
 	}
 
+	/** @psalm-suppress PossiblyUnusedMethod */
 	public function getOwned(string $userId, int $tagId): Tag {
+		return $this->getForWrite($userId, $tagId);
+	}
+
+	public function getForWrite(string $userId, int $tagId): Tag {
 		$tag = $this->tagMapper->findById($tagId);
 		if ($tag === null) {
 			throw new NotFoundException('Tag not found');
 		}
 
-		$this->bookService->get($userId, $tag->getBookId());
+		$this->bookService->getForWrite($userId, $tag->getBookId());
 
 		return $tag;
 	}

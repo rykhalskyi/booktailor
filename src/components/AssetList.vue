@@ -25,6 +25,7 @@ const emit = defineEmits<{
 }>()
 
 const {
+	canEdit,
 	capabilities,
 	loading,
 	openDialog,
@@ -90,7 +91,7 @@ function openAsset(asset: Asset): void {
 					{{ selectedChapter?.name ?? t('booktailor', 'Assets') }}
 				</h2>
 			</div>
-			<div v-if="selectedChapter" class="asset-header-actions">
+			<div v-if="selectedChapter && canEdit" class="asset-header-actions">
 				<NcButton
 					:disabled="loading.mutation"
 					@click="openDialog({ type: 'asset-create', chapterId: selectedChapter.id })">
@@ -127,8 +128,10 @@ function openAsset(asset: Asset): void {
 			v-else-if="selectedAssets.length === 0"
 			class="asset-state"
 			:name="t('booktailor', 'No assets yet')"
-			:description="t('booktailor', 'Create an empty Markdown asset or upload an existing file.')">
-			<template #action>
+			:description="canEdit
+				? t('booktailor', 'Create an empty Markdown asset or upload an existing file.')
+				: t('booktailor', 'This chapter does not have any assets yet.')">
+			<template v-if="canEdit" #action>
 				<NcButton
 					variant="primary"
 					@click="openDialog({ type: 'asset-create', chapterId: selectedChapter.id })">
@@ -174,6 +177,7 @@ function openAsset(asset: Asset): void {
 				</div>
 				<div class="asset-row-actions">
 					<NcButton
+						v-if="canEdit"
 						:disabled="loading.mutation"
 						@click="openDialog({ type: 'asset-tags', asset })">
 						{{ t('booktailor', 'Tags') }}
@@ -188,6 +192,7 @@ function openAsset(asset: Asset): void {
 							{{ t('booktailor', 'History') }}
 						</NcActionButton>
 						<NcActionButton
+							v-if="canEdit"
 							:disabled="loading.mutation"
 							@click="openDialog({ type: 'asset-delete', asset })">
 							{{ t('booktailor', 'Delete') }}

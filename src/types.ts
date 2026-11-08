@@ -1,11 +1,35 @@
+export type BookRole = 'owner' | 'write' | 'read'
+
+export interface BookOwner {
+	id: string
+	displayName: string
+}
+
 export interface Book {
 	id: number
 	name: string
 	description: string | null
 	rootFileId: number | null
 	path: string | null
+	role: BookRole
+	owner: BookOwner
 	createdAt: string
 	updatedAt: string
+}
+
+export interface BookShare {
+	id: number
+	bookId: number
+	userId: string
+	displayName: string
+	role: Exclude<BookRole, 'owner'>
+	createdAt: string
+	updatedAt: string
+}
+
+export interface ShareeCandidate {
+	id: string
+	displayName: string
 }
 
 export interface Chapter {

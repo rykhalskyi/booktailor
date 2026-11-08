@@ -53,6 +53,7 @@ class BookMapper extends QBMapper {
 		}
 	}
 
+	/** @psalm-suppress PossiblyUnusedMethod */
 	public function findByIdAndUser(int $id, string $userId): ?Book {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')

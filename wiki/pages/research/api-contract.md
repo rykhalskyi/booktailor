@@ -18,8 +18,9 @@ and settings.
   (D-26); the current skeleton uses `/api` and will move during T1.
 - OCS envelope: every response is `{ocs: {meta, data}}`. Lists use
   `meta.totalitems`/`meta.itemsperpage` with `limit`/`offset`.
-- Auth: the current user owns every book. Non-owned resources return **404**, not 403, to
-  avoid disclosing existence.
+- Auth: the current user owns the book or has a `read`/`write` share. Inaccessible
+  resources return **404**, not 403, to avoid disclosing existence. A read-only share
+  receives **403** on writes.
 - IDs: database ids are integers; Nextcloud file ids are integers; version revision ids
   are strings (native timestamps).
 - Mutations that touch files use the Node API; the visible folder is authoritative for
@@ -31,6 +32,7 @@ and settings.
 | Area | Endpoints |
 |---|---|
 | Books | list, create, get, rename, delete |
+| Shares | list, create, update role, revoke, search recipients |
 | Chapters | tree, create, get, rename/move, delete |
 | Structures | list, create, rename, delete, list entries, replace entries |
 | Assets | list, create empty, upload, get, rename, delete, read/write content |
@@ -135,6 +137,24 @@ extractor docblock; `openapi.draft.yaml` is the reviewed T1 contract.
   opt-in (D-68).
 - `openapi.draft.yaml` was updated for the profile endpoints, AI settings schemas, prompt
   keys, and chat warnings/usage.
+
+## Sharing (prototype)
+
+Whole-book sharing is implemented under `/books/{bookId}/shares`:
+
+- `GET /books/{bookId}/shares` lists recipients for the owner.
+- `POST /books/{bookId}/shares` accepts `{ userId, role }` with `read` or `write`.
+- `PATCH /books/{bookId}/shares/{shareId}` changes the role.
+- `DELETE /books/{bookId}/shares/{shareId}` revokes the app and native share.
+- `GET /books/{bookId}/sharees?search=` searches Nextcloud users for the owner.
+
+Each share creates a native Nextcloud user share of the book root folder with read or
+read/write permissions. Creating a share returns `409` when the folder is already shared
+with that user outside BookTailor, so an unmanaged native share is never adopted or
+altered. Books now serialize `role` (`owner`/`write`/`read`) and
+`owner`. Read-only recipients can browse, open Markdown read-only, view versions, and
+download existing compositions; write recipients can edit content, chapters, assets,
+images, tags, and structures but cannot rename/delete the book or manage shares.
 
 ## Review outcome
 

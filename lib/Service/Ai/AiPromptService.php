@@ -23,13 +23,13 @@ class AiPromptService {
 	 * @return list<AiPrompt>
 	 */
 	public function listForBook(string $userId, int $bookId): array {
-		$this->bookService->get($userId, $bookId);
+		$this->bookService->getForRead($userId, $bookId);
 
 		return $this->promptMapper->findByBook($bookId);
 	}
 
 	public function create(string $userId, int $bookId, string $name, string $text): AiPrompt {
-		$this->bookService->get($userId, $bookId);
+		$this->bookService->getForWrite($userId, $bookId);
 		$now = new DateTime();
 		$prompt = new AiPrompt();
 		$prompt->setBookId($bookId);
@@ -43,7 +43,7 @@ class AiPromptService {
 	}
 
 	public function update(string $userId, int $promptId, ?string $name = null, ?string $text = null): AiPrompt {
-		$prompt = $this->getOwned($userId, $promptId);
+		$prompt = $this->getForWrite($userId, $promptId);
 		if ($name === null && $text === null) {
 			throw new ValidationException('Prompt name or text is required');
 		}
@@ -59,15 +59,20 @@ class AiPromptService {
 	}
 
 	public function delete(string $userId, int $promptId): void {
-		$this->promptMapper->delete($this->getOwned($userId, $promptId));
+		$this->promptMapper->delete($this->getForWrite($userId, $promptId));
 	}
 
+	/** @psalm-suppress PossiblyUnusedMethod */
 	public function getOwned(string $userId, int $promptId): AiPrompt {
+		return $this->getForWrite($userId, $promptId);
+	}
+
+	public function getForWrite(string $userId, int $promptId): AiPrompt {
 		$prompt = $this->promptMapper->findById($promptId);
 		if ($prompt === null) {
 			throw new NotFoundException('AI prompt not found');
 		}
-		$this->bookService->get($userId, $prompt->getBookId());
+		$this->bookService->getForWrite($userId, $prompt->getBookId());
 
 		return $prompt;
 	}

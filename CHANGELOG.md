@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Whole-book sharing with other Nextcloud users in read-only or read-write mode, including an in-app share dialog, recipient search, role changes, and revocation.
+- Shared books appear in the recipient's BookTailor navigation and native files_sharing mount; the API exposes the current user's role and the book owner.
 - Asset composition selection: mark or unmark assets for composition directly in the chapter tree, with a per-chapter table for names, tags, update times, and inclusion state.
 - Composition preview that lists the assets a structure will compose before the composition is created.
 - Administrators can configure the Langfuse URL, public key, secret key, and prompt label from Settings; the secret is stored encrypted and stays write-only.

@@ -50,7 +50,7 @@ class AiChatService {
 		?int $promptId = null,
 		array $history = [],
 	): array {
-		$this->bookService->get($userId, $bookId);
+		$this->bookService->getForWrite($userId, $bookId);
 		$message = trim($message);
 		if ($message === '') {
 			throw new ValidationException('A message is required');
@@ -271,7 +271,7 @@ class AiChatService {
 	 */
 	private function resolvePrompt(string $userId, int $bookId, ?string $promptKey, ?int $promptId): array {
 		if ($promptId !== null) {
-			$prompt = $this->promptService->getOwned($userId, $promptId);
+			$prompt = $this->promptService->getForWrite($userId, $promptId);
 			if ($prompt->getBookId() !== $bookId) {
 				throw new ValidationException('The selected prompt belongs to another book');
 			}

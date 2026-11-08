@@ -13,7 +13,7 @@ const emit = defineEmits<{
 	(event: 'update-chat-open', value: boolean): void
 }>()
 
-const { loading, openStructureManager, selectedStructure, selectStructure, structures } = useLibrary()
+const { canEdit, canShare, loading, openShareDialog, openStructureManager, selectedStructure, selectStructure, structures } = useLibrary()
 
 function onStructureChange(structure: Structure | null): void {
 	selectStructure(structure?.id ?? null)
@@ -34,10 +34,14 @@ function onStructureChange(structure: Structure | null): void {
 				@update:model-value="onStructureChange" />
 		</div>
 		<div class="library-toolbar-actions">
-			<NcButton :disabled="loading.mutation" @click="openStructureManager">
+			<NcButton v-if="canShare" :disabled="loading.mutation" @click="openShareDialog">
+				{{ t('booktailor', 'Share') }}
+			</NcButton>
+			<NcButton v-if="canEdit" :disabled="loading.mutation" @click="openStructureManager">
 				{{ t('booktailor', 'Manage structures') }}
 			</NcButton>
 			<NcButton
+				v-if="canEdit"
 				:variant="'secondary'"
 				@click="emit('update-chat-open', !props.chatOpen)">
 				{{ props.chatOpen ? t('booktailor', 'Hide AI assistant') : t('booktailor', 'AI assistant') }}

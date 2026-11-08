@@ -148,7 +148,7 @@ class MarkdownComposer {
 
 		$fileId = $image->getId();
 		if (!isset($copiedImages[$fileId])) {
-			$copiedImages[$fileId] = $this->storage->copyCompositionImage($book, $image);
+			$copiedImages[$fileId] = $this->storage->copyCompositionImage($book->getUserId(), $book, $image);
 		}
 
 		$destination = 'images/' . rawurlencode($copiedImages[$fileId]) . $parsed['suffix'];

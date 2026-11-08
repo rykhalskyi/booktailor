@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import AssetList from '../../src/components/AssetList.vue'
 import { useLibrary } from '../../src/stores/useLibrary'
 import type { Asset, Chapter, Tag } from '../../src/types'
+import { testBook } from './fixtures'
 
 const NcButtonStub = {
 	props: ['variant', 'disabled'],
@@ -78,6 +79,7 @@ beforeEach(() => {
 	const raw = tag(1, 'Raw', '#2563eb')
 	const summary = tag(2, 'Summary', '#15803d')
 	const store = useLibrary()
+	store.books.value = [testBook()]
 	store.selectedBookId.value = 1
 	store.selectedChapterId.value = 1
 	store.chapters.value = [chapter()]

@@ -29,12 +29,24 @@ class ChapterService {
 	}
 
 	public function get(string $userId, int $chapterId): Chapter {
+		return $this->getWithAccess($userId, $chapterId, false);
+	}
+
+	public function getForWrite(string $userId, int $chapterId): Chapter {
+		return $this->getWithAccess($userId, $chapterId, true);
+	}
+
+	private function getWithAccess(string $userId, int $chapterId, bool $write): Chapter {
 		$chapter = $this->chapterMapper->findById($chapterId);
 		if ($chapter === null) {
 			throw new NotFoundException('Chapter not found');
 		}
 
-		$this->bookService->get($userId, $chapter->getBookId());
+		if ($write) {
+			$this->bookService->getForWrite($userId, $chapter->getBookId());
+		} else {
+			$this->bookService->getForRead($userId, $chapter->getBookId());
+		}
 
 		return $chapter;
 	}
@@ -49,11 +61,11 @@ class ChapterService {
 		?int $parentId = null,
 		?int $depth = null,
 	): array {
-		$this->bookService->get($userId, $bookId);
+		$this->bookService->getForRead($userId, $bookId);
 		$chapters = $this->chapterMapper->findByBook($bookId);
 
 		if ($structureId !== null) {
-			$structure = $this->structureService->getOwned($userId, $structureId);
+			$structure = $this->structureService->getForRead($userId, $structureId);
 			if ($structure->getBookId() !== $bookId) {
 				throw new NotFoundException('Structure not found');
 			}
@@ -75,7 +87,7 @@ class ChapterService {
 	}
 
 	public function create(string $userId, int $bookId, string $name, ?int $parentId = null): Chapter {
-		$book = $this->bookService->get($userId, $bookId);
+		$book = $this->bookService->getForWrite($userId, $bookId);
 		$name = $this->validateName($name);
 
 		if ($parentId !== null) {
@@ -85,7 +97,7 @@ class ChapterService {
 			}
 			$parentFolder = $this->storage->getChapterFolderForUser($userId, $parent);
 		} else {
-			$parentFolder = $this->storage->getBookFolder($book);
+			$parentFolder = $this->storage->getBookFolder($userId, $book);
 		}
 
 		$folder = $this->storage->createChapterFolder($parentFolder, $name);
@@ -114,7 +126,7 @@ class ChapterService {
 	}
 
 	public function rename(string $userId, int $chapterId, string $name): Chapter {
-		$chapter = $this->get($userId, $chapterId);
+		$chapter = $this->getForWrite($userId, $chapterId);
 		$name = $this->validateName($name);
 		$oldName = $chapter->getName();
 		$folder = $this->storage->getChapterFolderForUser($userId, $chapter);
@@ -136,13 +148,13 @@ class ChapterService {
 	}
 
 	public function move(string $userId, int $chapterId, ?int $parentId): Chapter {
-		$chapter = $this->get($userId, $chapterId);
+		$chapter = $this->getForWrite($userId, $chapterId);
 		$currentParentId = $chapter->getParentId();
 		if ($parentId === $currentParentId) {
 			return $chapter;
 		}
 
-		$book = $this->bookService->get($userId, $chapter->getBookId());
+		$book = $this->bookService->getForWrite($userId, $chapter->getBookId());
 		$chapters = $this->chapterMapper->findByBook($book->getId());
 		/** @var array<int, Chapter> $chapterById */
 		$chapterById = [];
@@ -204,7 +216,7 @@ class ChapterService {
 		if (!$oldParent instanceof Folder) {
 			throw new NotFoundException('Chapter folder parent not found');
 		}
-		$targetFolder = $this->storage->getBookFolder($book);
+		$targetFolder = $this->storage->getBookFolder($userId, $book);
 		if ($parentId !== null) {
 			if ($targetParent === null) {
 				throw new NotFoundException('Parent chapter not found');
@@ -244,7 +256,7 @@ class ChapterService {
 	}
 
 	public function delete(string $userId, int $chapterId): void {
-		$chapter = $this->get($userId, $chapterId);
+		$chapter = $this->getForWrite($userId, $chapterId);
 
 		$fileId = $chapter->getFileId();
 		if ($fileId !== null) {

@@ -97,7 +97,7 @@ class CompositionController extends AbstractApiController {
 	#[ApiRoute(verb: 'GET', url: '/api/v1/compositions/{compositionId}')]
 	public function show(int $compositionId): DataResponse {
 		return $this->handle(function () use ($compositionId): DataResponse {
-			$composition = $this->compositionService->getOwned($this->currentUserId(), $compositionId);
+			$composition = $this->compositionService->getForRead($this->currentUserId(), $compositionId);
 
 			return new DataResponse($this->serializeOne($composition));
 		});
